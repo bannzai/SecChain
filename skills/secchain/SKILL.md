@@ -52,7 +52,9 @@ They run this themselves, in their own terminal, because the prompt reads the va
 ```bash
 secchain list         # secret names for this repository — never values
 secchain list --long  # + protection level, sync state, and names declared but not yet set
-secchain doctor        # whether this installation can reach SecChain's Keychain items
+secchain doctor        # whether this binary can use SecChain's shared Keychain access group at all
 ```
 
-Use `secchain list` to check whether a secret already exists before asking the user to set it. Use `secchain doctor` when a command reports a secret as missing that the user says should exist — the most common cause is a `secchain` binary that is not the team-signed one from the installed app (see the repository's `README.md`).
+Use `secchain list` to check whether a secret already exists before asking the user to set it.
+
+`secchain doctor` only tells you whether this binary can use SecChain's Keychain access group at all — an unsigned or wrongly signed binary fails every command immediately with a code-signing error, not a "not found" one, so you would not need `doctor` to notice that case. `doctor` passing does **not** mean a specific secret is reachable: a binary signed by a different Apple Developer Team also passes `doctor` (it can use its own access group), while reading and writing a Keychain vault separate from the official app's — so a secret the user says exists can still come back "not found". When that happens, do not conclude the binary is broken; ask the user to check, in order: the repository identifier (`secchain list --repositories`), whether this is the official, team-signed installation, and — if the secret was set on another Mac — the iCloud Keychain sync conditions. See the repository's `README.md` ("Check the installation") for the full explanation.

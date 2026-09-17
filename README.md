@@ -96,7 +96,13 @@ secchain doctor
 secchain doctor --authenticate   # also asks for Touch ID / your password once
 ```
 
-`doctor` reports whether this binary's code signature can reach SecChain's Keychain items. Run it first when a command reports "not found" for a secret you know exists — the most common cause is a binary that is not the team-signed one (see "Building from source" below).
+`doctor` checks one thing: whether this binary can use SecChain's shared Keychain access group at all. An unsigned or wrongly signed binary fails that outright — every command reports a code-signing error immediately, without needing `doctor` to find out (see "Building from source" below).
+
+`doctor` passing does not mean every secret you expect is visible. A binary signed by a different Apple Developer Team (a fork built and signed with your own team, for example) passes `doctor` — it can use its own access group just fine — but that access group is not the official app's, so a secret stored by the official app is genuinely absent from it, and you get a real "not found" for a secret you know exists elsewhere. When that happens, check, in order:
+
+1. Is this the same repository? `secchain list --repositories` shows the identifiers this Mac has secrets for; a different Git remote or `.secchain` `@repository` line means a different identifier.
+2. Is this the official, team-signed build? A build signed with a different team reads and writes a separate Keychain vault (see "Building from source").
+3. If the secret was set on another Mac, does it meet the sync conditions in "Initial setup"?
 
 ## Protection levels
 
