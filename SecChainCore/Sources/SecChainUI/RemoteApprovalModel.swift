@@ -282,10 +282,11 @@ public final class RemoteApprovalModel {
 
     #if DEBUG
     /// Replaces the transport and the key with ones that need neither an Apple Account nor a Secure
-    /// Enclave, and files a request the way a Mac does. The Simulator has neither
-    /// (documents/PROJECT.md, "Remote approval spike") and a remote session cannot pass launch
-    /// arguments, so the screens are filled from a control on screen. Calling it again starts over
-    /// from the same demo data (idempotent).
+    /// Enclave, and files a request the way a Mac does, so that the pairing and approval screens can
+    /// be seen on the Simulator, which has neither (documents/PROJECT.md, "Remote approval spike").
+    /// A control on screen rather than a launch argument, so that the same step works through a
+    /// remote session (AGENTS.md, "Checking screens"). Calling it again starts over from the same
+    /// demo data (idempotent).
     public func useDemoData() async {
         let demoStore = InMemoryRemoteApprovalStore()
         makeStore = { demoStore }
