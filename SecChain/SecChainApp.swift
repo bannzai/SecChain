@@ -6,7 +6,7 @@ import SwiftUI
 /// Entry point of the macOS app.
 @main
 struct SecChainApp: App {
-    @State private var model = AppModelFactory.make(arguments: CommandLine.arguments)
+    @State private var model = AppModelFactory.make()
 
     // A custom initializer is needed to answer the doctor launch arguments before any window
     // appears (see `KeychainDoctor.exitCodeForLaunchArguments`).

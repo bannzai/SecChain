@@ -3,22 +3,9 @@ import SecChainCore
 
 /// Builds the model an app starts with.
 public enum AppModelFactory {
-    /// The real Keychain, unless a debug build is launched with `--demo-data`.
-    ///
-    /// The demo store exists for screenshots and UI checks: it shows populated screens without
-    /// touching the Keychain and without a signed build. It has to be a launch argument rather
-    /// than an in-app switch because the choice of store is made before the first screen exists.
-    public static func make(arguments: [String]) -> AppModel {
-        #if DEBUG
-        if arguments.contains("--demo-data") {
-            let model = AppModel(store: demoStore())
-            if let index = arguments.firstIndex(of: "--demo-screen"), arguments.indices.contains(index + 1) {
-                model.demoScreen = arguments[index + 1]
-            }
-            return model
-        }
-        #endif
-        return AppModel(store: .system)
+    /// The real Keychain. A debug build can switch to demo data later (`AppModel.useDemoStore()`).
+    public static func make() -> AppModel {
+        AppModel(store: .system)
     }
 
     #if DEBUG
@@ -29,6 +16,8 @@ public enum AppModelFactory {
         }
     }
 
+    /// In-memory secrets with dummy values, for screenshots and UI checks: populated screens
+    /// without touching the Keychain and without a signed build.
     static func demoStore() -> SecretStore {
         let keychain = InMemorySecretKeychain()
         let demoSecrets: [(repository: String, name: String, protectionLevel: ProtectionLevel, isSynchronized: Bool)] = [

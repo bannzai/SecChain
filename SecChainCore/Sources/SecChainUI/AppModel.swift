@@ -6,7 +6,8 @@ import SecChainCore
 /// only in the view that asked for it, and only while it is shown.
 @Observable
 public final class AppModel {
-    let store: SecretStore
+    /// Where secrets are read and written. Only a debug build replaces it (`useDemoStore()`).
+    private(set) var store: SecretStore
 
     /// Repositories that have secrets, plus the ones added in this session that have none yet.
     public private(set) var repositoryIdentities: [RepositoryIdentity] = []
@@ -19,12 +20,6 @@ public final class AppModel {
     /// `true` when the Keychain refused the binary itself (code signing), which makes every
     /// operation pointless and gets a dedicated screen instead of an alert.
     public private(set) var isKeychainUnreachable = false
-
-    #if DEBUG
-    /// Screen to open right after launch (`--demo-screen <name>`), so that every screen can be
-    /// captured for visual checks without driving the UI. Debug builds only.
-    var demoScreen: String?
-    #endif
 
     /// Repositories the user added before storing a first secret. They exist nowhere else, so
     /// they are gone after a restart unless a secret was stored.
@@ -52,6 +47,18 @@ public final class AppModel {
             present(error: error)
         }
     }
+
+    #if DEBUG
+    /// Replaces the Keychain with demo data. A build without SecChain's signature cannot reach the
+    /// Keychain, and a remote session (simtunnel) cannot pass launch arguments, so the switch is
+    /// offered on screen. Calling it again starts over from the same demo data (idempotent).
+    func useDemoStore() {
+        store = AppModelFactory.demoStore()
+        repositoryIdentitiesWithoutSecrets = []
+        selectedRepositoryIdentity = nil
+        reload()
+    }
+    #endif
 
     /// Makes a repository appear in the list so that its first secret can be added.
     public func addRepository(repositoryIdentity: RepositoryIdentity) {

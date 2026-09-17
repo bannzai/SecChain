@@ -85,24 +85,6 @@ struct RepositoryDetailView: View {
                 }
             }
         }
-        #if DEBUG
-        .task {
-            switch model.demoScreen {
-            case "add-secret":
-                isAddingSecret = true
-            case "protection":
-                storedSecretBeingProtected = storedSecrets.first(where: { $0.protectionLevel == .confirm })
-            case "reveal":
-                if let storedSecret = storedSecrets.first {
-                    reveal(storedSecret: storedSecret)
-                }
-            case "delete":
-                storedSecretBeingDeleted = storedSecrets.first(where: { $0.isSynchronized })
-            default:
-                break
-            }
-        }
-        #endif
         .sheet(isPresented: $isAddingSecret) {
             SecretEditorView(model: model, mode: .add(repositoryIdentity: repositoryIdentity))
         }

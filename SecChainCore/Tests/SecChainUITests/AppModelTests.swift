@@ -102,6 +102,21 @@ struct AppModelTests {
     }
 
     @Test
+    func demoDataReplacesAnUnreachableKeychain() {
+        keychain.setFailure(failure: .missingEntitlement)
+        let model = makeModel(authenticationFailure: nil)
+        model.reload()
+        #expect(model.isKeychainUnreachable)
+        model.useDemoStore()
+        #expect(!model.isKeychainUnreachable)
+        #expect(model.presentedError == nil)
+        let demoRepositoryIdentities = model.repositoryIdentities
+        #expect(!demoRepositoryIdentities.isEmpty)
+        model.useDemoStore()
+        #expect(model.repositoryIdentities == demoRepositoryIdentities)
+    }
+
+    @Test
     func enteredRemoteURLsAreNormalizedLikeTheCommandLineTool() {
         // Qualified with the module name because the suite has a property of the same name.
         #expect(SecChainUI.repositoryIdentity(enteredText: " git@github.com:Example/A.git ").value == "github.com/example/a")

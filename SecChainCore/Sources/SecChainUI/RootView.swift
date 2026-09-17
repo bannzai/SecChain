@@ -15,26 +15,13 @@ public struct RootView: View {
     public var body: some View {
         Group {
             if model.isKeychainUnreachable {
-                KeychainUnreachableView(retry: model.reload)
+                KeychainUnreachableView(model: model)
             } else {
                 navigation
             }
         }
         .task {
             model.reload()
-            #if DEBUG
-            if let demoScreen = model.demoScreen {
-                model.selectedRepositoryIdentity = model.repositoryIdentities.first(where: { $0.value.hasSuffix("web-app") })
-                isAddingRepository = demoScreen == "add-repository"
-                isShowingSyncInformation = demoScreen == "sync"
-                if demoScreen == "unreachable" {
-                    model.present(error: SecretStoreError.missingEntitlement)
-                }
-                if demoScreen == "error" {
-                    model.present(error: SecretStoreError.authenticationNotPossible)
-                }
-            }
-            #endif
         }
         .alert(
             "Something went wrong",
@@ -105,6 +92,15 @@ public struct RootView: View {
                 ToolbarItem(placement: .secondaryAction) {
                     Button("Reload", systemImage: "arrow.clockwise", action: model.reload)
                 }
+                #if DEBUG
+                // The error alert otherwise needs a real Keychain or authentication failure, which
+                // demo data and a remote session cannot produce.
+                ToolbarItem(placement: .secondaryAction) {
+                    Button("Show Sample Error", systemImage: "exclamationmark.triangle") {
+                        model.present(error: SecretStoreError.keychainUnavailable)
+                    }
+                }
+                #endif
             }
         } detail: {
             if let selectedRepositoryIdentity = model.selectedRepositoryIdentity {
@@ -127,8 +123,8 @@ public struct RootView: View {
 /// Shown instead of the app when the Keychain refuses the binary itself. It explains the cause
 /// (code signing) because nothing else in the app can work in that state.
 struct KeychainUnreachableView: View {
-    /// Called when the user wants to check again.
-    let retry: () -> Void
+    /// Checked again on request, and replaced by demo data in debug builds.
+    let model: AppModel
 
     var body: some View {
         ContentUnavailableView {
@@ -136,7 +132,12 @@ struct KeychainUnreachableView: View {
         } description: {
             Text(SecretStoreError.missingEntitlement.description)
         } actions: {
-            Button("Try Again", action: retry)
+            Button("Try Again", action: model.reload)
+            #if DEBUG
+            // A development build signed without SecChain's team lands here; demo data lets such a
+            // build show every other screen.
+            Button("Use Demo Data", action: model.useDemoStore)
+            #endif
         }
         .padding()
     }
