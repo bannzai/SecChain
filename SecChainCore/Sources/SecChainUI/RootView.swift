@@ -110,7 +110,7 @@ public struct RootView: View {
             SyncInformationView()
         }
         #if os(iOS)
-        .sheet(isPresented: $isShowingRemoteApproval) {
+        .sheet(isPresented: $isShowingRemoteApproval, onDismiss: remoteApprovalModel.dismissRequest) {
             RemoteApprovalPairingView(model: remoteApprovalModel)
         }
         .onChange(of: remoteApprovalModel.presentedRequest) { _, presentedRequest in

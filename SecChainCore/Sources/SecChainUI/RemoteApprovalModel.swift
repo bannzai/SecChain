@@ -255,7 +255,6 @@ public final class RemoteApprovalModel {
         answeredOutcome = nil
         failureMessage = nil
         await pair()
-        isNotificationAllowed = true
         try? await store.save(
             request: RemoteApprovalRequest.filed(
                 repositoryIdentity: RepositoryIdentity(value: "github.com/example/web-app"),
