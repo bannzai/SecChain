@@ -37,12 +37,11 @@ jobs:
       session: ${{ inputs.session }}
       device: ${{ inputs.device }}
       duration_minutes: ${{ inputs.duration_minutes }}
+      # Built without extra flags on purpose: a simulator build is signed locally even without a
+      # signing identity, which embeds the Keychain access group (simtunnel issue #40).
+      # CODE_SIGNING_ALLOWED=NO would leave the app unable to reach the simulator's Keychain.
       build_project: SecChain.xcodeproj
       build_scheme: SecChainiOS
-      # The runner has no signing identity (same as ci.yml). Such a build cannot reach the shared
-      # Keychain access group, so the app opens on its "cannot reach its Keychain items" screen,
-      # where a debug build offers demo data.
-      build_extra_args: CODE_SIGNING_ALLOWED=NO
     secrets:
       TS_OIDC_CLIENT_ID: ${{ secrets.TS_OIDC_CLIENT_ID }}
       TS_OIDC_AUDIENCE: ${{ secrets.TS_OIDC_AUDIENCE }}
