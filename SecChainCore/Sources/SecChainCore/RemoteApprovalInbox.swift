@@ -37,11 +37,19 @@ public struct RemoteApprovalInbox: Sendable {
 
     /// The requests a Mac is still waiting for, the one that expires first at the front, because
     /// that is the one the user has the least time to answer.
+    ///
+    /// Requests that can no longer be answered are removed while they are passed over: nothing
+    /// expires by itself in CloudKit, and the iPhone is the device responsible for a request whose
+    /// Mac is no longer waiting (documents/remote-approval-records.md, "Who deletes a record").
+    /// Deleting what is already gone succeeds, so a second call converges to the same result
+    /// (idempotent).
     public func openRequests() async throws -> [RemoteApprovalRequest] {
         var openRequests: [RemoteApprovalRequest] = []
         for request in try await store.requests() {
             if try await unanswerableReason(request: request) == nil {
                 openRequests.append(request)
+            } else {
+                try await store.delete(requestIdentifier: request.requestIdentifier)
             }
         }
         return openRequests.sorted { $0.expiry < $1.expiry }

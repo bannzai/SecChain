@@ -87,7 +87,6 @@ struct RemoteApprovalInboxTests {
         let request = try await fileRequest(clock: clock)
         clock.advance(seconds: RemoteApprovalSession.expiryInterval)
 
-        #expect(try await inbox.openRequests().isEmpty)
         #expect(try await inbox.unanswerableReason(request: request) == .expired)
         await #expect(throws: RemoteApprovalInboxError.expired) {
             try await inbox.approve(request: request, key: key)
@@ -96,6 +95,12 @@ struct RemoteApprovalInboxTests {
             try await inbox.reject(request: request)
         }
         #expect(try await store.decision(requestIdentifier: request.requestIdentifier) == nil)
+
+        // Nothing expires by itself in CloudKit, and a Mac killed while it waited wrote neither an
+        // answer nor a cancellation, so the iPhone is the device that removes the request
+        // (documents/remote-approval-records.md, "Who deletes a record").
+        #expect(try await inbox.openRequests().isEmpty)
+        #expect(try await store.request(requestIdentifier: request.requestIdentifier) == nil)
     }
 
     @Test
@@ -107,7 +112,6 @@ struct RemoteApprovalInboxTests {
         // refers to it.
         try await store.save(cancellation: RemoteApprovalCancellation(requestIdentifier: request.requestIdentifier))
 
-        #expect(try await inbox.openRequests().isEmpty)
         #expect(try await inbox.unanswerableReason(request: request) == .cancelled)
         await #expect(throws: RemoteApprovalInboxError.cancelled) {
             try await inbox.approve(request: request, key: key)
@@ -116,6 +120,13 @@ struct RemoteApprovalInboxTests {
             try await inbox.reject(request: request)
         }
         #expect(try await store.decision(requestIdentifier: request.requestIdentifier) == nil)
+
+        // Acting on the cancellation means removing the three records: the Mac leaves the request
+        // in place, because its cancellation refers to it
+        // (documents/remote-approval-records.md, "Who deletes a record").
+        #expect(try await inbox.openRequests().isEmpty)
+        #expect(try await store.request(requestIdentifier: request.requestIdentifier) == nil)
+        #expect(try await store.cancellation(requestIdentifier: request.requestIdentifier) == nil)
     }
 
     @Test
