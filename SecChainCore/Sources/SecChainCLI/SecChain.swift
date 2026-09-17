@@ -7,6 +7,6 @@ struct SecChain: AsyncParsableCommand {
         commandName: "secchain",
         abstract: "Per-repository secrets stored in the macOS Keychain.",
         version: "0.1.0",
-        subcommands: [Doctor.self]
+        subcommands: [SetCommand.self, ListCommand.self, DeleteCommand.self, RunCommand.self, Doctor.self]
     )
 }
