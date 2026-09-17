@@ -20,6 +20,9 @@ described in the README ("Tests").
 | Remote approval: a forged approval never authorizes a read | `RemoteApprovalTests` (no signature, bytes that are not a signature, another key, another request, a later expiry, other content) for the verification, and `RemoteApprovalSessionTests` (`aForgedApprovalIsRefusedWithTheReasonItWasRefused`, `rewritingTheFiledRequestDoesNotChangeWhatIsVerified`, `anApprovalForAnotherMacsEnrolledKeyIsRefused`, `anApprovalThatArrivesAfterTheExpiryIsRefused`) for the whole round against the in-memory transport |
 | Remote approval: rejected, expired, and cancelled are told apart | `RemoteApprovalSessionTests` (`aRejectionOnTheIPhoneIsItsOwnError`, `noAnswerBeforeTheExpiryIsItsOwnError`, `cancellingTheWaitingSavesACancellationAndKeepsTheRequest`, `aTransportFailureIsReportedAsItself`, `everySessionErrorExplainsItself`) |
 | Remote approval: no secret value in a record, a log, or the signed message | `RemoteApprovalRecordsTests.noRecordOfTheProtocolCanCarryASecretValue`, `RemoteApprovalCloudKitRecordsTests.noEncodedRecordCanCarryASecretValue`, and `RemoteApprovalSessionTests.theWaitingIsReportedWithTheRemainingTimeAndNoSecretValue` |
+| Remote approval: the approval the iPhone signs is the one the Mac accepts | `RemoteApprovalKeyTests` (the signature verifies with the published key, a signature of another request or another key is refused, the pairing carries the number both screens compare) and `RemoteApprovalInboxTests` (`theApprovalIsAcceptedByTheMacThatEnrolledTheKey`, `theMacStopsWaitingWhenTheInboxApproves`, which runs both sides against one transport) |
+| Remote approval: the iPhone answers only what a Mac is still waiting for | `RemoteApprovalInboxTests` (`anExpiredRequestIsNeitherOfferedNorAnswered`, `aCancelledRequestIsNeitherOfferedNorAnswered`, `aRejectionCarriesNoSignature`, `theRequestThatExpiresFirstIsOfferedFirst`, `nothingTheInboxWritesCarriesMoreThanTheRequestIdentifierAndTheSignature`) and `RemoteApprovalKeyStoreTests` for the key the signature comes from (one key per device, pairing again replaces it, unpairing converges) |
+| Remote approval: the notification tells the iPhone that something is waiting and nothing else | `RemoteApprovalSubscriptionTests` (fires on a filed request only, one subscription per device, a visible notification that carries no field of the request) |
 | Remote approval: the record layout both front ends and the production schema depend on | `RemoteApprovalCloudKitRecordsTests` (round trips of all four record types, `theRecordsCarryExactlyTheDocumentedFields`, the refusals of another record type / another schema version / a missing or malformed field, `theQueryForEveryRecordFiltersOnAFieldOfTheProtocol`) and `RemoteApprovalRecordsTests` (record names, the pairing number, `theSchemaVersionMatchesTheSignedMessageVersion`) |
 
 ## Not covered by an automated run
@@ -30,3 +33,10 @@ described in the README ("Tests").
 - The iOS Simulator does not enforce the Keychain's own authentication for a device-bound item
   (`documents/PROJECT.md`, "Measured behavior"), so that enforcement is verified on macOS and has to
   be confirmed on an iOS device.
+- A Secure Enclave key with `.privateKeyUsage` and `.biometryAny` cannot be created on the Simulator
+  (`documents/PROJECT.md`, "Remote approval spike"), so `SecureEnclaveRemoteApprovalKey`,
+  `SecureEnclaveRemoteApprovalKeyStore`, and the Face ID prompt of an approval are checked on a
+  device. The tests cover the same promises through the software key and the in-memory key store.
+- Saving the `CKQuerySubscription` and receiving its notification need an Apple Account and the
+  deployed production schema, so `RemoteApprovalSubscription.install` and the notification path of
+  the iOS app are checked on a device.
