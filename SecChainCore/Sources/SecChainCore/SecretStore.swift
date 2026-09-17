@@ -7,10 +7,16 @@ import Foundation
 public struct SecretStore: Sendable {
     let keychain: any SecretKeychain
     let ownerAuthenticator: any OwnerAuthenticating
+    /// Bundle whose String Catalog translates the reasons this store gives the authentication
+    /// prompt, so that the system dialog speaks the language of the front end that asked.
+    let authenticationReasonBundle: Bundle
 
-    public init(keychain: any SecretKeychain, ownerAuthenticator: any OwnerAuthenticating) {
+    // `Bundle.main` by default: the command-line tool and the tests have no translations there, so
+    // their reasons stay English. The apps pass the bundle of SecChainUI, which holds the catalog.
+    public init(keychain: any SecretKeychain, ownerAuthenticator: any OwnerAuthenticating, authenticationReasonBundle: Bundle = .main) {
         self.keychain = keychain
         self.ownerAuthenticator = ownerAuthenticator
+        self.authenticationReasonBundle = authenticationReasonBundle
     }
 
     /// The store used by the shipping front ends.
@@ -62,7 +68,9 @@ public struct SecretStore: Sendable {
     public func revealedValue(name: SecretName, repositoryIdentity: RepositoryIdentity) async throws -> SecretValue {
         try keychain.value(
             storedSecret: try existingSecret(name: name, repositoryIdentity: repositoryIdentity),
-            ownerAuthentication: try await ownerAuthenticator.authenticate(reason: "reveal \(name.value)")
+            ownerAuthentication: try await ownerAuthenticator.authenticate(
+                reason: String(localized: "reveal \(name.value)", bundle: authenticationReasonBundle)
+            )
         )
     }
 
@@ -100,7 +108,7 @@ public struct SecretStore: Sendable {
             modificationDate: nil
         )
         let ownerAuthentication = (existing.map { $0.protectionLevel != .standard } ?? false)
-            ? try await ownerAuthenticator.authenticate(reason: "update \(name.value)")
+            ? try await ownerAuthenticator.authenticate(reason: String(localized: "update \(name.value)", bundle: authenticationReasonBundle))
             : nil
         // A non-effective variant (for example a synchronized copy that arrived from another Mac
         // while a local one existed) is removed: it would collide with the target when it has the
@@ -125,7 +133,9 @@ public struct SecretStore: Sendable {
             throw SecretStoreError.deviceBoundCannotSynchronize
         }
         let ownerAuthentication = existing.protectionLevel != .standard
-            ? try await ownerAuthenticator.authenticate(reason: "change the protection of \(name.value)")
+            ? try await ownerAuthenticator.authenticate(
+                reason: String(localized: "change the protection of \(name.value)", bundle: authenticationReasonBundle)
+            )
             : nil
         let target = StoredSecret(
             repositoryIdentity: repositoryIdentity,
@@ -154,7 +164,7 @@ public struct SecretStore: Sendable {
     public func delete(name: SecretName, repositoryIdentity: RepositoryIdentity) async throws {
         let variants = try keychain.storedSecrets(repositoryIdentity: repositoryIdentity).filter { $0.name == name }
         if variants.contains(where: { $0.protectionLevel != .standard }) {
-            _ = try await ownerAuthenticator.authenticate(reason: "delete \(name.value)")
+            _ = try await ownerAuthenticator.authenticate(reason: String(localized: "delete \(name.value)", bundle: authenticationReasonBundle))
         }
         for variant in variants {
             try keychain.delete(storedSecret: variant)

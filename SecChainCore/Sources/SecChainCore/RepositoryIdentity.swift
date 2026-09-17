@@ -44,16 +44,25 @@ public enum RepositoryIdentityError: Error, Equatable, CustomStringConvertible {
     /// The `git` executable could not be run.
     case gitUnavailable(reason: String)
 
+    /// The message in English, as the command-line tool prints it: no SecChain binary has
+    /// translations in `Bundle.main`.
     public var description: String {
+        message(bundle: .main)
+    }
+
+    /// The message translated by the String Catalog in `bundle`, for the macOS app, which shows it
+    /// in the user's language after a folder was chosen. English where the catalog has no
+    /// translation.
+    public func message(bundle: Bundle) -> String {
         switch self {
         case .notAGitRepository(let directory):
-            "\(directory) is not inside a Git repository. Run secchain inside a repository, or declare an identifier in the secret definition file."
+            String(localized: "\(directory) is not inside a Git repository. Run secchain inside a repository, or declare an identifier in the secret definition file.", bundle: bundle)
         case .noOriginRemote(let directory):
-            "The Git repository at \(directory) has no 'origin' remote, so it cannot be identified on other Macs. Add the remote, or declare an identifier in the secret definition file."
+            String(localized: "The Git repository at \(directory) has no 'origin' remote, so it cannot be identified on other Macs. Add the remote, or declare an identifier in the secret definition file.", bundle: bundle)
         case .unstableRemote(let sanitizedRemoteURL):
-            "The 'origin' remote (\(sanitizedRemoteURL)) is a local path, which differs between Macs. Declare an identifier in the secret definition file."
+            String(localized: "The 'origin' remote (\(sanitizedRemoteURL)) is a local path, which differs between Macs. Declare an identifier in the secret definition file.", bundle: bundle)
         case .gitUnavailable(let reason):
-            "git could not be run: \(reason)"
+            String(localized: "git could not be run: \(reason)", bundle: bundle)
         }
     }
 }
