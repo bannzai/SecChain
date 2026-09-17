@@ -63,12 +63,33 @@
         }
       }
     },
+    "A Mac is asking for your approval" : {
+      "comment" : "Body of the notification that a filed approval request sends",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac が承認を求めています"
+          }
+        }
+      }
+    },
     "A device-bound secret cannot be synchronized. Choose either device-bound or synchronization." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "デバイス固定 (device-bound) の Secret は同期できません。デバイス固定と同期のどちらかを選んでください。"
+          }
+        }
+      }
+    },
+    "A request from a Mac arrives as a notification. SecChain also looks for waiting requests every time you open it, because a notification can be delayed or dropped" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac からの依頼は通知で届きます。通知は遅れたり届かなかったりするため、SecChain は開くたびに待機中の依頼も確認します"
           }
         }
       }
@@ -145,6 +166,60 @@
         }
       }
     },
+    "Allow Notifications" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知を許可"
+          }
+        }
+      }
+    },
+    "Approval" : {
+      "comment" : "Title of the screen that shows one request from a Mac",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "承認"
+          }
+        }
+      }
+    },
+    "Approval requested" : {
+      "comment" : "Headline of the approval screen",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "承認の依頼"
+          }
+        }
+      }
+    },
+    "Approve" : {
+      "comment" : "Button that signs the approval and sends it to the Mac",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "承認"
+          }
+        }
+      }
+    },
+    "Approved" : {
+      "comment" : "Shown on the approval screen after the approval was sent",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "承認しました"
+          }
+        }
+      }
+    },
     "Authentication failed." : {
       "localizations" : {
         "ja" : {
@@ -203,6 +278,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "フォルダを選択"
+          }
+        }
+      }
+    },
+    "Command" : {
+      "comment" : "Label of the command the Mac is about to run",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コマンド"
           }
         }
       }
@@ -326,6 +412,17 @@
         }
       }
     },
+    "Mac" : {
+      "comment" : "Label of the name of the Mac that asked for the approval",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac"
+          }
+        }
+      }
+    },
     "More" : {
       "comment" : "Toolbar menu with the less frequent actions (macOS)",
       "localizations" : {
@@ -344,6 +441,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "名前"
+          }
+        }
+      }
+    },
+    "No Mac is waiting for an approval" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "承認を待っている Mac はありません"
           }
         }
       }
@@ -379,6 +486,27 @@
         }
       }
     },
+    "Notifications" : {
+      "comment" : "Section header",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知"
+          }
+        }
+      }
+    },
+    "Notifications are on" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通知はオン"
+          }
+        }
+      }
+    },
     "OK" : {
       "comment" : "Button that closes an error alert",
       "localizations" : {
@@ -390,12 +518,53 @@
         }
       }
     },
+    "Only this iPhone can sign it" : {
+      "comment" : "Subtitle under “Approval requested”",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "署名できるのはこの iPhone だけ"
+          }
+        }
+      }
+    },
     "Open Settings" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "設定を開く"
+          }
+        }
+      }
+    },
+    "Pair Again" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリングをやり直す"
+          }
+        }
+      }
+    },
+    "Pair This iPhone" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この iPhone をペアリング"
+          }
+        }
+      }
+    },
+    "Pairing again replaces the key of this iPhone, and removing the pairing takes it away. Either way every Mac has to pair once more before it can ask this iPhone again" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリングをやり直すとこの iPhone の鍵が新しくなり、ペアリングを解除すると鍵が無くなります。どちらの場合も、この iPhone に依頼するには Mac ごとにもう一度ペアリングが必要です"
           }
         }
       }
@@ -422,6 +591,28 @@
         }
       }
     },
+    "Reject" : {
+      "comment" : "Button that refuses the request",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拒否"
+          }
+        }
+      }
+    },
+    "Rejected" : {
+      "comment" : "Shown on the approval screen after the rejection was sent",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "拒否しました"
+          }
+        }
+      }
+    },
     "Reload" : {
       "comment" : "Menu action that reads the secrets from the Keychain again",
       "localizations" : {
@@ -433,7 +624,39 @@
         }
       }
     },
+    "Remote Approval" : {
+      "comment" : "Name of the feature: an authentication a Mac asks for is answered on the paired iPhone",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リモート承認"
+          }
+        }
+      }
+    },
+    "Remove Pairing" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ペアリングを解除"
+          }
+        }
+      }
+    },
     "Repositories" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リポジトリ"
+          }
+        }
+      }
+    },
+    "Repository" : {
+      "comment" : "Label of the repository whose secrets the command reads",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -449,6 +672,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "値を表示"
+          }
+        }
+      }
+    },
+    "Run the command again on your Mac to ask once more" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac でコマンドを実行し直すともう一度依頼できます"
           }
         }
       }
@@ -484,6 +717,16 @@
         }
       }
     },
+    "SecChain creates a key in the Secure Enclave of this iPhone and publishes only its public key in your private iCloud database. The key itself never leaves this iPhone" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SecChain はこの iPhone の Secure Enclave に鍵を作り、公開鍵だけをあなたのプライベートな iCloud データベースに公開します。鍵そのものはこの iPhone から出ません"
+          }
+        }
+      }
+    },
     "SecChain installed from the same developer on every device" : {
       "localizations" : {
         "ja" : {
@@ -500,6 +743,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SecChain は Secret をシステムの Keychain だけに保存し、ほかの場所には保存しません"
+          }
+        }
+      }
+    },
+    "Secrets" : {
+      "comment" : "Label of the names of the secrets the command reads",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret"
           }
         }
       }
@@ -603,6 +857,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Keychain 自体が読み出しのたびに認証を求めます。Secret はこのデバイスから出ることがなく、新しいデバイスにも復元されません。"
+          }
+        }
+      }
+    },
+    "The Mac stopped waiting" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac が待機をやめました"
           }
         }
       }
@@ -728,6 +992,37 @@
         }
       }
     },
+    "This iPhone" : {
+      "comment" : "Section header of the pairing of this device",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この iPhone"
+          }
+        }
+      }
+    },
+    "This key has not reached iCloud yet" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この鍵はまだ iCloud に届いていません"
+          }
+        }
+      }
+    },
+    "This request has expired" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この依頼は期限切れです"
+          }
+        }
+      }
+    },
     "This secret requires authentication, but no prompt can be shown here (for example over SSH). Run the command in a logged-in graphical session." : {
       "localizations" : {
         "ja" : {
@@ -744,6 +1039,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "この値はテキストではないため表示できません"
+          }
+        }
+      }
+    },
+    "Time left" : {
+      "comment" : "Label of the time the Mac still waits",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "残り時間"
           }
         }
       }
@@ -800,12 +1106,63 @@
         }
       }
     },
+    "Waiting" : {
+      "comment" : "Section header of the requests a Mac is waiting for",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待機中"
+          }
+        }
+      }
+    },
     "What synchronization needs" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "同期に必要なもの"
+          }
+        }
+      }
+    },
+    "Your Mac can read the secrets for this command" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このコマンドのために Mac が Secret を読み取れます"
+          }
+        }
+      }
+    },
+    "Your Mac shows the same number while it pairs. Confirm it there only when the two match" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac にもペアリング中に同じ数字が表示されます。両方が一致するときだけ Mac 側で確定してください"
+          }
+        }
+      }
+    },
+    "Your Mac was told not to read the secrets" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac には Secret を読み取らないよう伝えました"
+          }
+        }
+      }
+    },
+    "Your Macs can find this key" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "お使いの Mac からこの鍵を見つけられます"
           }
         }
       }
@@ -817,6 +1174,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%lld 件の Secret"
+          }
+        }
+      }
+    },
+    "approve a request from your Mac" : {
+      "comment" : "Reason given to the system authentication prompt before the approval is signed; iOS shows it under the Face ID prompt, so write a short phrase naming the operation, without trailing punctuation",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac からの依頼を承認"
           }
         }
       }
