@@ -181,7 +181,7 @@ public struct RemoteApprovalCancellation: Sendable, Equatable {
 
 /// The public key of an iPhone's approval key, as the iPhone publishes it for the Macs to enroll
 /// (design decision 5: pairing compares a short number on both screens).
-public struct RemoteApprovalPairing: Sendable, Equatable {
+public struct RemoteApprovalPairing: Codable, Sendable, Equatable {
     /// P-256 public key in X9.63 representation, the form `P256.Signing.PublicKey` reads and
     /// writes without a container format.
     public let publicKeyRepresentation: Data
