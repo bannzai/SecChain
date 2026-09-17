@@ -79,7 +79,7 @@ struct RemoteApprovalRequestView: View {
             detailRow(
                 label: String(localized: "Command", bundle: .module),
                 icon: "terminal",
-                text: Text(request.commandArguments.joined(separator: " ")).font(.body.monospaced())
+                text: Text(approvedCommandText(commandArguments: request.commandArguments)).font(.body.monospaced())
             )
         }
         .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemGroupedBackground)))

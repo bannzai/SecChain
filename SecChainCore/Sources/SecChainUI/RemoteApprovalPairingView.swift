@@ -164,7 +164,7 @@ public struct RemoteApprovalPairingView: View {
         HStack {
             VStack(alignment: .leading, spacing: 2) {
                 Text(request.requestingDeviceName)
-                Text(request.commandArguments.joined(separator: " "))
+                Text(approvedCommandText(commandArguments: request.commandArguments))
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
