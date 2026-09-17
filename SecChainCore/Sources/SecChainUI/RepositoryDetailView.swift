@@ -41,6 +41,10 @@ struct RepositoryDetailView: View {
             #endif
         }
         .navigationTitle(repositoryIdentity.value)
+        #if os(iOS)
+        // A repository identifier is too long for a large title on an iPhone and would be cut off.
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
         .overlay {
             if storedSecrets.isEmpty {
                 ContentUnavailableView(
@@ -69,6 +73,7 @@ struct RepositoryDetailView: View {
         .sheet(item: $revealedSecret) { revealedSecret in
             RevealedValueView(storedSecret: revealedSecret.storedSecret, value: revealedSecret.value)
         }
+        // The title names the secret; iOS hides a dialog's title unless it is made visible.
         .confirmationDialog(
             "Delete \(storedSecretBeingDeleted?.name.value ?? "")?",
             isPresented: Binding(
@@ -79,6 +84,7 @@ struct RepositoryDetailView: View {
                     }
                 }
             ),
+            titleVisibility: .visible,
             presenting: storedSecretBeingDeleted
         ) { storedSecret in
             Button("Delete", role: .destructive) {
