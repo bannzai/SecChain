@@ -82,6 +82,12 @@ public struct RootView: View {
                     Button("Reload", systemImage: "arrow.clockwise", action: model.reload)
                 }
                 #if DEBUG
+                // Also offered here because a build that reaches the Keychain (the iOS Simulator)
+                // never shows the unreachable screen, and the simulator cannot answer the
+                // authentication that revealing a stored value needs.
+                ToolbarItem(placement: .secondaryAction) {
+                    Button("Use Demo Data", systemImage: "tray.full", action: model.useDemoStore)
+                }
                 // The error alert otherwise needs a real Keychain or authentication failure, which
                 // demo data and a remote session cannot produce.
                 ToolbarItem(placement: .secondaryAction) {
