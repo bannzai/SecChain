@@ -33,6 +33,7 @@ public enum AppModelFactory {
             // that entitlement: the number both screens compare is what identifies the key, and the
             // name only helps the user recognize the device.
             deviceName: UIDevice.current.name,
+            notifying: SystemRemoteApprovalNotifying(),
             installSubscription: RemoteApprovalSubscription.install(alertTitle:alertBody:)
         )
     }

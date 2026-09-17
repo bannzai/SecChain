@@ -1,16 +1,15 @@
-#if os(iOS)
 import Foundation
 import Observation
 import SecChainCore
-import UIKit
-import UserNotifications
 
 /// State of the remote approval screens: whether this iPhone is paired, which requests a Mac is
 /// waiting for, and what happened to the one on screen.
 ///
 /// It holds no secret value, because no record of the protocol carries one
-/// (documents/remote-approval-records.md). Only the iOS app has it: approving is what the paired
-/// iPhone does, and the macOS app shows no approval screen (issue #39).
+/// (documents/remote-approval-records.md). Only the iOS app shows these screens: approving is what
+/// the paired iPhone does, and the macOS app has no approval screen (issue #39). The model itself
+/// names no iOS framework, so that its policy is unit-tested on whichever platform `swift test`
+/// runs on.
 @Observable
 public final class RemoteApprovalModel {
     /// Creates the transport the records travel through. It is a function rather than a store
@@ -25,6 +24,8 @@ public final class RemoteApprovalModel {
     /// Installs the subscription that turns a filed request into a notification. Injected because
     /// it is the one call that reaches CloudKit directly, and the debug demo has no account.
     private(set) var installSubscription: @Sendable (_ alertTitle: String, _ alertBody: String) async throws -> Void
+    /// The system's permission to show notifications, and the registration a push needs.
+    let notifying: any RemoteApprovalNotifying
 
     /// The key of this device, `nil` while it is not paired.
     private(set) var pairedKey: (any RemoteApprovalKey)?
@@ -60,11 +61,13 @@ public final class RemoteApprovalModel {
         makeStore: @escaping @Sendable () throws -> any RemoteApprovalStore,
         keyStore: any RemoteApprovalKeyStore,
         deviceName: String,
+        notifying: any RemoteApprovalNotifying,
         installSubscription: @escaping @Sendable (_ alertTitle: String, _ alertBody: String) async throws -> Void
     ) {
         self.makeStore = makeStore
         self.keyStore = keyStore
         self.deviceName = deviceName
+        self.notifying = notifying
         self.installSubscription = installSubscription
     }
 
@@ -94,13 +97,13 @@ public final class RemoteApprovalModel {
         } catch {
             present(failure: error)
         }
-        isNotificationAllowed = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus == .authorized
+        isNotificationAllowed = await notifying.isAuthorized()
         guard pairedKey != nil else {
             openRequests = []
             return
         }
         if isNotificationAllowed {
-            UIApplication.shared.registerForRemoteNotifications()
+            await notifying.registerForRemoteNotifications()
             await refreshSubscription()
         }
         await refreshRequests()
@@ -120,9 +123,19 @@ public final class RemoteApprovalModel {
     /// new one, which is what makes an old, copied key useless.
     public func pair() async {
         do {
+            let withdrawnPairing = pairing
             let key = try keyStore.createKey()
             try await store.save(pairing: key.pairing(deviceName: deviceName))
             pairedKey = key
+            // The record name is derived from the key, so the old key keeps a record of its own.
+            // Withdrawing it is this device's job (documents/remote-approval-records.md, "Who
+            // deletes a record"): its private key is gone, so a Mac that enrolled it from the
+            // database would be paired with a key that can never sign again. It is withdrawn after
+            // the new one is published, so that a failure never leaves the device with no key
+            // published at all.
+            if let withdrawnPairing {
+                try await store.delete(pairing: withdrawnPairing)
+            }
             failureMessage = nil
         } catch {
             present(failure: error)
@@ -152,7 +165,7 @@ public final class RemoteApprovalModel {
     /// The prompt appears once; afterwards the system answers with what the user chose then.
     public func enableNotifications() async {
         do {
-            isNotificationAllowed = try await UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound])
+            isNotificationAllowed = try await notifying.requestAuthorization()
             failureMessage = nil
         } catch {
             present(failure: error)
@@ -160,8 +173,6 @@ public final class RemoteApprovalModel {
         guard isNotificationAllowed else {
             return
         }
-        // A subscription fires a push, which only reaches an app the system registered.
-        UIApplication.shared.registerForRemoteNotifications()
         await refreshSubscription()
     }
 
@@ -201,19 +212,20 @@ public final class RemoteApprovalModel {
         guard let pairedKey else {
             return
         }
-        await answer(outcome: .approved) { inbox in
+        await answer(request: request, outcome: .approved) { inbox in
             try await inbox.approve(request: request, key: pairedKey)
         }
     }
 
     /// Writes the rejection, which carries no signature.
     public func reject(request: RemoteApprovalRequest) async {
-        await answer(outcome: .rejected) { inbox in
+        await answer(request: request, outcome: .rejected) { inbox in
             try await inbox.reject(request: request)
         }
     }
 
     func answer(
+        request: RemoteApprovalRequest,
         outcome: RemoteApprovalOutcome,
         write: (RemoteApprovalInbox) async throws -> Void
     ) async {
@@ -223,10 +235,17 @@ public final class RemoteApprovalModel {
         }
         do {
             try await write(inbox)
-            answeredOutcome = outcome
+            // Signing takes as long as the user needs to answer the Face ID prompt, and the screen
+            // can be dismissed and another request opened while it runs. What is shown belongs to
+            // the request that is on screen now, never to the one this call answered.
+            if presentedRequest?.requestIdentifier == request.requestIdentifier {
+                answeredOutcome = outcome
+            }
             failureMessage = nil
         } catch let reason as RemoteApprovalInboxError {
-            unanswerableReason = reason
+            if presentedRequest?.requestIdentifier == request.requestIdentifier {
+                unanswerableReason = reason
+            }
         } catch {
             present(failure: error)
         }
@@ -294,4 +313,3 @@ public final class RemoteApprovalModel {
     }
     #endif
 }
-#endif
