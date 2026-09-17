@@ -63,6 +63,21 @@ The Keychain item of a secret is a generic password with `kSecAttrService` = `co
 - A repository may contain a Git-trackable file listing the secret **names** it needs.
 - The file never contains secret values.
 
+The file is `.secchain` at the root of the working tree, one entry per line:
+
+```text
+# comment
+@repository my-notes
+OPENAI_API_KEY
+CLOUDFLARE_API_TOKEN
+```
+
+- A secret name is a POSIX environment variable name (ASCII letters, digits, underscores, not starting with a digit), because `secchain run` exports it under that name.
+- `@repository <identifier>` is optional and replaces the identity derived from the Git remote.
+- A line containing `=` is rejected, and the error does not echo the line, so a pasted `.env` file is refused instead of committed.
+- `secchain set` and `secchain delete` edit the text in place: comments and ordering written by hand survive.
+- The file is optional. Without it, `run` uses every secret stored for the repository. With it, `run` refuses to start while a declared secret has no stored value.
+
 ### Command-line tool
 
 | Operation | Notes |
