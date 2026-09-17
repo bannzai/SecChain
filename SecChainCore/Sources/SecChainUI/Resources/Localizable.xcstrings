@@ -1,0 +1,166 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%@ already exists in %@." : {
+      "comment" : "Error message. The first %@ is the secret name, the second %@ the repository"
+    },
+    "%@ is not inside a Git repository. Run secchain inside a repository, or declare an identifier in the secret definition file." : {
+      "comment" : "Error message after a folder was chosen. %@ is the folder path"
+    },
+    ".secchain line %lld: contains '='. The definition file lists secret names only; store the value with 'secchain set <NAME>'." : {},
+    ".secchain line %lld: not a valid secret name. Use letters, digits and underscores, not starting with a digit." : {},
+    ".secchain line %lld: unknown or incomplete directive. The only directive is '@repository <identifier>'." : {},
+    "A Git remote URL is accepted too and is normalized the same way secchain does it" : {},
+    "A device-bound secret cannot be synchronized. Choose either device-bound or synchronization." : {},
+    "About Sync" : {},
+    "Actions for %@" : {
+      "comment" : "Accessibility label of the menu button of the secret %@"
+    },
+    "Add" : {
+      "comment" : "Button that adds the repository entered in the sheet"
+    },
+    "Add Repository" : {},
+    "Add Secret" : {},
+    "Add a repository to store its first secret" : {},
+    "Add the first secret of this repository" : {},
+    "Authentication failed." : {},
+    "Authentication is not available on this device: %@" : {
+      "comment" : "Error message. %@ is the reason given by the system"
+    },
+    "Authentication was cancelled." : {},
+    "Cancel" : {
+      "comment" : "Button that closes a sheet without saving"
+    },
+    "Change Protection" : {},
+    "Choose Folder" : {},
+    "Confirm" : {
+      "comment" : "Name of a protection level, shown in the protection picker and in each secret's row. The command-line tool calls this level `confirm` (secchain set --level confirm), so the translated name is followed by that word in parentheses"
+    },
+    "Copied" : {
+      "comment" : "The Copy button after the value was copied"
+    },
+    "Copy" : {
+      "comment" : "Button that copies the revealed value of a secret"
+    },
+    "Delete" : {
+      "comment" : "Destructive menu action and confirmation button that delete a secret"
+    },
+    "Delete %@?" : {
+      "comment" : "Title of the confirmation dialog shown before the secret %@ is deleted"
+    },
+    "Device-bound" : {
+      "comment" : "Name of a protection level, shown in the protection picker and in each secret's row. The command-line tool calls this level `device-bound` (secchain set --level device-bound), so the translated name is followed by that word in parentheses"
+    },
+    "Done" : {
+      "comment" : "Button that closes a sheet"
+    },
+    "Hidden again after 30 seconds" : {},
+    "How secrets reach your other devices" : {},
+    "Identifier" : {
+      "comment" : "Label of the text field for a repository identifier such as github.com/owner/repository"
+    },
+    "Keychain %@ failed with status %d: %@" : {
+      "comment" : "Error message. The first %@ is an internal operation name that stays English, %d the OSStatus code, the last %@ the system's description of the status"
+    },
+    "More" : {
+      "comment" : "Toolbar menu with the less frequent actions (macOS)"
+    },
+    "Name" : {
+      "comment" : "Label of the text field for the name of a secret (an environment variable name)"
+    },
+    "No repositories yet" : {},
+    "No secrets yet" : {},
+    "No value is stored for %@ in %@. Store it with 'secchain set %@'." : {
+      "comment" : "Error message. The first and the last %@ are the secret name, the second %@ the repository"
+    },
+    "OK" : {
+      "comment" : "Button that closes an error alert"
+    },
+    "Open Settings" : {},
+    "Protection" : {
+      "comment" : "Label of the picker that chooses the protection level of a secret"
+    },
+    "Protection of %@" : {
+      "comment" : "Title of the sheet that changes the protection level of the secret %@"
+    },
+    "Reload" : {
+      "comment" : "Menu action that reads the secrets from the Keychain again"
+    },
+    "Repositories" : {},
+    "Reveal Value" : {},
+    "Save" : {
+      "comment" : "Button that saves the secret edited in the sheet"
+    },
+    "SecChain cannot reach its Keychain items" : {},
+    "SecChain cannot see whether iCloud Keychain is on. When it is off, every secret simply stays on this device and keeps working here." : {},
+    "SecChain installed from the same developer on every device" : {},
+    "SecChain stores secrets in the system Keychain and nowhere else" : {},
+    "Secrets marked iCloud Keychain are synchronized by the system, end-to-end encrypted" : {},
+    "Secrets set to This device only or Device-bound on a Mac stay on that Mac and do not appear here" : {},
+    "Select a repository" : {},
+    "Something went wrong" : {},
+    "Standard" : {
+      "comment" : "Name of a protection level, shown in the protection picker and in each secret's row. The command-line tool calls this level `standard` (secchain set --level standard), so the translated name is followed by that word in parentheses"
+    },
+    "Synchronize with iCloud Keychain" : {},
+    "The 'origin' remote (%@) is a local path, which differs between Macs. Declare an identifier in the secret definition file." : {
+      "comment" : "Error message after a folder was chosen. %@ is the remote URL"
+    },
+    "The Git repository at %@ has no 'origin' remote, so it cannot be identified on other Macs. Add the remote, or declare an identifier in the secret definition file." : {
+      "comment" : "Error message after a folder was chosen. %@ is the folder path"
+    },
+    "The Keychain is not available. Unlock the device or log in and try again." : {},
+    "The Keychain itself demands authentication for every read. The secret never leaves this device and is not restored onto a new one." : {},
+    "The copy is marked as a password so that clipboard managers skip it" : {},
+    "The copy stays on this device and is removed from the clipboard after one minute" : {},
+    "The name is also the environment variable that secchain run sets" : {},
+    "The repository is identified by its Git remote, so every checkout of it shares the same secrets" : {},
+    "The same Apple Account on every device" : {},
+    "The secret is synchronized, so it is deleted on all your devices" : {},
+    "The value cannot be recovered" : {},
+    "The value is empty." : {},
+    "The value is stored in the Keychain only" : {},
+    "This binary is not signed with SecChain's Keychain access group, so it cannot reach any secret (errSecMissingEntitlement). Use the secchain tool inside SecChain.app; a binary built with 'swift build' or signed by another team cannot share the app's secrets. Run 'secchain doctor' for details." : {},
+    "This device only" : {
+      "comment" : "Shown in the row of a secret that does not synchronize through iCloud Keychain"
+    },
+    "This device only and device-bound secrets never leave this device" : {},
+    "This secret requires authentication, but no prompt can be shown here (for example over SSH). Run the command in a logged-in graphical session." : {},
+    "This value is not text and cannot be displayed" : {},
+    "Try Again" : {},
+    "Update %@" : {
+      "comment" : "Title of the sheet that replaces the value of the secret %@"
+    },
+    "Update Value" : {},
+    "Use letters, digits and underscores, not starting with a digit" : {},
+    "Value" : {
+      "comment" : "Label of the secure text field for the value of a secret"
+    },
+    "What synchronization needs" : {},
+    "^[%lld secret](inflect: true)" : {
+      "comment" : "Number of secrets of a repository, shown under its name. The ^[…](inflect: true) markup makes English choose secret or secrets; a language without plural forms drops the markup"
+    },
+    "change the protection of %@" : {
+      "comment" : "Reason given to the system authentication prompt; %@ is the secret name. macOS puts it into its own sentence (English: “SecChain is trying to change the protection of NAME.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation"
+    },
+    "delete %@" : {
+      "comment" : "Reason given to the system authentication prompt; %@ is the secret name. macOS puts it into its own sentence (English: “SecChain is trying to delete NAME.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation"
+    },
+    "git could not be run: %@" : {
+      "comment" : "Error message. %@ is the reason given by the system"
+    },
+    "iCloud Keychain" : {
+      "comment" : "Shown in the row of a secret that synchronizes through iCloud Keychain"
+    },
+    "iCloud Keychain turned on in the Apple Account settings of every device" : {},
+    "reveal %@" : {
+      "comment" : "Reason given to the system authentication prompt; %@ is the secret name. macOS puts it into its own sentence (English: “SecChain is trying to reveal NAME.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation"
+    },
+    "secchain run asks for Touch ID or your password every time. The secret can still synchronize." : {},
+    "secchain run reads the secret without asking. Revealing the value here still asks for authentication." : {},
+    "update %@" : {
+      "comment" : "Reason given to the system authentication prompt; %@ is the secret name. macOS puts it into its own sentence (English: “SecChain is trying to update NAME.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation"
+    }
+  },
+  "version" : "1.0"
+}

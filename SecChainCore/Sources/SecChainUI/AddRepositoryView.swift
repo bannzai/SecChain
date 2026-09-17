@@ -20,7 +20,7 @@ struct AddRepositoryView: View {
             Form {
                 #if os(macOS)
                 Section {
-                    Button("Choose Folder", systemImage: "folder") {
+                    Button(String(localized: "Choose Folder", bundle: .module), systemImage: "folder") {
                         isChoosingFolder = true
                     }
                     if let folderErrorDescription {
@@ -28,13 +28,14 @@ struct AddRepositoryView: View {
                             .foregroundStyle(.red)
                     }
                 } footer: {
-                    Text("The repository is identified by its Git remote, so every checkout of it shares the same secrets")
+                    Text("The repository is identified by its Git remote, so every checkout of it shares the same secrets", bundle: .module)
                 }
                 #endif
                 Section {
                     // Only the entered identifier is monospaced; the Mac shows the label beside it.
-                    TextField(text: $identifierText, prompt: Text("github.com/owner/repository")) {
-                        Text("Identifier")
+                    // The prompt is the format of an identifier, which is the same in every language.
+                    TextField(text: $identifierText, prompt: Text(verbatim: "github.com/owner/repository")) {
+                        Text("Identifier", bundle: .module)
                             .font(.body)
                     }
                     .font(.body.monospaced())
@@ -44,22 +45,22 @@ struct AddRepositoryView: View {
                         .keyboardType(.URL)
                         #endif
                 } footer: {
-                    Text("A Git remote URL is accepted too and is normalized the same way secchain does it")
+                    Text("A Git remote URL is accepted too and is normalized the same way secchain does it", bundle: .module)
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("Add Repository")
+            .navigationTitle(String(localized: "Add Repository", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button(String(localized: "Cancel", bundle: .module)) {
                         dismiss()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Add") {
+                    Button(String(localized: "Add", bundle: .module)) {
                         finish(repositoryIdentity: repositoryIdentity(enteredText: identifierText))
                     }
                     .disabled(identifierText.trimmingCharacters(in: .whitespaces).isEmpty)
@@ -80,6 +81,10 @@ struct AddRepositoryView: View {
                             declaredIdentifier: try definitionText.map(SecretDefinitionText.parse(text:))?.declaredRepositoryIdentifier
                         )
                     )
+                } catch let repositoryIdentityError as RepositoryIdentityError {
+                    folderErrorDescription = repositoryIdentityError.message(bundle: .module)
+                } catch let secretDefinitionError as SecretDefinitionError {
+                    folderErrorDescription = secretDefinitionError.message(bundle: .module)
                 } catch {
                     folderErrorDescription = "\(error)"
                 }

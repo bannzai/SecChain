@@ -8,30 +8,30 @@ struct SyncInformationView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("How secrets reach your other devices") {
-                    Label("SecChain stores secrets in the system Keychain and nowhere else", systemImage: "key")
-                    Label("Secrets marked iCloud Keychain are synchronized by the system, end-to-end encrypted", systemImage: "icloud")
-                    Label("This device only and device-bound secrets never leave this device", systemImage: "desktopcomputer")
+                Section(String(localized: "How secrets reach your other devices", bundle: .module)) {
+                    Label(String(localized: "SecChain stores secrets in the system Keychain and nowhere else", bundle: .module), systemImage: "key")
+                    Label(String(localized: "Secrets marked iCloud Keychain are synchronized by the system, end-to-end encrypted", bundle: .module), systemImage: "icloud")
+                    Label(String(localized: "This device only and device-bound secrets never leave this device", bundle: .module), systemImage: "desktopcomputer")
                 }
-                Section("What synchronization needs") {
-                    Label("The same Apple Account on every device", systemImage: "person.crop.circle")
-                    Label("iCloud Keychain turned on in the Apple Account settings of every device", systemImage: "switch.2")
-                    Label("SecChain installed from the same developer on every device", systemImage: "checkmark.seal")
+                Section(String(localized: "What synchronization needs", bundle: .module)) {
+                    Label(String(localized: "The same Apple Account on every device", bundle: .module), systemImage: "person.crop.circle")
+                    Label(String(localized: "iCloud Keychain turned on in the Apple Account settings of every device", bundle: .module), systemImage: "switch.2")
+                    Label(String(localized: "SecChain installed from the same developer on every device", bundle: .module), systemImage: "checkmark.seal")
                 }
                 Section {
-                    Button("Open Settings", systemImage: "gear", action: openAppleAccountSettings)
+                    Button(String(localized: "Open Settings", bundle: .module), systemImage: "gear", action: openAppleAccountSettings)
                 } footer: {
-                    Text("SecChain cannot see whether iCloud Keychain is on. When it is off, every secret simply stays on this device and keeps working here.")
+                    Text("SecChain cannot see whether iCloud Keychain is on. When it is off, every secret simply stays on this device and keeps working here.", bundle: .module)
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle("About Sync")
+            .navigationTitle(String(localized: "About Sync", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button(String(localized: "Done", bundle: .module)) {
                         dismiss()
                     }
                 }
