@@ -19,6 +19,7 @@ Run these after every change, save the full output under `./tmp/`, and inspect t
 | `make build-ios` | Build the iOS app for the generic iOS Simulator destination |
 | `make ios` | Build, install, and launch the iOS app on the project's simulator (started through `sim-boot`) |
 | `make test` | Unit tests. They use an in-memory Keychain double and need no signing identity, so they also run in CI |
+| `make check-localization` | Every text of the apps is in the String Catalog (`SecChainCore/Sources/SecChainUI/Resources/Localizable.xcstrings`) with a Japanese translation and is looked up in the right bundle. Also runs in CI |
 | `make test-integration` | Tests against the real data protection keychain. Requires a build signed with the team's identity; not available in CI for pull requests from forks |
 | `make macos` | Install the Release build to `/Applications/SecChain.app` |
 | `make cli` | Symlink the embedded tool from the installed app into `~/.local/bin/secchain` |

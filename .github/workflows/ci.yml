@@ -24,6 +24,9 @@ jobs:
       - name: Unit tests
         run: make test
 
+      - name: Translations of the app texts
+        run: make check-localization
+
       # The runner has no signing identity, so the app is built unsigned and the embed build phase
       # falls back to ad-hoc signing. Such a build cannot use the shared Keychain access group,
       # which is why tests against the real Keychain are not part of CI.
