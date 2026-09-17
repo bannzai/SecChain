@@ -30,6 +30,17 @@ struct ApprovedCommandTextTests {
     }
 
     @Test
+    func theScreenTheUserDecidesOnPutsEachArgumentOnItsOwnLine() {
+        // A wrapping line was measured breaking inside `--env`, which shows a boundary where the
+        // signed list has none.
+        #expect(
+            approvedArgumentLines(commandArguments: ["npm", "run", "deploy", "--", "--env", "production"])
+                == "npm\nrun\ndeploy\n--\n--env\nproduction"
+        )
+        #expect(approvedArgumentLines(commandArguments: ["deploy", "staging production"]) == "deploy\n'staging production'")
+    }
+
+    @Test
     func anythingThatCouldHideABoundaryIsQuoted() {
         for argument in ["a b", "a\tb", "a\nb", "a;b", "a|b", "a&b", "$HOME", "*", "a b\u{00a0}c"] {
             #expect(approvedArgumentText(argument: argument).hasPrefix("'"), "\(argument) was not quoted")

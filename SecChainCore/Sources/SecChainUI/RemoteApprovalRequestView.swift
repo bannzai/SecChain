@@ -79,7 +79,10 @@ struct RemoteApprovalRequestView: View {
             detailRow(
                 label: String(localized: "Command", bundle: .module),
                 icon: "terminal",
-                text: Text(approvedCommandText(commandArguments: request.commandArguments)).font(.body.monospaced())
+                // One argument per line, like the secret names above: a line that wraps breaks
+                // inside a word (`--env` after its hyphen was measured to split across two lines),
+                // and the boundary between arguments is exactly what this screen must not blur.
+                text: Text(approvedArgumentLines(commandArguments: request.commandArguments)).font(.body.monospaced())
             )
         }
         .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemGroupedBackground)))

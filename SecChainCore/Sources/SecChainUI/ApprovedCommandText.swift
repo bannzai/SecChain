@@ -16,6 +16,13 @@ nonisolated func approvedCommandText(commandArguments: [String]) -> String {
     commandArguments.map(approvedArgumentText(argument:)).joined(separator: " ")
 }
 
+/// The same arguments one per line, for the screen the user decides on. A line that wraps can break
+/// inside an argument (`--env` was measured splitting into `--` and `env` across two lines), which
+/// puts a boundary where there is none; a line per argument cannot.
+nonisolated func approvedArgumentLines(commandArguments: [String]) -> String {
+    commandArguments.map(approvedArgumentText(argument:)).joined(separator: "\n")
+}
+
 /// One argument, quoted when reading it unquoted would not show where it starts and ends: when it
 /// is empty, or when it contains anything but the characters a shell passes through untouched.
 nonisolated func approvedArgumentText(argument: String) -> String {
