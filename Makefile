@@ -14,7 +14,7 @@ LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/Launc
 SIGNING_FLAGS ?= -allowProvisioningUpdates -allowProvisioningDeviceRegistration
 IOS_SIMULATOR_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/SecChainiOS.app
 
-.PHONY: build-macos build-ios test test-integration macos cli ios clean
+.PHONY: build-macos build-ios test test-integration macos cli ios dmg clean
 
 # Build the macOS app together with the embedded command-line tool.
 build-macos:
@@ -58,6 +58,13 @@ ios: build-ios
 	[ -n "$$simulator_udid" ] || { echo "Error: sim-boot could not resolve a simulator (check that sim-boot is on PATH, or pass SIMULATOR_UDID=<UDID>)" >&2; exit 1; }; \
 	xcrun simctl install "$$simulator_udid" "$(IOS_SIMULATOR_APP)"; \
 	xcrun simctl launch "$$simulator_udid" com.bannzai.SecChain
+
+# Build the Developer ID signed, notarized, and stapled DMG at tmp/distribution/SecChain-<version>.dmg.
+# Needs the App Store Connect API key in the environment (documents/macos-distribution.md).
+dmg:
+	bash scripts/macos/create_developer_id_profiles.sh
+	bash scripts/macos/export_developer_id.sh
+	bash scripts/macos/notarize_and_dmg.sh
 
 clean:
 	rm -rf $(DERIVED_DATA)
