@@ -13,4 +13,9 @@ public enum SecChainSharedConfig {
     /// Prefix of the `kSecAttrService` attribute. The repository identity is appended to it, so
     /// that one repository's secrets can be enumerated with a single service query.
     public static let keychainServicePrefix = "com.bannzai.SecChain.repository."
+
+    /// CloudKit container whose private database carries remote approval requests between the
+    /// user's devices (documents/PROJECT.md, "Remote approval"). The same literal appears in the
+    /// entitlements files.
+    public static let cloudKitContainerIdentifier = "iCloud.com.bannzai.SecChain"
 }

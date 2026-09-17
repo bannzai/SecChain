@@ -87,18 +87,21 @@ public enum KeychainDoctor {
         }
     }
 
-    /// Lets an app binary run the doctor when launched with `--doctor`, `--doctor-write-fixture
-    /// <account>` or `--doctor-read-fixture <account>`, printing the result lines. Apps have no
-    /// command-line interface of their own, and the interoperability check needs each signed
-    /// binary to act on the Keychain itself. Returns `nil` when the arguments do not ask for it.
+    /// Lets an app binary run the doctor when launched with `--doctor`, `--doctor-cloudkit`,
+    /// `--doctor-write-fixture <account>` or `--doctor-read-fixture <account>`, printing the result
+    /// lines. Apps have no command-line interface of their own, and the interoperability check needs
+    /// each signed binary to act on the Keychain itself. Returns `nil` when the arguments do not ask
+    /// for it.
     public static func exitCodeForLaunchArguments(arguments: [String]) -> Int32? {
         let checks: [KeychainDoctorCheck]
         if let index = arguments.firstIndex(of: "--doctor-write-fixture"), arguments.indices.contains(index + 1) {
             checks = [writeFixture(account: arguments[index + 1])]
         } else if let index = arguments.firstIndex(of: "--doctor-read-fixture"), arguments.indices.contains(index + 1) {
             checks = readAndDeleteFixture(account: arguments[index + 1])
+        } else if arguments.contains("--doctor-cloudkit") {
+            checks = blockingChecks(runChecks: runCloudKitChecks)
         } else if arguments.contains("--doctor") {
-            checks = runSelfContainedChecks() + blockingStoreChecks()
+            checks = runSelfContainedChecks() + blockingChecks(runChecks: runStoreChecks)
         } else {
             return nil
         }
@@ -109,13 +112,14 @@ public enum KeychainDoctor {
     }
 
     /// `App.init` is synchronous, and the process exits right after the doctor, so the launch
-    /// argument path waits for the asynchronous store checks. Nothing in them needs the main
-    /// actor (the doctor's authenticator never prompts), so blocking the calling thread is safe.
-    static func blockingStoreChecks() -> [KeychainDoctorCheck] {
+    /// argument path waits for the asynchronous checks. Nothing in them needs the main actor (the
+    /// doctor's authenticator never prompts, and CloudKit calls back on its own queues), so
+    /// blocking the calling thread is safe.
+    static func blockingChecks(runChecks: @escaping @Sendable () async -> [KeychainDoctorCheck]) -> [KeychainDoctorCheck] {
         let result = BlockingResult()
         let semaphore = DispatchSemaphore(value: 0)
         Task.detached {
-            result.checks = await runStoreChecks()
+            result.checks = await runChecks()
             semaphore.signal()
         }
         semaphore.wait()
