@@ -15,17 +15,21 @@
 		92A61B111F00A0105BFE6469 /* SecChainiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09F40483B4DDFB0DC6BF6AE1 /* SecChainiOSApp.swift */; };
 		E33CE551C90DC8AA49B0F115 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F0899F93912E898B605AC56B /* Assets.xcassets */; };
 		CA6CBC15CFFB15F70B75A871 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D130D40A702EEF51726A1969 /* Assets.xcassets */; };
+		CDE66650367751835787144A /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9E6344EB4B498380387E2707 /* InfoPlist.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		09F40483B4DDFB0DC6BF6AE1 /* SecChainiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecChainiOSApp.swift; sourceTree = "<group>"; };
 		0F260E7D03DFB80F44713724 /* SecChainCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SecChainCore; path = SecChainCore; sourceTree = SOURCE_ROOT; };
 		291D74D3313275880A305CC8 /* SecChainiOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SecChainiOS.entitlements; sourceTree = "<group>"; };
+		2EA57FBA41FEF9F4972C85BA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		45E45B6157D81C1485239943 /* SecChain.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SecChain.entitlements; sourceTree = "<group>"; };
 		5A47287727475FC624176A50 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		82F8E60608181DC37F8073D4 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		8D49909145084989502F5670 /* SecChainApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecChainApp.swift; sourceTree = "<group>"; };
 		90A5C648ECB4A83AB10B3B5C /* SecChainiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SecChainiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9E6344EB4B498380387E2707 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
+		AC68A80C0839D1EC5585B39B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		D0432E4B0289F5EA38420ED0 /* SecChain.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SecChain.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D130D40A702EEF51726A1969 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F0899F93912E898B605AC56B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -74,6 +78,8 @@
 			children = (
 				F0899F93912E898B605AC56B /* Assets.xcassets */,
 				82F8E60608181DC37F8073D4 /* ContentView.swift */,
+				2EA57FBA41FEF9F4972C85BA /* Info.plist */,
+				9E6344EB4B498380387E2707 /* InfoPlist.xcstrings */,
 				291D74D3313275880A305CC8 /* SecChainiOS.entitlements */,
 				09F40483B4DDFB0DC6BF6AE1 /* SecChainiOSApp.swift */,
 			);
@@ -85,6 +91,7 @@
 			children = (
 				D130D40A702EEF51726A1969 /* Assets.xcassets */,
 				5A47287727475FC624176A50 /* ContentView.swift */,
+				AC68A80C0839D1EC5585B39B /* Info.plist */,
 				45E45B6157D81C1485239943 /* SecChain.entitlements */,
 				8D49909145084989502F5670 /* SecChainApp.swift */,
 			);
@@ -171,6 +178,7 @@
 			knownRegions = (
 				Base,
 				en,
+				ja,
 			);
 			mainGroup = 219793D0C4ADDBDB066861BA;
 			minimizedProjectReferenceProxies = 1;
@@ -193,6 +201,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E33CE551C90DC8AA49B0F115 /* Assets.xcassets in Resources */,
+				CDE66650367751835787144A /* InfoPlist.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -327,6 +336,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = SecChain/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SecChain;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -415,6 +425,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = SecChain/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SecChain;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -435,6 +446,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_FILE = SecChain/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SecChain;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -453,6 +465,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SecChainiOS/SecChainiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = SecChainiOS/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SecChain;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "SecChain uses Face ID to confirm that you want to reveal or change a secret.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -475,6 +488,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SecChainiOS/SecChainiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = SecChainiOS/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SecChain;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "SecChain uses Face ID to confirm that you want to reveal or change a secret.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -565,6 +579,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = SecChainiOS/SecChainiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_FILE = SecChainiOS/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = SecChain;
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "SecChain uses Face ID to confirm that you want to reveal or change a secret.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

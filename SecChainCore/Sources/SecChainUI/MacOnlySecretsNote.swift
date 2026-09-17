@@ -6,7 +6,7 @@ import SwiftUI
 /// without a reason (documents/PROJECT.md, "iOS app").
 struct MacOnlySecretsNote: View {
     var body: some View {
-        Text("Secrets set to This device only or Device-bound on a Mac stay on that Mac and do not appear here")
+        Text("Secrets set to This device only or Device-bound on a Mac stay on that Mac and do not appear here", bundle: .module)
     }
 }
 #endif

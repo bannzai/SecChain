@@ -3,9 +3,16 @@ import SecChainCore
 
 /// Builds the model an app starts with.
 public enum AppModelFactory {
-    /// The real Keychain. A debug build can switch to demo data later (`AppModel.useDemoStore()`).
+    /// The real Keychain, with authentication reasons in the app's language. A debug build can
+    /// switch to demo data later (`AppModel.useDemoStore()`).
     public static func make() -> AppModel {
-        AppModel(store: .system)
+        AppModel(
+            store: SecretStore(
+                keychain: SystemSecretKeychain(),
+                ownerAuthenticator: SystemOwnerAuthenticator(),
+                authenticationReasonBundle: .module
+            )
+        )
     }
 
     #if DEBUG

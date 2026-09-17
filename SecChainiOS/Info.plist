@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+Merged into the Info.plist that Xcode generates from the build settings. The texts of the screens
+are translated in the resource bundle of SecChainUI, not in the app bundle, and the system runs an
+app only in the languages that its own bundle declares: without this list the screens stay English.
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>en</string>
+		<string>ja</string>
+	</array>
+</dict>
+</plist>

@@ -18,15 +18,18 @@ struct RevealedValueView: View {
         NavigationStack {
             Form {
                 Section {
-                    Text(value.exposedString ?? "This value is not text and cannot be displayed")
+                    Text(value.exposedString ?? String(localized: "This value is not text and cannot be displayed", bundle: .module))
                         .font(.body.monospaced())
                         .textSelection(.enabled)
                         .privacySensitive()
                 } footer: {
-                    Text("Hidden again after 30 seconds")
+                    Text("Hidden again after 30 seconds", bundle: .module)
                 }
                 Section {
-                    Button(didCopy ? "Copied" : "Copy", systemImage: didCopy ? "checkmark" : "doc.on.doc") {
+                    Button(
+                        didCopy ? String(localized: "Copied", bundle: .module) : String(localized: "Copy", bundle: .module),
+                        systemImage: didCopy ? "checkmark" : "doc.on.doc"
+                    ) {
                         if let text = value.exposedString {
                             copyConcealed(text: text)
                             didCopy = true
@@ -36,9 +39,9 @@ struct RevealedValueView: View {
                 } footer: {
                     // Each platform protects the copy differently (see `copyConcealed(text:)`).
                     #if os(macOS)
-                    Text("The copy is marked as a password so that clipboard managers skip it")
+                    Text("The copy is marked as a password so that clipboard managers skip it", bundle: .module)
                     #else
-                    Text("The copy stays on this device and is removed from the clipboard after one minute")
+                    Text("The copy stays on this device and is removed from the clipboard after one minute", bundle: .module)
                     #endif
                 }
             }
@@ -49,7 +52,7 @@ struct RevealedValueView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                    Button(String(localized: "Done", bundle: .module)) {
                         dismiss()
                     }
                 }

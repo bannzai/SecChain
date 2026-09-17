@@ -29,14 +29,23 @@ public enum SecretDefinitionError: Error, Equatable, CustomStringConvertible {
     /// `@repository` appears without an identifier, or an unknown `@` directive was used.
     case invalidDirective(lineNumber: Int)
 
+    /// The message in English, as the command-line tool prints it: no SecChain binary has
+    /// translations in `Bundle.main`.
     public var description: String {
+        message(bundle: .main)
+    }
+
+    /// The message translated by the String Catalog in `bundle`, for the macOS app, which shows it
+    /// in the user's language after a folder was chosen. English where the catalog has no
+    /// translation.
+    public func message(bundle: Bundle) -> String {
         switch self {
         case .valueNotAllowed(let lineNumber):
-            ".secchain line \(lineNumber): contains '='. The definition file lists secret names only; store the value with 'secchain set <NAME>'."
+            String(localized: ".secchain line \(lineNumber): contains '='. The definition file lists secret names only; store the value with 'secchain set <NAME>'.", bundle: bundle)
         case .invalidSecretName(let lineNumber):
-            ".secchain line \(lineNumber): not a valid secret name. Use letters, digits and underscores, not starting with a digit."
+            String(localized: ".secchain line \(lineNumber): not a valid secret name. Use letters, digits and underscores, not starting with a digit.", bundle: bundle)
         case .invalidDirective(let lineNumber):
-            ".secchain line \(lineNumber): unknown or incomplete directive. The only directive is '@repository <identifier>'."
+            String(localized: ".secchain line \(lineNumber): unknown or incomplete directive. The only directive is '@repository <identifier>'.", bundle: bundle)
         }
     }
 }

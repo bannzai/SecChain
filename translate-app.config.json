@@ -1,0 +1,26 @@
+{
+  "format": "xcstrings",
+  "path": "SecChainCore/Sources/SecChainUI/Resources/Localizable.xcstrings",
+  "source_language": "en",
+  "target_languages": ["ja"],
+  "engine": "codex",
+  "model": "gpt-5.6-luna",
+  "context": "SecChain is a per-repository secret manager for software developers. Secret values (API keys, access tokens) live only in the Keychain. The command-line tool secchain hands them to commands as environment variables; the macOS app and the iOS app manage the same secrets: repository list, secret list, add / update / delete, protection level, iCloud Keychain synchronization, and revealing a value after authentication. Keep product, command, file, and code names exactly as they are: SecChain, SecChain.app, secchain, secchain run, secchain set, secchain doctor, .secchain, @repository, swift build, errSecMissingEntitlement, Git, git, origin. The protection levels are called standard, confirm, and device-bound on the command line.",
+  "style": {
+    "ja": "Follow the wording of Apple's Japanese user interfaces. Buttons, titles, labels, menu items, and other short texts end without punctuation (no 。). Explanations with several clauses and error messages are polite sentences in the です・ます form that end with 。. Put a half-width space between Japanese and Latin letters or digits (Secret を追加, Touch ID で認証). The word Keychain on its own stays Keychain; iCloud Keychain becomes iCloud キーチェーン. Write the name of a protection level as the Japanese name followed by the command-line name in parentheses: 標準 (standard), 確認 (confirm), デバイス固定 (device-bound)."
+  },
+  "source_dirs": ["SecChainCore/Sources/SecChainUI", "SecChainCore/Sources/SecChainCore"],
+  "glossary": {
+    "secret": { "ja": "Secret" },
+    "iCloud Keychain": { "ja": "iCloud キーチェーン" },
+    "repository": { "ja": "リポジトリ" },
+    "device": { "ja": "デバイス" },
+    "device-bound": { "ja": "デバイス固定" },
+    "protection": { "ja": "保護" },
+    "value": { "ja": "値" },
+    "authentication": { "ja": "認証" },
+    "Apple Account": { "ja": "Apple アカウント" },
+    "Touch ID": { "ja": "Touch ID" },
+    "settings": { "ja": "設定" }
+  }
+}

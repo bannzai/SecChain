@@ -1,0 +1,24 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSFaceIDUsageDescription" : {
+      "comment" : "Shown by the system when the app asks for Face ID for the first time",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "SecChain uses Face ID to confirm that you want to reveal or change a secret."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SecChain は Secret の表示や変更の前に Face ID で確認します。"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
