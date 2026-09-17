@@ -51,4 +51,7 @@ if ! echo "${UNSIGNED_OUTPUT}" | grep -q "status ${MISSING_ENTITLEMENT_STATUS}";
   exit 1
 fi
 
+echo "== Command-line tool end to end"
+bash "${REPOSITORY_ROOT}/scripts/test/cli.sh" "${SECCHAIN}"
+
 echo "PASS"
