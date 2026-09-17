@@ -78,6 +78,13 @@ public struct RemoteApprovalSession: Sendable {
     /// Not idempotent: each call files a request with its own identifier and nonce, which is what
     /// makes one approval unusable for another run.
     public func waitForApproval(request: RemoteApprovalRequest) async throws {
+        do {
+            try await forgetExpiredRequests(requestingDeviceName: request.requestingDeviceName)
+        } catch {
+            // Housekeeping must not stop an authentication the user is waiting for, but it is said
+            // out loud rather than swallowed.
+            report("could not remove this Mac's expired requests: \(error)")
+        }
         try await store.save(request: request)
         do {
             try await waitForVerifiedApproval(request: request)
@@ -130,6 +137,20 @@ public struct RemoteApprovalSession: Sendable {
             // An approval that arrives after the expiry is the same fact as no approval arriving,
             // so the user sees one error for it instead of two.
             throw error == .expired ? RemoteApprovalError.expired : RemoteApprovalError.unverifiableApproval(error)
+        }
+    }
+
+    /// Removes the requests this Mac filed that nobody may act on any more, so that records do not
+    /// pile up after a Mac was killed while waiting and the iOS app is not opened for a while
+    /// (documents/remote-approval-records.md, "Who deletes a record").
+    ///
+    /// A request is only removed once its expiry has passed, which is the moment after which no
+    /// device may act on it. Two Macs that happen to share a name therefore cannot remove each
+    /// other's open requests.
+    func forgetExpiredRequests(requestingDeviceName: String) async throws {
+        for request in try await store.requests()
+        where request.requestingDeviceName == requestingDeviceName && request.expiry <= now() {
+            try await store.delete(requestIdentifier: request.requestIdentifier)
         }
     }
 

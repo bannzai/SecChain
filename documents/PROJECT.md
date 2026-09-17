@@ -255,6 +255,19 @@ Observed on 2026-09-17 for https://github.com/bannzai/SecChain/issues/32, with t
 | The same Simulator, a Secure Enclave key with `.privateKeyUsage` and `.biometryCurrentSet` | Creating the key fails with LocalAuthentication error -1020 ("This call is not supported on iOS Simulator"). `canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics)` is `false` with -7 (biometry not enrolled) for biometry type Face ID. A key that demands Face ID can only be checked on a device |
 | The same Simulator, CloudKit | `accountStatus` is `noAccount` (3): no Apple Account is signed in there, so neither saving a subscription nor receiving its notification can be observed on it |
 
+### Remote approval, while it was built
+
+Observed on 2026-09-18 for https://github.com/bannzai/SecChain/issues/38 with `secchain doctor
+--cloudkit` of a development build, against the record types of the protocol
+(`documents/remote-approval-records.md`) in the development environment.
+
+| Observation | Result |
+| --- | --- |
+| Saving the first record of `ApprovalRequest`, `ApprovalDecision`, `ApprovalCancellation`, and `DevicePairing` in the development environment | Creates each record type with its fields, and the queries below work, so no step in the CloudKit Console is needed for development |
+| A record fetched by record name right after it was saved | Returned at once, which is what the 2 second polling of an answer relies on |
+| A `CKQuery` on the same record a moment after it was saved | Missing at first, found after 2 seconds (the same on two consecutive runs). A query reads an index CloudKit updates asynchronously, so a request the iOS app queries for can be a couple of seconds behind the notification about it |
+| The whole `doctor --cloudkit` run (16 CloudKit calls, including the two waits for the index and the clean-up deletes) | 13 seconds, of which about 4 are the two index waits |
+
 ## Test layers
 
 | Layer | Runs where | Covers |
