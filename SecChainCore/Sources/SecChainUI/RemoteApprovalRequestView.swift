@@ -30,8 +30,10 @@ struct RemoteApprovalRequestView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     headline
-                    details
+                    // Above the details, because the remaining time decides whether it is worth
+                    // reading them at all, and a long command would otherwise push it off screen.
                     status(now: now)
+                    details
                     if let failureMessage = model.failureMessage {
                         Text(failureMessage)
                             .font(.footnote)
