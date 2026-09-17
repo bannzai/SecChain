@@ -1,0 +1,8 @@
+# apple_id / team_id / itc_team_id are not written here so that this public repository does not
+# carry an Apple ID or team identifiers. fastlane reads them from its own environment variables
+# (https://docs.fastlane.tools/advanced/#environment-variables), set through direnv in .envrc,
+# which is not tracked:
+#   FASTLANE_USER         — Apple ID (apple_id)
+#   FASTLANE_TEAM_ID      — Developer Portal team (team_id)
+#   FASTLANE_ITC_TEAM_ID  — App Store Connect team (itc_team_id)
+app_identifier("com.bannzai.SecChain")

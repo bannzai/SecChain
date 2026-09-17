@@ -1,0 +1,1 @@
+リポジトリの Secret を Keychain へ

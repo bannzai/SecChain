@@ -1,0 +1,1 @@
+The first release of SecChain for iPhone and iPad. Manage the secrets of your repositories, add and update them, choose their protection level, and reveal a value after Face ID or Touch ID.

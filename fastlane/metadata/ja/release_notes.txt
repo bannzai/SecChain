@@ -1,0 +1,1 @@
+iPhone・iPad 版 SecChain の最初のリリースです。リポジトリの Secret の管理・追加・更新・保護レベルの変更と、Face ID / Touch ID の認証後の値の表示ができます。

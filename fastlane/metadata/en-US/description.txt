@@ -1,0 +1,17 @@
+SecChain keeps the secrets of your development projects in the Keychain instead of .env files, and hands them to the commands that need them without ever printing them.
+
+On your Mac, the secchain command-line tool stores an API key or a token per repository and passes it to a command as an environment variable. On this app, the same secrets are with you on your iPhone and iPad: you can see what a project needs, add a secret while you are away from your Mac, and reveal a value after Face ID or Touch ID.
+
+WHAT IT DOES
+
+- Secrets belong to a repository, so the same name can hold a different value in each project.
+- Values live in the Keychain of your devices and nowhere else. They are never written to a file, a log, or a server.
+- Secrets you mark for iCloud Keychain follow you between your devices, end-to-end encrypted by Apple. Secrets you keep on one device stay there.
+- A value is hidden until you ask for it, and revealing one always requires authentication.
+- A protection level per secret decides when authentication is required: never for a routine command, every time it is read, or enforced by the Keychain itself.
+
+PRIVACY
+
+SecChain collects nothing. There is no account, no analytics, and no advertising. The developer cannot see your secrets, their names, or which projects you work on.
+
+SecChain is open source under the MIT License. The macOS app and the command-line tool are available separately from the project's site.
