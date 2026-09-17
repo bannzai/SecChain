@@ -4,7 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ page.title }} — SecChain</title>
-    <link rel="icon" href="{{ '/favicon.svg' | relative_url }}" type="image/svg+xml">
+    <!-- The site has no _config.yml, so site.baseurl is not set and an absolute path would leave
+         the project site. Both pages sit one directory below the site root. -->
+    <link rel="icon" href="../favicon.svg" type="image/svg+xml">
     <style>
       /* The landing page is a standalone document with its own styles; these pages only need to
          stay readable on a phone and in a reviewer's browser. */
@@ -31,7 +33,7 @@
     </style>
   </head>
   <body>
-    <nav><a href="{{ '/' | relative_url }}">SecChain</a></nav>
+    <nav><a href="../">SecChain</a></nav>
     {{ content }}
   </body>
 </html>
