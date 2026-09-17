@@ -189,6 +189,20 @@ Observed on 2026-09-17 with macOS 26 / Xcode 26.5, using `secchain doctor` and `
 | `LAContext.evaluatePolicy` from the embedded tool with nobody answering | The call stays pending (the process was still waiting after 6 seconds), i.e. the tool can present the system prompt. Answering it is a manual check |
 | The iOS app on the Simulator (locally signed, entitlements embedded) | Reads and writes items in the shared access group |
 
+### Remote approval spike
+
+Observed on 2026-09-17 for https://github.com/bannzai/SecChain/issues/32, with the same tools plus the App Store Connect API (version 4.4.1 of its specification), `secchain doctor --cloudkit`, the app's `--doctor-cloudkit` launch argument, and the debug-only "Run Remote Approval Checks" screen.
+
+| Observation | Result |
+| --- | --- |
+| Enabling iCloud (CloudKit) and Push Notifications on the App IDs with `POST /v1/bundleIdCapabilities` | Works for both `com.bannzai.SecChain` and `com.bannzai.SecChain.cli`. The API has no endpoint for CloudKit containers |
+| Changing the capabilities of an App ID | Its existing Developer ID profiles turn `INVALID`. `POST /v1/profiles` with the same name then fails with HTTP 409 ("Multiple profiles found with the name") while the invalid profile exists |
+| `xcodebuild -allowProvisioningUpdates` for the app with `iCloud.com.bannzai.SecChain` in its entitlements | The automatically managed profile that Xcode creates for `com.bannzai.SecChain` lists the container, and CloudKit calls on it succeed, so no step on the developer website is needed. The same build with `PRODUCT_BUNDLE_IDENTIFIER=com.bannzai.SecChain.cli` assigns the container to the tool's App ID |
+| The embedded tool signed with the container entitlements but without `com.apple.application-identifier` | `CKError` 8 (missing entitlement): "Trying to initialize a container without an application ID" |
+| The embedded tool additionally signed with the application identifier of the profile it embeds (a development build embeds the app's profile) | Account status, the user record identifier, saving / fetching / deleting a record in the private database, and saving / fetching / deleting a `CKQuerySubscription` whose notification has an `alertBody` all succeed, with the app not running |
+| The macOS app binary (`--doctor-cloudkit`) | Same result as the embedded tool |
+| Developer ID export when the archived tool carries the app's application identifier | `xcodebuild -exportArchive` fails: the tool's profile "doesn't match the entitlements file's value for the com.apple.application-identifier entitlement". The archive must already sign the tool with its own identifier |
+
 ## Test layers
 
 | Layer | Runs where | Covers |
