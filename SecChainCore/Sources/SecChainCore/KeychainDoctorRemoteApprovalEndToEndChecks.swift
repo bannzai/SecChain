@@ -17,9 +17,14 @@ extension KeychainDoctor {
     /// notarized DMG comes from Release (`make dmg`), so the shipped tool contains no way to
     /// approve its own requests. The signing key is created in memory for one run and is never
     /// stored, published, or enrolled.
-    public static func runRemoteApprovalEndToEndChecks() async -> [KeychainDoctorCheck] {
+    /// `waitWithInterruptCancelling` is how the command-line tool wraps a wait so that Ctrl-C
+    /// cancels it; it is passed in because the wrapper changes the process's signal disposition,
+    /// which belongs to the tool rather than to a library the apps also link.
+    public static func runRemoteApprovalEndToEndChecks(
+        waitWithInterruptCancelling: @escaping (@escaping @Sendable () async throws -> Void) async throws -> Void
+    ) async -> [KeychainDoctorCheck] {
         #if DEBUG
-        await runRemoteApprovalRounds()
+        await runRemoteApprovalRounds(waitWithInterruptCancelling: waitWithInterruptCancelling)
         #else
         [
             KeychainDoctorCheck(
@@ -33,7 +38,9 @@ extension KeychainDoctor {
     }
 
     #if DEBUG
-    static func runRemoteApprovalRounds() async -> [KeychainDoctorCheck] {
+    static func runRemoteApprovalRounds(
+        waitWithInterruptCancelling: @escaping (@escaping @Sendable () async throws -> Void) async throws -> Void
+    ) async -> [KeychainDoctorCheck] {
         let entitlementCheck = cloudKitContainerEntitlementCheck()
         guard entitlementCheck.passed else {
             return [entitlementCheck]
@@ -70,7 +77,70 @@ extension KeychainDoctor {
                     outcome: .rejected,
                     expectedFailure: .rejected
                 ),
+                await interruptRoundCheck(
+                    store: store,
+                    enrolledPublicKey: theIPhonesKey.publicKey,
+                    waitWithInterruptCancelling: waitWithInterruptCancelling
+                ),
             ]
+    }
+
+    /// The Ctrl-C path in a real process: the wait is wrapped the way `secchain run` wraps it, and
+    /// a SIGINT is sent to this process while it waits. It has to end in a cancellation record
+    /// rather than in a dead process, which is the claim behind using a kqueue-based dispatch
+    /// source: the thread Swift's concurrency runtime runs on blocks signals, so a plain handler
+    /// would never see this one.
+    static func interruptRoundCheck(
+        store: CloudKitRemoteApprovalStore,
+        enrolledPublicKey: P256.Signing.PublicKey,
+        waitWithInterruptCancelling: (@escaping @Sendable () async throws -> Void) async throws -> Void
+    ) async -> KeychainDoctorCheck {
+        let stepName = "remote approval: Ctrl-C stops the waiting and leaves a cancellation behind"
+        let request = RemoteApprovalRequest.filed(
+            repositoryIdentity: RepositoryIdentity(value: "github.com/bannzai/SecChain"),
+            secretNames: [SecretName(rawName: "DUMMY_NAME_FOR_DOCTOR")].compactMap { $0 },
+            commandArguments: ["true"],
+            requestingDeviceName: cloudKitDoctorDeviceName,
+            now: Date(),
+            // Nobody answers this request, so the interrupt is what has to end the wait. A short
+            // expiry means a broken signal path fails in seconds instead of after the two minutes
+            // a real request waits.
+            expiryInterval: 10
+        )
+        let interruptWasSent = CallbackResult<Bool>()
+        let session = RemoteApprovalSession(
+            store: store,
+            enrolledPublicKey: enrolledPublicKey,
+            now: { Date() },
+            sleep: { try await Task.sleep(for: $0) },
+            report: { _ in
+                // The first report happens inside the wait, which is where a Ctrl-C would land.
+                guard interruptWasSent.value != true else {
+                    return
+                }
+                interruptWasSent.value = true
+                kill(getpid(), SIGINT)
+            }
+        )
+        var failure: (any Error)?
+        do {
+            try await waitWithInterruptCancelling {
+                try await session.waitForApproval(request: request)
+            }
+        } catch {
+            failure = error
+        }
+        let cancellation = try? await store.cancellation(requestIdentifier: request.requestIdentifier)
+        _ = try? await store.delete(requestIdentifier: request.requestIdentifier)
+        let stoppedAsACancellation = failure as? RemoteApprovalError == .cancelled
+        return KeychainDoctorCheck(
+            name: stepName,
+            status: errSecSuccess,
+            passed: stoppedAsACancellation && cancellation?.requestIdentifier == request.requestIdentifier,
+            detail: stoppedAsACancellation
+                ? (cancellation == nil ? "the waiting stopped, but no cancellation record was written" : "the waiting stopped and the cancellation record is there")
+                : "expected the waiting to stop as a cancellation, got \(failure.map { "\($0)" } ?? "an accepted approval")"
+        )
     }
 
     /// One round: the Mac waits while the "iPhone" answers, and the outcome is compared with
