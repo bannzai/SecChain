@@ -21,9 +21,12 @@ build-macos:
 	xcodebuild -project $(XCODEPROJ) -scheme SecChain -configuration $(CONFIGURATION) -derivedDataPath $(DERIVED_DATA) -destination 'generic/platform=macOS' $(SIGNING_FLAGS) build
 
 # Build the iOS app. The generic simulator destination needs neither a registered device nor a
-# booted simulator, and simulator builds need no signing.
+# booted simulator. The simulator build is still signed (locally, without a profile) so that the
+# keychain-access-groups entitlement is embedded and the simulator's Keychain honors the shared
+# access group. CI passes IOS_SIGNING_FLAGS='CODE_SIGNING_ALLOWED=NO'.
+IOS_SIGNING_FLAGS ?=
 build-ios:
-	xcodebuild -project $(XCODEPROJ) -scheme SecChainiOS -configuration $(CONFIGURATION) -derivedDataPath $(DERIVED_DATA) -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+	xcodebuild -project $(XCODEPROJ) -scheme SecChainiOS -configuration $(CONFIGURATION) -derivedDataPath $(DERIVED_DATA) -destination 'generic/platform=iOS Simulator' $(IOS_SIGNING_FLAGS) build
 
 # Unit tests. They use an in-memory Keychain double, so they need no signing identity.
 test:

@@ -146,6 +146,22 @@ Neither is the default, because a prompt on every `secchain run` makes frequent 
 
 The command-line prompt needs a logged-in graphical session. Over SSH or in other contexts where the prompt cannot be shown, protected secrets fail with an authentication error instead of being read without confirmation.
 
+## Measured behavior
+
+Observed on 2026-09-17 with macOS 26 / Xcode 26.5, using `secchain doctor` and `make test-integration` with builds signed by the team (Apple Development identity, automatic signing).
+
+| Observation | Result |
+| --- | --- |
+| The app and the embedded tool read, write, and delete each other's synchronizable items in the shared access group | Works in both directions, no permission dialog |
+| An unsigned `swift build` product performs the same calls | Every call returns `errSecMissingEntitlement` (-34018) |
+| The same service/account stored once with and once without `kSecAttrSynchronizable` | Two separate items; `kSecAttrSynchronizableAny` returns both |
+| A non-secret attribute (`kSecAttrDescription`) read with `kSecReturnAttributes` | Readable without reading the value |
+| Item with `kSecAttrAccessControl` (user presence, `WhenPasscodeSetThisDeviceOnly`) read with `LAContext.interactionNotAllowed = true` | `errSecInteractionNotAllowed` (-25308) on macOS: the Keychain enforces the prompt. The iOS 26.5 Simulator returns the value without authentication, so enforcement on iOS must be checked on a device |
+| The same access control combined with `kSecAttrSynchronizable = true` | `SecItemAdd` fails with `errSecParam` (-50): device-bound and synchronized are mutually exclusive |
+| `LAContext.canEvaluatePolicy(.deviceOwnerAuthentication)` from the embedded tool | `true` |
+| `LAContext.evaluatePolicy` from the embedded tool with nobody answering | The call stays pending (the process was still waiting after 6 seconds), i.e. the tool can present the system prompt. Answering it is a manual check |
+| The iOS app on the Simulator (locally signed, entitlements embedded) | Reads and writes items in the shared access group |
+
 ## Test layers
 
 | Layer | Runs where | Covers |
