@@ -7,6 +7,7 @@ public struct RootView: View {
     @State private var model: AppModel
     @State private var isAddingRepository = false
     @State private var isShowingSyncInformation = false
+    @State private var isShowingRemoteApprovalChecks = false
 
     public init(model: AppModel) {
         _model = State(initialValue: model)
@@ -103,6 +104,11 @@ public struct RootView: View {
         .sheet(isPresented: $isShowingSyncInformation) {
             SyncInformationView()
         }
+        #if DEBUG
+        .sheet(isPresented: $isShowingRemoteApprovalChecks) {
+            RemoteApprovalChecksView()
+        }
+        #endif
     }
 
     /// One row per repository: the last path component tells repositories apart at a glance, the
@@ -146,6 +152,11 @@ public struct RootView: View {
         // data and a remote session cannot produce.
         Button("Show Sample Error", systemImage: "exclamationmark.triangle") {
             model.present(error: SecretStoreError.keychainUnavailable)
+        }
+        // The Secure Enclave and CloudKit behavior that remote approval depends on differs between
+        // the Simulator and a device, and neither can be driven by launch arguments remotely.
+        Button("Run Remote Approval Checks", systemImage: "checkmark.shield") {
+            isShowingRemoteApprovalChecks = true
         }
         #endif
     }
