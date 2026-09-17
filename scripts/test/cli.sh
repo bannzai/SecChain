@@ -59,6 +59,10 @@ echo "== run hands the secret to the command as an environment variable"
 EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run -- sh -c 'test "${CLI_TEST_KEY}" = "${EXPECTED_VALUE}"'
 [ "${LAST_STATUS}" -eq 0 ] || fail "the command did not see the expected value (status ${LAST_STATUS})"
 
+echo "== run --approve-remotely changes nothing for a secret that needs no authentication"
+EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run --approve-remotely -- sh -c 'test "${CLI_TEST_KEY}" = "${EXPECTED_VALUE}"'
+[ "${LAST_STATUS}" -eq 0 ] || fail "run --approve-remotely exited with ${LAST_STATUS} for a standard secret"
+
 echo "== run returns the command's exit status"
 capture "${SECCHAIN}" run -- sh -c 'exit 7'
 [ "${LAST_STATUS}" -eq 7 ] || fail "expected status 7, got ${LAST_STATUS}"

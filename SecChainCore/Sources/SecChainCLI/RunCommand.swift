@@ -7,7 +7,17 @@ struct RunCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "run",
         abstract: "Run a command with this repository's secrets as environment variables.",
-        discussion: "Example: secchain run -- npm run dev\nSecrets that are not 'standard' ask for Touch ID or your password first; one prompt covers all of them."
+        discussion: """
+            Example: secchain run -- npm run dev
+            Secrets that are not 'standard' ask for Touch ID or your password first; one prompt \
+            covers all of them.
+
+            A paired iPhone can answer that question instead of this Mac: pass --approve-remotely, \
+            or let 'secchain pair confirm-on-iphone on' make it the default. Where no prompt can be \
+            shown at all, such as over SSH, a paired Mac asks the iPhone by itself. Waiting for the \
+            answer prints the time left to standard error, and Ctrl-C stops waiting and tells the \
+            iPhone to drop the request.
+            """
     )
 
     @Option(name: .long, help: "Pass only this secret. Repeat the option to pass several.")
@@ -15,6 +25,9 @@ struct RunCommand: AsyncParsableCommand {
 
     @OptionGroup
     var repositoryOptions: RepositoryOptions
+
+    @OptionGroup
+    var remoteApprovalOptions: RemoteApprovalOptions
 
     @Argument(parsing: .postTerminator, help: "The command to run, after '--'.")
     var command: [String] = []
@@ -24,19 +37,32 @@ struct RunCommand: AsyncParsableCommand {
             throw ValidationError("No command given. Usage: secchain run -- <command> [arguments...]")
         }
         let context = try CommandContext.resolve(repositoryOption: repositoryOptions.repository)
-        let environment = try RunPlan.childEnvironment(
-            inheritedEnvironment: ProcessInfo.processInfo.environment,
-            values: try await SecretStore.system.values(
-                names: try RunPlan.secretNames(
-                    storedSecretNames: try SecretStore.system.storedSecrets(repositoryIdentity: context.repositoryIdentity).map(\.name),
-                    definition: context.definition,
-                    onlyNames: try only.map(validatedSecretName(rawName:))
-                ),
+        let storedSecrets = try SecretStore.system.storedSecrets(repositoryIdentity: context.repositoryIdentity)
+        let secretNames = try RunPlan.secretNames(
+            storedSecretNames: storedSecrets.map(\.name),
+            definition: context.definition,
+            onlyNames: try only.map(validatedSecretName(rawName:))
+        )
+        let setup = try secretStore(
+            repositoryIdentity: context.repositoryIdentity,
+            requestedSecrets: storedSecrets.filter { secretNames.contains($0.name) },
+            commandArguments: command,
+            approveRemotely: remoteApprovalOptions.approveRemotely
+        )
+        let values = try await withInterruptCancellingWhileWaiting(waitsForARemoteApproval: setup.waitsForARemoteApproval) {
+            try await setup.store.values(
+                names: secretNames,
                 repositoryIdentity: context.repositoryIdentity,
                 authenticationReason: "run \(executable) with secrets of \(context.repositoryIdentity.value)"
             )
+        }
+        try replaceProcess(
+            command: command,
+            environment: try RunPlan.childEnvironment(
+                inheritedEnvironment: ProcessInfo.processInfo.environment,
+                values: values
+            )
         )
-        try replaceProcess(command: command, environment: environment)
     }
 
     /// Replaces this process with the command (`execve` semantics) instead of spawning a child.

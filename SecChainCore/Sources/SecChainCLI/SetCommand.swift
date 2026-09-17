@@ -30,16 +30,32 @@ struct SetCommand: AsyncParsableCommand {
     @OptionGroup
     var repositoryOptions: RepositoryOptions
 
+    @OptionGroup
+    var remoteApprovalOptions: RemoteApprovalOptions
+
     func run() async throws {
         let secretName = try validatedSecretName(rawName: name)
         let context = try CommandContext.resolve(repositoryOption: repositoryOptions.repository)
-        let storedSecret = try await SecretStore.system.set(
-            name: secretName,
-            value: try SecretInput.read(secretName: secretName),
+        // Updating a secret that is not standard authenticates first, and that authentication takes
+        // the same route as the one of `run`. The name is what the iPhone is shown; the value is
+        // read from standard input and never leaves this process.
+        let setup = try secretStore(
             repositoryIdentity: context.repositoryIdentity,
-            protectionLevel: level,
-            isSynchronized: sync
+            requestedSecrets: try SecretStore.system.storedSecrets(repositoryIdentity: context.repositoryIdentity)
+                .filter { $0.name == secretName },
+            commandArguments: ["set", secretName.value],
+            approveRemotely: remoteApprovalOptions.approveRemotely
         )
+        let value = try SecretInput.read(secretName: secretName)
+        let storedSecret = try await withInterruptCancellingWhileWaiting(waitsForARemoteApproval: setup.waitsForARemoteApproval) {
+            try await setup.store.set(
+                name: secretName,
+                value: value,
+                repositoryIdentity: context.repositoryIdentity,
+                protectionLevel: level,
+                isSynchronized: sync
+            )
+        }
         // With --repository the current directory is not that repository's checkout, so its
         // definition file is left alone.
         if repositoryOptions.repository == nil {
