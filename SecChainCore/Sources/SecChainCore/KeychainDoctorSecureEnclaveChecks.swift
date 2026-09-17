@@ -8,12 +8,13 @@ extension KeychainDoctor {
     /// a key that never leaves the device signs an approval that verifies with its public key, and a
     /// key can demand Face ID / Touch ID for every signature. The keys are not stored anywhere.
     public static func runSecureEnclaveChecks() -> [KeychainDoctorCheck] {
-        let request = RemoteApprovalRequest(
-            requestIdentifier: UUID(),
-            nonce: Data((0..<32).map { _ in UInt8.random(in: .min ... .max) }),
-            // Any future moment works: the checks verify at once.
-            expiry: Date().addingTimeInterval(120),
-            contentDigest: Data(SHA256.hash(data: dummyValue))
+        let request = RemoteApprovalRequest.filed(
+            repositoryIdentity: RepositoryIdentity(value: "github.com/bannzai/SecChain"),
+            secretNames: [SecretName(rawName: "DUMMY_NAME_FOR_DOCTOR")].compactMap { $0 },
+            commandArguments: ["true"],
+            requestingDeviceName: "doctor",
+            now: Date(),
+            expiryInterval: RemoteApprovalSession.expiryInterval
         )
         var checks = [
             KeychainDoctorCheck(
@@ -41,7 +42,10 @@ extension KeychainDoctor {
         guard let accessControl = SecAccessControlCreateWithFlags(
             nil,
             kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
-            [.privateKeyUsage, .biometryCurrentSet],
+            // `.biometryAny` rather than `.biometryCurrentSet` (documents/PROJECT.md, design
+            // decision 5): changing the enrolled Face ID or Touch ID must not force the user to
+            // pair every Mac again.
+            [.privateKeyUsage, .biometryAny],
             &accessControlError
         ) else {
             checks.append(KeychainDoctorCheck(name: "Secure Enclave: create an access control that requires the current biometry", status: errSecParam, passed: false, detail: "\(accessControlError.map { $0.takeRetainedValue() }.map(String.init(describing:)) ?? "nil")"))

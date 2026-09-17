@@ -11,23 +11,41 @@ struct RemoteApprovalTests {
     let now = Date(timeIntervalSince1970: 1_800_000_000)
 
     /// A request as the Mac would file it: fresh identifier and nonce, expiring two minutes from `now`.
-    func makeRequest(expiry: Date? = nil) -> RemoteApprovalRequest {
-        RemoteApprovalRequest(
-            requestIdentifier: UUID(),
-            nonce: Data((0..<32).map { _ in UInt8.random(in: .min ... .max) }),
-            // Two minutes is the expiry proposed in issue #32.
-            expiry: expiry ?? now.addingTimeInterval(120),
-            contentDigest: RemoteApproval.contentDigest(
-                repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
-                secretNames: [SecretName(rawName: "API_TOKEN")].compactMap { $0 },
-                commandArguments: ["npm", "run", "deploy"],
-                requestingDeviceName: "Example Mac"
-            )
+    func makeRequest(commandArguments: [String] = ["npm", "run", "deploy"], expiry: Date? = nil) -> RemoteApprovalRequest {
+        let filed = RemoteApprovalRequest.filed(
+            repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
+            secretNames: [SecretName(rawName: "API_TOKEN")].compactMap { $0 },
+            commandArguments: commandArguments,
+            requestingDeviceName: "Example Mac",
+            now: now,
+            expiryInterval: RemoteApprovalSession.expiryInterval
+        )
+        guard let expiry else {
+            return filed
+        }
+        return RemoteApprovalRequest(
+            requestIdentifier: filed.requestIdentifier,
+            nonce: filed.nonce,
+            expiry: expiry,
+            repositoryIdentity: filed.repositoryIdentity,
+            secretNames: filed.secretNames,
+            commandArguments: filed.commandArguments,
+            requestingDeviceName: filed.requestingDeviceName
         )
     }
 
     func approval(request: RemoteApprovalRequest, key: P256.Signing.PrivateKey) throws -> Data {
         try RemoteApproval.signature(request: request) { try key.signature(for: $0) }
+    }
+
+    @Test
+    func aFiledRequestExpiresAfterTheDecidedIntervalOnWholeSeconds() {
+        let request = makeRequest()
+        #expect(request.expiry == now.addingTimeInterval(RemoteApprovalSession.expiryInterval))
+        #expect(request.expiry.timeIntervalSince1970 == request.expiry.timeIntervalSince1970.rounded(.down))
+        #expect(request.nonce.count == RemoteApprovalRequest.nonceByteCount)
+        #expect(makeRequest().requestIdentifier != request.requestIdentifier)
+        #expect(makeRequest().nonce != request.nonce)
     }
 
     @Test
@@ -88,14 +106,20 @@ struct RemoteApprovalTests {
                 requestIdentifier: UUID(),
                 nonce: approvedRequest.nonce,
                 expiry: approvedRequest.expiry,
-                contentDigest: approvedRequest.contentDigest
+                repositoryIdentity: approvedRequest.repositoryIdentity,
+                secretNames: approvedRequest.secretNames,
+                commandArguments: approvedRequest.commandArguments,
+                requestingDeviceName: approvedRequest.requestingDeviceName
             ),
             // The same identifier with a new nonce.
             RemoteApprovalRequest(
                 requestIdentifier: approvedRequest.requestIdentifier,
                 nonce: makeRequest().nonce,
                 expiry: approvedRequest.expiry,
-                contentDigest: approvedRequest.contentDigest
+                repositoryIdentity: approvedRequest.repositoryIdentity,
+                secretNames: approvedRequest.secretNames,
+                commandArguments: approvedRequest.commandArguments,
+                requestingDeviceName: approvedRequest.requestingDeviceName
             ),
         ]
         for request in requestsReusingTheApproval {
@@ -114,18 +138,39 @@ struct RemoteApprovalTests {
                 requestIdentifier: approvedRequest.requestIdentifier,
                 nonce: approvedRequest.nonce,
                 expiry: approvedRequest.expiry.addingTimeInterval(3600),
-                contentDigest: approvedRequest.contentDigest
+                repositoryIdentity: approvedRequest.repositoryIdentity,
+                secretNames: approvedRequest.secretNames,
+                commandArguments: approvedRequest.commandArguments,
+                requestingDeviceName: approvedRequest.requestingDeviceName
+            ),
+            // The same request with another command: what the user saw is part of the signature.
+            RemoteApprovalRequest(
+                requestIdentifier: approvedRequest.requestIdentifier,
+                nonce: approvedRequest.nonce,
+                expiry: approvedRequest.expiry,
+                repositoryIdentity: approvedRequest.repositoryIdentity,
+                secretNames: approvedRequest.secretNames,
+                commandArguments: ["env"],
+                requestingDeviceName: approvedRequest.requestingDeviceName
+            ),
+            // Another repository, and another secret, with everything else unchanged.
+            RemoteApprovalRequest(
+                requestIdentifier: approvedRequest.requestIdentifier,
+                nonce: approvedRequest.nonce,
+                expiry: approvedRequest.expiry,
+                repositoryIdentity: RepositoryIdentity(value: "github.com/example/another-repository"),
+                secretNames: approvedRequest.secretNames,
+                commandArguments: approvedRequest.commandArguments,
+                requestingDeviceName: approvedRequest.requestingDeviceName
             ),
             RemoteApprovalRequest(
                 requestIdentifier: approvedRequest.requestIdentifier,
                 nonce: approvedRequest.nonce,
                 expiry: approvedRequest.expiry,
-                contentDigest: RemoteApproval.contentDigest(
-                    repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
-                    secretNames: [SecretName(rawName: "API_TOKEN")].compactMap { $0 },
-                    commandArguments: ["env"],
-                    requestingDeviceName: "Example Mac"
-                )
+                repositoryIdentity: approvedRequest.repositoryIdentity,
+                secretNames: [SecretName(rawName: "ANOTHER_TOKEN")].compactMap { $0 },
+                commandArguments: approvedRequest.commandArguments,
+                requestingDeviceName: approvedRequest.requestingDeviceName
             ),
         ]
         for request in alteredRequests {
@@ -139,10 +184,15 @@ struct RemoteApprovalTests {
     func theContentDigestIgnoresSecretOrderButNotArgumentBoundaries() {
         func digest(secretNames: [String], commandArguments: [String]) -> Data {
             RemoteApproval.contentDigest(
-                repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
-                secretNames: secretNames.compactMap { SecretName(rawName: $0) },
-                commandArguments: commandArguments,
-                requestingDeviceName: "Example Mac"
+                request: RemoteApprovalRequest(
+                    requestIdentifier: UUID(),
+                    nonce: Data(),
+                    expiry: now,
+                    repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
+                    secretNames: secretNames.compactMap { SecretName(rawName: $0) },
+                    commandArguments: commandArguments,
+                    requestingDeviceName: "Example Mac"
+                )
             )
         }
         #expect(digest(secretNames: ["A", "B"], commandArguments: ["run"]) == digest(secretNames: ["B", "A"], commandArguments: ["run"]))
@@ -156,8 +206,26 @@ struct RemoteApprovalTests {
             requestIdentifier: request.requestIdentifier,
             nonce: request.nonce,
             expiry: Date(timeIntervalSince1970: (request.expiry.timeIntervalSince1970 * 1000).rounded(.down) / 1000 + 0.0004),
-            contentDigest: request.contentDigest
+            repositoryIdentity: request.repositoryIdentity,
+            secretNames: request.secretNames,
+            commandArguments: request.commandArguments,
+            requestingDeviceName: request.requestingDeviceName
         )
         #expect(RemoteApproval.signedMessage(request: request) == RemoteApproval.signedMessage(request: requestReadBackWithMillisecondPrecision))
+    }
+
+    /// The layout is what the iOS app signs, so a change to it has to be deliberate: it makes
+    /// every Mac's enrolled key reject every approval until both sides ship the new version.
+    @Test
+    func theSignedMessageIsThePrefixTheIdentifierTheNonceTheExpiryAndTheContentDigest() {
+        let request = makeRequest()
+        #expect(
+            RemoteApproval.signedMessage(request: request) == RemoteApproval.signedMessagePrefix
+                + withUnsafeBytes(of: request.requestIdentifier.uuid) { Data($0) }
+                + RemoteApproval.lengthPrefixed(field: request.nonce)
+                + withUnsafeBytes(of: Int64(request.expiry.timeIntervalSince1970).bigEndian) { Data($0) }
+                + RemoteApproval.lengthPrefixed(field: RemoteApproval.contentDigest(request: request))
+        )
+        #expect(RemoteApproval.signedMessagePrefix == Data("SecChain remote approval v1\n".utf8))
     }
 }
