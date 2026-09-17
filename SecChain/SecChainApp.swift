@@ -20,5 +20,8 @@ struct SecChainApp: App {
         WindowGroup {
             ContentView(model: model)
         }
+        // Tall enough for the sync explanation sheet to fit without scrolling; the size SwiftUI
+        // derives from the minimum content size (900 × 492 on a 1024 × 768 screen) cut off its end.
+        .defaultSize(width: 960, height: 680)
     }
 }

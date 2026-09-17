@@ -32,8 +32,12 @@ struct AddRepositoryView: View {
                 }
                 #endif
                 Section {
-                    TextField("Identifier", text: $identifierText, prompt: Text("github.com/owner/repository"))
-                        .font(.body.monospaced())
+                    // Only the entered identifier is monospaced; the Mac shows the label beside it.
+                    TextField(text: $identifierText, prompt: Text("github.com/owner/repository")) {
+                        Text("Identifier")
+                            .font(.body)
+                    }
+                    .font(.body.monospaced())
                         .autocorrectionDisabled()
                         #if os(iOS)
                         .textInputAutocapitalization(.never)

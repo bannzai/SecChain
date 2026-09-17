@@ -38,7 +38,9 @@ struct SyncInformationView: View {
             }
         }
         #if os(macOS)
-        .frame(minWidth: 520, minHeight: 420)
+        // The height of the whole explanation, so that its last statement (what happens when
+        // iCloud Keychain is off) is visible without scrolling.
+        .frame(minWidth: 520, minHeight: 520)
         #endif
     }
 }

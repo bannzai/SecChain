@@ -26,8 +26,12 @@ struct SecretEditorView: View {
             Form {
                 if case .add = mode {
                     Section {
-                        TextField("Name", text: $rawName, prompt: Text("OPENAI_API_KEY"))
-                            .font(.body.monospaced())
+                        // Only the entered name is monospaced; the Mac shows the label beside it.
+                        TextField(text: $rawName, prompt: Text("OPENAI_API_KEY")) {
+                            Text("Name")
+                                .font(.body)
+                        }
+                        .font(.body.monospaced())
                             .autocorrectionDisabled()
                             #if os(iOS)
                             .textInputAutocapitalization(.characters)
@@ -43,8 +47,11 @@ struct SecretEditorView: View {
                 }
                 if !isChangingProtection {
                     Section {
-                        SecureField("Value", text: $valueText)
-                            .font(.body.monospaced())
+                        SecureField(text: $valueText) {
+                            Text("Value")
+                                .font(.body)
+                        }
+                        .font(.body.monospaced())
                     } footer: {
                         Text("The value is stored in the Keychain only")
                     }

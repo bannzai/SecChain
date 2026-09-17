@@ -73,27 +73,18 @@ public struct RootView: View {
                         isAddingRepository = true
                     }
                 }
+                #if os(macOS)
+                // The sidebar's toolbar is narrow on the Mac: with more than the sidebar toggle and
+                // one other item, Add Repository is pushed into the overflow menu. iOS already
+                // gathers secondary actions in a menu.
                 ToolbarItem(placement: .secondaryAction) {
-                    Button("About Sync", systemImage: "icloud") {
-                        isShowingSyncInformation = true
+                    Menu("More", systemImage: "ellipsis.circle") {
+                        moreActions
                     }
                 }
-                ToolbarItem(placement: .secondaryAction) {
-                    Button("Reload", systemImage: "arrow.clockwise", action: model.reload)
-                }
-                #if DEBUG
-                // Also offered here because a build that reaches the Keychain (the iOS Simulator)
-                // never shows the unreachable screen, and the simulator cannot answer the
-                // authentication that revealing a stored value needs.
-                ToolbarItem(placement: .secondaryAction) {
-                    Button("Use Demo Data", systemImage: "tray.full", action: model.useDemoStore)
-                }
-                // The error alert otherwise needs a real Keychain or authentication failure, which
-                // demo data and a remote session cannot produce.
-                ToolbarItem(placement: .secondaryAction) {
-                    Button("Show Sample Error", systemImage: "exclamationmark.triangle") {
-                        model.present(error: SecretStoreError.keychainUnavailable)
-                    }
+                #else
+                ToolbarItemGroup(placement: .secondaryAction) {
+                    moreActions
                 }
                 #endif
             }
@@ -137,6 +128,26 @@ public struct RootView: View {
                 }
             }
         }
+    }
+
+    /// Actions needed less often than adding a repository.
+    @ViewBuilder
+    var moreActions: some View {
+        Button("About Sync", systemImage: "icloud") {
+            isShowingSyncInformation = true
+        }
+        Button("Reload", systemImage: "arrow.clockwise", action: model.reload)
+        #if DEBUG
+        // Also offered outside the unreachable screen because a build that reaches the Keychain
+        // (the iOS Simulator) never shows that screen, and the simulator cannot answer the
+        // authentication that revealing a stored value needs.
+        Button("Use Demo Data", systemImage: "tray.full", action: model.useDemoStore)
+        // The error alert otherwise needs a real Keychain or authentication failure, which demo
+        // data and a remote session cannot produce.
+        Button("Show Sample Error", systemImage: "exclamationmark.triangle") {
+            model.present(error: SecretStoreError.keychainUnavailable)
+        }
+        #endif
     }
 }
 
