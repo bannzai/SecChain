@@ -1,0 +1,501 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0F913DFE2F7EE21CCD70E54D /* SecChainCore in Frameworks */ = {isa = PBXBuildFile; productRef = 1CD75D4F5FB445401DC5BC22 /* SecChainCore */; };
+		401C1C74BCDE058BF2B466BD /* SecChainCore in Frameworks */ = {isa = PBXBuildFile; productRef = DD435EF196D144A5FF5EB9F8 /* SecChainCore */; };
+		516524B3B48AF02FB945C66D /* SecChainApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D49909145084989502F5670 /* SecChainApp.swift */; };
+		54A2DA7988874ABBCC84B368 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A47287727475FC624176A50 /* ContentView.swift */; };
+		763B7B4B686F1ECB7926AA7D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82F8E60608181DC37F8073D4 /* ContentView.swift */; };
+		92A61B111F00A0105BFE6469 /* SecChainiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09F40483B4DDFB0DC6BF6AE1 /* SecChainiOSApp.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		09F40483B4DDFB0DC6BF6AE1 /* SecChainiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecChainiOSApp.swift; sourceTree = "<group>"; };
+		0F260E7D03DFB80F44713724 /* SecChainCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SecChainCore; path = SecChainCore; sourceTree = SOURCE_ROOT; };
+		291D74D3313275880A305CC8 /* SecChainiOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SecChainiOS.entitlements; sourceTree = "<group>"; };
+		45E45B6157D81C1485239943 /* SecChain.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SecChain.entitlements; sourceTree = "<group>"; };
+		5A47287727475FC624176A50 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		82F8E60608181DC37F8073D4 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		8D49909145084989502F5670 /* SecChainApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecChainApp.swift; sourceTree = "<group>"; };
+		90A5C648ECB4A83AB10B3B5C /* SecChainiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SecChainiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D0432E4B0289F5EA38420ED0 /* SecChain.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SecChain.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		4A0E96C66C0B62D261ED96B6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0F913DFE2F7EE21CCD70E54D /* SecChainCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BF60514ADE67E3B3E30BD098 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				401C1C74BCDE058BF2B466BD /* SecChainCore in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		219793D0C4ADDBDB066861BA = {
+			isa = PBXGroup;
+			children = (
+				2EDB9CD63A5505210CD8FC58 /* Packages */,
+				F35AF82492E854A3C15951D5 /* SecChain */,
+				7295DCA7C001BCF369F348EE /* SecChainiOS */,
+				F77C41F97391E2F3FD7C730B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		2EDB9CD63A5505210CD8FC58 /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				0F260E7D03DFB80F44713724 /* SecChainCore */,
+			);
+			name = Packages;
+			sourceTree = "<group>";
+		};
+		7295DCA7C001BCF369F348EE /* SecChainiOS */ = {
+			isa = PBXGroup;
+			children = (
+				82F8E60608181DC37F8073D4 /* ContentView.swift */,
+				291D74D3313275880A305CC8 /* SecChainiOS.entitlements */,
+				09F40483B4DDFB0DC6BF6AE1 /* SecChainiOSApp.swift */,
+			);
+			path = SecChainiOS;
+			sourceTree = "<group>";
+		};
+		F35AF82492E854A3C15951D5 /* SecChain */ = {
+			isa = PBXGroup;
+			children = (
+				5A47287727475FC624176A50 /* ContentView.swift */,
+				45E45B6157D81C1485239943 /* SecChain.entitlements */,
+				8D49909145084989502F5670 /* SecChainApp.swift */,
+			);
+			path = SecChain;
+			sourceTree = "<group>";
+		};
+		F77C41F97391E2F3FD7C730B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D0432E4B0289F5EA38420ED0 /* SecChain.app */,
+				90A5C648ECB4A83AB10B3B5C /* SecChainiOS.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		310E9DAB042DF0B1BC90C856 /* SecChain */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 9AA2A9232D019DE6B8A8B86C /* Build configuration list for PBXNativeTarget "SecChain" */;
+			buildPhases = (
+				8E7219957A45B1CE3BFCEA60 /* Sources */,
+				4A0E96C66C0B62D261ED96B6 /* Frameworks */,
+				481A8FC6FE836164BEF0B991 /* Embed and sign the secchain command-line tool */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EBA66CF24EA37B33B197C2E6 /* PBXTargetDependency */,
+			);
+			name = SecChain;
+			packageProductDependencies = (
+				1CD75D4F5FB445401DC5BC22 /* SecChainCore */,
+			);
+			productName = SecChain;
+			productReference = D0432E4B0289F5EA38420ED0 /* SecChain.app */;
+			productType = "com.apple.product-type.application";
+		};
+		7C814B9CD699195B55B8C536 /* SecChainiOS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CF08038A513CA60154CA684E /* Build configuration list for PBXNativeTarget "SecChainiOS" */;
+			buildPhases = (
+				1CE51DE1228225347536CB03 /* Sources */,
+				BF60514ADE67E3B3E30BD098 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SecChainiOS;
+			packageProductDependencies = (
+				DD435EF196D144A5FF5EB9F8 /* SecChainCore */,
+			);
+			productName = SecChainiOS;
+			productReference = 90A5C648ECB4A83AB10B3B5C /* SecChainiOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B33E926E71D5091A05CEFCF9 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					310E9DAB042DF0B1BC90C856 = {
+						DevelopmentTeam = TQPN82UBBY;
+						ProvisioningStyle = Automatic;
+					};
+					7C814B9CD699195B55B8C536 = {
+						DevelopmentTeam = TQPN82UBBY;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = BBC856C6071A74FA1A2B5067 /* Build configuration list for PBXProject "SecChain" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 219793D0C4ADDBDB066861BA;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				725604A31E2FFD8243181722 /* XCLocalSwiftPackageReference "SecChainCore" */,
+			);
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				310E9DAB042DF0B1BC90C856 /* SecChain */,
+				7C814B9CD699195B55B8C536 /* SecChainiOS */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		481A8FC6FE836164BEF0B991 /* Embed and sign the secchain command-line tool */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Embed and sign the secchain command-line tool";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "\"${SRCROOT}/scripts/xcode/embed_cli.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1CE51DE1228225347536CB03 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				763B7B4B686F1ECB7926AA7D /* ContentView.swift in Sources */,
+				92A61B111F00A0105BFE6469 /* SecChainiOSApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		8E7219957A45B1CE3BFCEA60 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				54A2DA7988874ABBCC84B368 /* ContentView.swift in Sources */,
+				516524B3B48AF02FB945C66D /* SecChainApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		EBA66CF24EA37B33B197C2E6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			productRef = "TEMP_7342D23A-D1CD-47BB-88EE-B6EEC9BB40F1" /* secchain-cli */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		05080ED6FB3B5606F24D802E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = TQPN82UBBY;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		0A140128CACAB85CB38E63C0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = TQPN82UBBY;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		32BD056C176EEDEAFE8A4133 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SecChain/SecChain.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_KEY_CFBundleDisplayName = SecChain;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bannzai.SecChain;
+				SDKROOT = macosx;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+			};
+			name = Release;
+		};
+		69D7C8F12AE14657767F34B7 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SecChain/SecChain.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				INFOPLIST_KEY_CFBundleDisplayName = SecChain;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bannzai.SecChain;
+				SDKROOT = macosx;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+			};
+			name = Debug;
+		};
+		AE4C2BD417BAA05863E8C8FE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SecChainiOS/SecChainiOS.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_KEY_CFBundleDisplayName = SecChain;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "SecChain uses Face ID to confirm that you want to reveal or change a secret.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bannzai.SecChain;
+				SDKROOT = iphoneos;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		FA243E7B2E596FBCFD068489 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = SecChainiOS/SecChainiOS.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				INFOPLIST_KEY_CFBundleDisplayName = SecChain;
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "SecChain uses Face ID to confirm that you want to reveal or change a secret.";
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bannzai.SecChain;
+				SDKROOT = iphoneos;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		9AA2A9232D019DE6B8A8B86C /* Build configuration list for PBXNativeTarget "SecChain" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				69D7C8F12AE14657767F34B7 /* Debug */,
+				32BD056C176EEDEAFE8A4133 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BBC856C6071A74FA1A2B5067 /* Build configuration list for PBXProject "SecChain" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0A140128CACAB85CB38E63C0 /* Debug */,
+				05080ED6FB3B5606F24D802E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		CF08038A513CA60154CA684E /* Build configuration list for PBXNativeTarget "SecChainiOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				FA243E7B2E596FBCFD068489 /* Debug */,
+				AE4C2BD417BAA05863E8C8FE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		725604A31E2FFD8243181722 /* XCLocalSwiftPackageReference "SecChainCore" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = SecChainCore;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1CD75D4F5FB445401DC5BC22 /* SecChainCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SecChainCore;
+		};
+		DD435EF196D144A5FF5EB9F8 /* SecChainCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = SecChainCore;
+		};
+		"TEMP_7342D23A-D1CD-47BB-88EE-B6EEC9BB40F1" /* secchain-cli */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = "secchain-cli";
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = B33E926E71D5091A05CEFCF9 /* Project object */;
+}

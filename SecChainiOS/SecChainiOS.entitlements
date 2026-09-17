@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Access group shared with the macOS app and its embedded command-line tool. It must equal
+	     SecChainSharedConfig.keychainAccessGroup. -->
+	<key>keychain-access-groups</key>
+	<array>
+		<string>$(AppIdentifierPrefix)com.bannzai.SecChain.shared</string>
+	</array>
+</dict>
+</plist>

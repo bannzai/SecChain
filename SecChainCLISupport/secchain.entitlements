@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Access group shared with the apps. `codesign` does not expand $(AppIdentifierPrefix), so
+	     the team identifier is written literally; it must equal
+	     SecChainSharedConfig.keychainAccessGroup. No App Sandbox: the tool runs arbitrary commands
+	     in arbitrary directories. -->
+	<key>keychain-access-groups</key>
+	<array>
+		<string>TQPN82UBBY.com.bannzai.SecChain.shared</string>
+	</array>
+</dict>
+</plist>
