@@ -89,16 +89,17 @@ public struct RootView: View {
                         isShowingSyncInformation = true
                     }
                 }
+                #if os(macOS)
+                // The sidebar's toolbar is narrow on the Mac: one button more pushes Add Repository
+                // into the overflow menu. iOS already gathers secondary actions in a menu.
                 ToolbarItem(placement: .secondaryAction) {
-                    Button("Reload", systemImage: "arrow.clockwise", action: model.reload)
-                }
-                #if DEBUG
-                // The error alert otherwise needs a real Keychain or authentication failure, which
-                // demo data and a remote session cannot produce.
-                ToolbarItem(placement: .secondaryAction) {
-                    Button("Show Sample Error", systemImage: "exclamationmark.triangle") {
-                        model.present(error: SecretStoreError.keychainUnavailable)
+                    Menu("More", systemImage: "ellipsis.circle") {
+                        moreActions
                     }
+                }
+                #else
+                ToolbarItemGroup(placement: .secondaryAction) {
+                    moreActions
                 }
                 #endif
             }
@@ -117,6 +118,19 @@ public struct RootView: View {
         .sheet(isPresented: $isShowingSyncInformation) {
             SyncInformationView()
         }
+    }
+
+    /// Actions needed less often than adding a repository.
+    @ViewBuilder
+    var moreActions: some View {
+        Button("Reload", systemImage: "arrow.clockwise", action: model.reload)
+        #if DEBUG
+        // The error alert otherwise needs a real Keychain or authentication failure, which demo
+        // data and a remote session cannot produce.
+        Button("Show Sample Error", systemImage: "exclamationmark.triangle") {
+            model.present(error: SecretStoreError.keychainUnavailable)
+        }
+        #endif
     }
 }
 
