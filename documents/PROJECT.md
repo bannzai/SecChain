@@ -50,6 +50,14 @@ User authentication (Touch ID, Apple Watch, or the login password) is opt-in per
 - The repository identity must survive different checkout paths on different Macs (`~/Projects/example` and `~/src/example` are the same repository). An absolute local path alone is therefore not a valid identity.
 - Directories that are not Git repositories need a defined behavior (an explicit identifier or a clear error).
 
+Identification rules (implemented in `RepositoryIdentity.swift` and `RepositoryIdentityResolver.swift`):
+
+1. An identifier declared in the secret definition file wins. It is the way to use SecChain in a directory without a usable remote, and to make a fork share (or not share) the upstream's secrets on purpose.
+2. Otherwise the `origin` remote URL is normalized to `host/owner/repo`: user info, port, scheme, a trailing `.git`, trailing slashes, and letter case are dropped, so `git@github.com:Owner/Repo.git` and `https://github.com/owner/repo` are the same repository. `git config` is asked, which answers the same from sub-directories and linked worktrees.
+3. No Git repository, no `origin`, or an `origin` that is a local path is an error that names the fix. SecChain never falls back to the directory path.
+
+The Keychain item of a secret is a generic password with `kSecAttrService` = `com.bannzai.SecChain.repository.<identifier>` and `kSecAttrAccount` = the secret name.
+
 ### Secret definition file
 
 - A repository may contain a Git-trackable file listing the secret **names** it needs.
