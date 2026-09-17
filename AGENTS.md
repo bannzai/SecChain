@@ -27,6 +27,17 @@ An unsigned `swift build` product cannot read SecChain's Keychain items (`docume
 
 Follow `.claude/rules/secret-handling.md` during verification: use fake values and never echo a secret value into a log, an issue, or a pull request.
 
+### Checking screens
+
+- Verify screens and behavior through simtunnel by default: the app runs on a GitHub Actions macOS runner (in an iOS Simulator, or on the runner's desktop for the macOS app) that joins the maintainer's tailnet. A local simulator or a local launch of the macOS app is not the default, and a local-only step written in an issue (`make ios`, launch arguments) is not by itself a reason to use one.
+  - Push the branch first. A session builds the pushed tip of `--ref`; without `--ref` it builds `main`.
+  - iOS: `SIMTUNNEL_REPO=bannzai/SecChain ~/ghq/github.com/bannzai/simtunnel/local/simtunnel up <session> --ref <branch> --wait` starts `.github/workflows/simulator-session.yml`. Operate and capture with `scripts/ios-wda.sh --session <session>` of the `/ios-simulator` skill.
+  - macOS: the same command with `SIMTUNNEL_WORKFLOW=macos-app-session.yml` starts `.github/workflows/macos-app-session.yml`. Operate and capture with `scripts/macos-wda.sh` of the `/macos-simtunnel` skill.
+  - Name sessions `secchain-<worktree>` (iOS) and `secchain-<worktree>-mac` (macOS). A session name becomes a tailnet host name, so it must not collide with sessions of other repositories.
+  - Close a session with `simtunnel down <session>` and the same environment variables as `up`, because macOS runners are shared with CI.
+  - A remote session cannot pass launch arguments, so debug builds offer hard-to-reach states on screen: "Use Demo Data" on the "SecChain cannot reach its Keychain items" screen, and "Show Sample Error" in the repository list's toolbar. The macOS session builds the `DebugUnsigned` configuration (Debug without code signing, because the runner has no signing identity), so the macOS app always starts on that screen. Add a debug-only control when a check needs a state none of them reaches.
+  - Fall back to a local simulator (`make ios`) only when the check cannot be done with tap, type, and screenshot operations (XCUITest, `xcrun simctl` as the subject of the check), or when an operational condition of Phase 1 of the `/ios-simulator` skill applies (unpushed changes, no tailnet connection, the runner concurrency limit, and so on). State the reason in the completion report.
+
 ## Xcode project
 
 - `SecChain.xcodeproj` is the only source of truth for the project structure. Change it through the Xcode GUI or by editing `project.pbxproj` directly.
