@@ -1,7 +1,7 @@
 #!/bin/bash
 # Integration checks that need a build signed with the team's identity. They run the signed
 # binaries themselves, because only those carry the shared access group. Only the doctor's fixed
-# dummy value is ever stored.
+# dummy value is ever stored. The CloudKit checks also need the Mac to be signed in to iCloud.
 #
 # Usage: integration.sh <path to the embedded secchain executable>
 set -euo pipefail
@@ -41,6 +41,10 @@ echo "== An item written by the app is readable by the embedded tool"
 echo "== An item written by the embedded tool is readable by the app"
 "${SECCHAIN}" doctor --write-fixture from-cli
 "${APP_EXECUTABLE}" --doctor-read-fixture from-cli
+
+echo "== The embedded tool and the app use the CloudKit container's private database (remote approval)"
+"${SECCHAIN}" doctor --cloudkit
+"${APP_EXECUTABLE}" --doctor-cloudkit
 
 echo "== An unsigned 'swift build' product fails with errSecMissingEntitlement"
 swift build --package-path "${REPOSITORY_ROOT}/SecChainCore" --product secchain-cli

@@ -8,5 +8,15 @@
 	<array>
 		<string>$(AppIdentifierPrefix)com.bannzai.SecChain.shared</string>
 	</array>
+	<!-- CloudKit container that carries remote approval requests between the user's devices
+	     (documents/PROJECT.md, "Remote approval"). -->
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.com.bannzai.SecChain</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudKit</string>
+	</array>
 </dict>
 </plist>

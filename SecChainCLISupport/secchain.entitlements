@@ -10,5 +10,19 @@
 	<array>
 		<string>TQPN82UBBY.com.bannzai.SecChain.shared</string>
 	</array>
+	<!-- CloudKit container shared with the apps; it must equal
+	     SecChainSharedConfig.cloudKitContainerIdentifier. CloudKit also needs
+	     com.apple.application-identifier, which scripts/xcode/embed_cli.sh adds because its value
+	     depends on the profile the build embeds. -->
+	<key>com.apple.developer.team-identifier</key>
+	<string>TQPN82UBBY</string>
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.com.bannzai.SecChain</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudKit</string>
+	</array>
 </dict>
 </plist>
