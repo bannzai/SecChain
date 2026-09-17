@@ -152,7 +152,7 @@ The command-line prompt needs a logged-in graphical session. Over SSH or in othe
 | --- | --- | --- |
 | Unit tests against an in-memory Keychain double | Anywhere, including CI on pull requests from forks | Repository identification, isolation, definition file, error translation, environment construction for `run`, no-leak assertions |
 | Signed integration tests against the real data protection keychain | A Mac with the team's signing identity | Add / update / delete, sync attribute handling, interoperability between the app and the embedded tool |
-| Manual checks | Two Macs on the same Apple Account | Actual iCloud Keychain propagation |
+| Manual checks | Two Macs and an iPhone on the same Apple Account | Actual iCloud Keychain propagation, authentication prompts on real hardware |
 
 ## References
 

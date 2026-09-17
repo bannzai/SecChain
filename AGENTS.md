@@ -16,6 +16,8 @@ Run these after every change, save the full output under `./tmp/`, and inspect t
 | Command | Purpose |
 | --- | --- |
 | `make build-macos` | Build the macOS app together with the embedded command-line tool (`-derivedDataPath tmp/DerivedData`) |
+| `make build-ios` | Build the iOS app for the generic iOS Simulator destination |
+| `make ios` | Build, install, and launch the iOS app on the project's simulator (started through `sim-boot`) |
 | `make test` | Unit tests. They use an in-memory Keychain double and need no signing identity, so they also run in CI |
 | `make test-integration` | Tests against the real data protection keychain. Requires a build signed with the team's identity; not available in CI for pull requests from forks |
 | `make macos` | Install the Release build to `/Applications/SecChain.app` |
