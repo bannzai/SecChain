@@ -13,6 +13,8 @@
 		54A2DA7988874ABBCC84B368 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A47287727475FC624176A50 /* ContentView.swift */; };
 		763B7B4B686F1ECB7926AA7D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82F8E60608181DC37F8073D4 /* ContentView.swift */; };
 		92A61B111F00A0105BFE6469 /* SecChainiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09F40483B4DDFB0DC6BF6AE1 /* SecChainiOSApp.swift */; };
+		E33CE551C90DC8AA49B0F115 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F0899F93912E898B605AC56B /* Assets.xcassets */; };
+		CA6CBC15CFFB15F70B75A871 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D130D40A702EEF51726A1969 /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,6 +27,8 @@
 		8D49909145084989502F5670 /* SecChainApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecChainApp.swift; sourceTree = "<group>"; };
 		90A5C648ECB4A83AB10B3B5C /* SecChainiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = SecChainiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D0432E4B0289F5EA38420ED0 /* SecChain.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SecChain.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D130D40A702EEF51726A1969 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F0899F93912E898B605AC56B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -68,6 +72,7 @@
 		7295DCA7C001BCF369F348EE /* SecChainiOS */ = {
 			isa = PBXGroup;
 			children = (
+				F0899F93912E898B605AC56B /* Assets.xcassets */,
 				82F8E60608181DC37F8073D4 /* ContentView.swift */,
 				291D74D3313275880A305CC8 /* SecChainiOS.entitlements */,
 				09F40483B4DDFB0DC6BF6AE1 /* SecChainiOSApp.swift */,
@@ -78,6 +83,7 @@
 		F35AF82492E854A3C15951D5 /* SecChain */ = {
 			isa = PBXGroup;
 			children = (
+				D130D40A702EEF51726A1969 /* Assets.xcassets */,
 				5A47287727475FC624176A50 /* ContentView.swift */,
 				45E45B6157D81C1485239943 /* SecChain.entitlements */,
 				8D49909145084989502F5670 /* SecChainApp.swift */,
@@ -103,6 +109,7 @@
 			buildPhases = (
 				8E7219957A45B1CE3BFCEA60 /* Sources */,
 				4A0E96C66C0B62D261ED96B6 /* Frameworks */,
+				BB1CC912D0E9931B67446936 /* Resources */,
 				481A8FC6FE836164BEF0B991 /* Embed and sign the secchain command-line tool */,
 			);
 			buildRules = (
@@ -124,6 +131,7 @@
 			buildPhases = (
 				1CE51DE1228225347536CB03 /* Sources */,
 				BF60514ADE67E3B3E30BD098 /* Frameworks */,
+				5B5917E87EF32237C314285F /* Resources */,
 			);
 			buildRules = (
 			);
@@ -178,6 +186,25 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		5B5917E87EF32237C314285F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E33CE551C90DC8AA49B0F115 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BB1CC912D0E9931B67446936 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CA6CBC15CFFB15F70B75A871 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
 		481A8FC6FE836164BEF0B991 /* Embed and sign the secchain command-line tool */ = {
