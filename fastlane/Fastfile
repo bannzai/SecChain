@@ -1,0 +1,43 @@
+default_platform(:ios)
+
+platform :ios do
+  # Synchronizes fastlane/metadata and fastlane/screenshots with App Store Connect. The binary is
+  # uploaded separately, so this lane never submits a build or a review.
+  lane :metadata_upload do
+    ENV['FASTLANE_ENABLE_BETA_DELIVER_SYNC_SCREENSHOTS'] = 'true'
+    # An App Store Connect API key authenticates without 2FA; deliver picks up the key from
+    # lane_context. Without one, fastlane falls back to FASTLANE_USER (see Appfile), which prompts.
+    key_id = ENV['ASC_API_KEY_ID'].to_s
+    issuer_id = ENV['ASC_API_KEY_ISSUER_ID'].to_s
+    key_content = ENV['ASC_API_KEY_P8_BASE64'].to_s
+    api_key_values = [key_id, issuer_id, key_content]
+    if api_key_values.any?(&:empty?) && api_key_values.any? { |value| !value.empty? }
+      # A partial set is a configuration mistake: failing here avoids authenticating as a different
+      # account or hanging on a 2FA prompt.
+      UI.user_error!('Set ASC_API_KEY_ID, ASC_API_KEY_ISSUER_ID, and ASC_API_KEY_P8_BASE64 together (only some of them are set)')
+    elsif api_key_values.all?(&:empty?)
+      UI.important('ASC_API_KEY_ID / ASC_API_KEY_ISSUER_ID / ASC_API_KEY_P8_BASE64 are not set; authenticating with FASTLANE_USER (an interactive 2FA prompt follows)')
+    else
+      app_store_connect_api_key(
+        key_id: key_id,
+        issuer_id: issuer_id,
+        key_content: key_content,
+        is_key_content_base64: true
+      )
+    end
+    upload_to_app_store(
+      force: true,
+      sync_screenshots: true,
+      run_precheck_before_submit: false,
+      automatic_release: true,
+      # phased_release is not set for the first version: the resource does not exist yet and
+      # deliver fails whichever value is passed. Updates after 1.0 can set it to true.
+      reset_ratings: false,
+      metadata_path: 'fastlane/metadata',
+      screenshots_path: 'fastlane/screenshots',
+      skip_binary_upload: true,
+      submit_for_review: false,
+      ignore_language_directory_validation: true
+    )
+  end
+end
