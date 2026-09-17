@@ -38,6 +38,7 @@ public enum KeychainDoctor {
             listAttributesWithoutData(account: "local"),
             addUserPresenceItem(account: "device-bound", synchronizable: false, expectSuccess: true),
             readUserPresenceItemWithoutInteraction(account: "device-bound"),
+            listingFailsWhenAnAccessControlledItemMatches(),
             addUserPresenceItem(account: "device-bound-sync", synchronizable: true, expectSuccess: false),
             canEvaluateOwnerAuthentication(),
         ]
@@ -97,7 +98,7 @@ public enum KeychainDoctor {
         } else if let index = arguments.firstIndex(of: "--doctor-read-fixture"), arguments.indices.contains(index + 1) {
             checks = readAndDeleteFixture(account: arguments[index + 1])
         } else if arguments.contains("--doctor") {
-            checks = runSelfContainedChecks()
+            checks = runSelfContainedChecks() + blockingStoreChecks()
         } else {
             return nil
         }
@@ -105,6 +106,26 @@ public enum KeychainDoctor {
             print(check.line)
         }
         return checks.allSatisfy(\.passed) ? 0 : 1
+    }
+
+    /// `App.init` is synchronous, and the process exits right after the doctor, so the launch
+    /// argument path waits for the asynchronous store checks. Nothing in them needs the main
+    /// actor (the doctor's authenticator never prompts), so blocking the calling thread is safe.
+    static func blockingStoreChecks() -> [KeychainDoctorCheck] {
+        let result = BlockingResult()
+        let semaphore = DispatchSemaphore(value: 0)
+        Task.detached {
+            result.checks = await runStoreChecks()
+            semaphore.signal()
+        }
+        semaphore.wait()
+        return result.checks
+    }
+
+    /// Carries the result out of the detached task. The semaphore orders the single write before
+    /// the single read, which is why the class can be unchecked `Sendable`.
+    final class BlockingResult: @unchecked Sendable {
+        var checks: [KeychainDoctorCheck] = []
     }
 
     // MARK: - Steps
@@ -214,6 +235,46 @@ public enum KeychainDoctor {
             name: "the Keychain refuses to return a device-bound item without user interaction",
             status: status,
             passed: status == errSecInteractionNotAllowed && item == nil,
+            detail: "expected errSecInteractionNotAllowed (\(errSecInteractionNotAllowed))"
+        )
+        #endif
+    }
+
+    /// Documents why a device-bound secret is split into a listable marker and a protected value
+    /// stored under another item class (see `SystemSecretKeychain`). Measured on macOS 26: a
+    /// query that matches an access-controlled item fails as a whole with
+    /// `errSecInteractionNotAllowed` when prompting is disabled, even if only attributes are
+    /// requested. Listing must never prompt, so list queries must never match such an item.
+    static func listingFailsWhenAnAccessControlledItemMatches() -> KeychainDoctorCheck {
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        var items: CFTypeRef?
+        let status = SecItemCopyMatching(
+            [
+                kSecClass as String: kSecClassGenericPassword,
+                kSecAttrService as String: service,
+                kSecAttrAccessGroup as String: SecChainSharedConfig.keychainAccessGroup,
+                kSecUseDataProtectionKeychain as String: true,
+                kSecAttrSynchronizable as String: kSecAttrSynchronizableAny,
+                kSecMatchLimit as String: kSecMatchLimitAll,
+                kSecReturnAttributes as String: true,
+                kSecUseAuthenticationContext as String: context,
+            ] as CFDictionary,
+            &items
+        )
+        #if targetEnvironment(simulator)
+        // The Simulator does not enforce access control, so the query simply succeeds there.
+        return KeychainDoctorCheck(
+            name: "an attribute query that matches an access-controlled item fails instead of prompting",
+            status: status,
+            passed: true,
+            detail: "not enforced by the Simulator; verify on a device"
+        )
+        #else
+        return KeychainDoctorCheck(
+            name: "an attribute query that matches an access-controlled item fails instead of prompting",
+            status: status,
+            passed: status == errSecInteractionNotAllowed,
             detail: "expected errSecInteractionNotAllowed (\(errSecInteractionNotAllowed))"
         )
         #endif
