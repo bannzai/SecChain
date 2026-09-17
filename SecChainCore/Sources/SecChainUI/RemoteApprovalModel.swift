@@ -13,8 +13,13 @@ import UserNotifications
 /// iPhone does, and the macOS app shows no approval screen (issue #39).
 @Observable
 public final class RemoteApprovalModel {
-    /// Transport the requests and the answers travel through. Only the debug demo replaces it.
-    private(set) var store: any RemoteApprovalStore
+    /// Creates the transport the records travel through. It is a function rather than a store
+    /// because `CloudKitRemoteApprovalStore.system()` throws when the binary cannot use the
+    /// container: the screens report that like any other failure, instead of the app failing to
+    /// start. Only the debug demo replaces it.
+    private(set) var makeStore: @Sendable () throws -> any RemoteApprovalStore
+    /// The transport once it has been created, so that the whole session talks to one database.
+    private var createdStore: (any RemoteApprovalStore)?
     /// Where this device's approval key lives. Only the debug demo replaces it.
     private(set) var keyStore: any RemoteApprovalKeyStore
     /// Installs the subscription that turns a filed request into a notification. Injected because
@@ -52,19 +57,32 @@ public final class RemoteApprovalModel {
     public private(set) var failureMessage: String?
 
     public init(
-        store: any RemoteApprovalStore,
+        makeStore: @escaping @Sendable () throws -> any RemoteApprovalStore,
         keyStore: any RemoteApprovalKeyStore,
         deviceName: String,
         installSubscription: @escaping @Sendable (_ alertTitle: String, _ alertBody: String) async throws -> Void
     ) {
-        self.store = store
+        self.makeStore = makeStore
         self.keyStore = keyStore
         self.deviceName = deviceName
         self.installSubscription = installSubscription
     }
 
+    var store: any RemoteApprovalStore {
+        get throws {
+            if let createdStore {
+                return createdStore
+            }
+            let store = try makeStore()
+            createdStore = store
+            return store
+        }
+    }
+
     var inbox: RemoteApprovalInbox {
-        RemoteApprovalInbox(store: store, now: Date.init)
+        get throws {
+            RemoteApprovalInbox(store: try store, now: Date.init)
+        }
     }
 
     /// Reads the key of this device and the requests waiting for it. Called when the app starts and
@@ -217,10 +235,14 @@ public final class RemoteApprovalModel {
 
     func refreshRequests() async {
         do {
-            openRequests = try await inbox.openRequests()
-            if let presentedRequest, answeredOutcome == nil {
+            // The reason of the request on screen is read first, and kept once it is known:
+            // looking for open requests also removes the records of the ones that can no longer be
+            // answered (documents/remote-approval-records.md, "Who deletes a record"), and the
+            // screen still has to say what happened to the request the user was looking at.
+            if let presentedRequest, answeredOutcome == nil, unanswerableReason == nil {
                 unanswerableReason = try await inbox.unanswerableReason(request: presentedRequest)
             }
+            openRequests = try await inbox.openRequests()
         } catch {
             present(failure: error)
         }
@@ -246,7 +268,9 @@ public final class RemoteApprovalModel {
     /// arguments, so the screens are filled from a control on screen. Calling it again starts over
     /// from the same demo data (idempotent).
     public func useDemoData() async {
-        store = InMemoryRemoteApprovalStore()
+        let demoStore = InMemoryRemoteApprovalStore()
+        makeStore = { demoStore }
+        createdStore = demoStore
         keyStore = InMemoryRemoteApprovalKeyStore()
         installSubscription = { _, _ in }
         pairedKey = nil

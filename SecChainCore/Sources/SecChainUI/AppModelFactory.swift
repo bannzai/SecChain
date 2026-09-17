@@ -22,13 +22,9 @@ public enum AppModelFactory {
     #if os(iOS)
     /// The model of the remote approval screens, which only the iOS app has: approving is what the
     /// paired iPhone does (issue #39).
-    ///
-    /// The transport is still the in-memory one. `CloudKitRemoteApprovalStore` is written on the Mac
-    /// side (issue #38) and has not reached `main` yet; this function is the single place that
-    /// changes when it does, because everything else is written against `RemoteApprovalStore`.
     public static func makeRemoteApprovalModel() -> RemoteApprovalModel {
         RemoteApprovalModel(
-            store: InMemoryRemoteApprovalStore(),
+            makeStore: CloudKitRemoteApprovalStore.system,
             keyStore: SecureEnclaveRemoteApprovalKeyStore(
                 authenticationReason: String(localized: "approve a request from your Mac", bundle: .module)
             ),
