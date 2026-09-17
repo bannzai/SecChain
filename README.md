@@ -1,6 +1,6 @@
 # SecChain
 
-A per-repository secret manager for macOS. Secret values live in the macOS Keychain instead of `.env` files, can follow you across your Macs through iCloud Keychain, and are handed to the commands that need them without ever being printed to a terminal, a log, or a file.
+A per-repository secret manager for macOS. Secret values live in the macOS Keychain instead of `.env` files, can follow you across your Macs through iCloud Keychain, and are handed to the commands that need them as environment variables. SecChain itself never prints a secret value to a terminal, a log, or a file — what a command does with a value once it has it is up to that command, which is why an AI coding agent should never be asked to run one that dumps its environment (see "AI agent skill").
 
 ```bash
 secchain set OPENAI_API_KEY      # value is read from a hidden prompt
@@ -48,7 +48,7 @@ secchain set OPENAI_API_KEY
 # Value for OPENAI_API_KEY (input hidden):
 ```
 
-The value is always read from a hidden terminal prompt or from standard input — never as a command-line argument, so it cannot end up in shell history or in `ps` output:
+The value is always read from a hidden terminal prompt or from standard input — `secchain` never accepts it as a command-line argument, so `secchain`'s own invocation cannot leak it through shell history or `ps` output. That guarantee is about `secchain`, not about how you produce the value: piping in a command whose own arguments contain the value (`echo "the-value" | secchain set NAME`) still puts it in your shell history.
 
 ```bash
 pbpaste | secchain set OPENAI_API_KEY
@@ -123,7 +123,7 @@ CLOUDFLARE_API_TOKEN
 
 - A secret name is a POSIX environment variable name (letters, digits, underscores, not starting with a digit) — `secchain run` exports it under that name.
 - `@repository <identifier>` is optional. It overrides the identity SecChain would otherwise derive from the Git remote, which is how a directory without a usable remote uses SecChain, and how a fork can be made to share (or not share) the upstream's secrets on purpose.
-- `secchain set` and `secchain delete` keep the file's names in sync; comments and ordering you wrote by hand survive.
+- `secchain set` and `secchain delete` keep the current directory's `.secchain` in sync, as long as neither is given `--repository`; comments and ordering you wrote by hand survive. With `--repository`, the command acts on a different repository's secrets, so the local `.secchain` is not the right file to update and is left alone.
 - The file is optional. Without it, `run` uses every secret stored for the repository. With it, `run` refuses to start while a name it declares has no stored value, and names it in the error.
 
 ### Repository identity

@@ -21,13 +21,13 @@ secchain run -- npm run dev
 secchain run --only CLOUDFLARE_API_TOKEN -- ./scripts/deploy.sh
 ```
 
-To use a secret inside a shell pipeline or with variable expansion, wrap it in `sh -c` so the expansion happens in the child process that actually receives the value:
+To use a secret inside a shell pipeline or with variable expansion, wrap it in `sh -c` so the expansion happens in the child process that actually receives the value. Do not pass the value as another command's argument — arguments are visible to other processes through `ps`, the same exposure `secchain set` avoids by never accepting a value that way. Pipe it in instead:
 
 ```bash
-secchain run -- sh -c 'curl -H "Authorization: Bearer $OPENAI_API_KEY" https://api.openai.com/v1/models'
+secchain run -- sh -c 'printf "Authorization: Bearer %s" "$OPENAI_API_KEY" | curl -H @- https://api.openai.com/v1/models'
 ```
 
-The single quotes around the `sh -c` script matter: double quotes would let the calling shell expand `$OPENAI_API_KEY` before `secchain run` ever starts, when the variable does not exist yet, silently sending an empty value.
+The single quotes around the `sh -c` script matter: double quotes would let the calling shell expand `$OPENAI_API_KEY` before `secchain run` ever starts, when the variable does not exist yet, silently sending an empty value. `curl -H @-` reads the header from standard input instead of taking it as an argument.
 
 Some secrets in this Keychain are protected at the `confirm` level: `secchain run` shows a Touch ID / password prompt before it starts. That prompt is the user confirming the run, not an error — wait for it instead of treating the run as stuck or failed.
 
