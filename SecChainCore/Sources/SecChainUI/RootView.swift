@@ -84,14 +84,10 @@ public struct RootView: View {
                         isAddingRepository = true
                     }
                 }
-                ToolbarItem(placement: .secondaryAction) {
-                    Button("About Sync", systemImage: "icloud") {
-                        isShowingSyncInformation = true
-                    }
-                }
                 #if os(macOS)
-                // The sidebar's toolbar is narrow on the Mac: one button more pushes Add Repository
-                // into the overflow menu. iOS already gathers secondary actions in a menu.
+                // The sidebar's toolbar is narrow on the Mac: with more than the sidebar toggle and
+                // one other item, Add Repository is pushed into the overflow menu. iOS already
+                // gathers secondary actions in a menu.
                 ToolbarItem(placement: .secondaryAction) {
                     Menu("More", systemImage: "ellipsis.circle") {
                         moreActions
@@ -123,6 +119,9 @@ public struct RootView: View {
     /// Actions needed less often than adding a repository.
     @ViewBuilder
     var moreActions: some View {
+        Button("About Sync", systemImage: "icloud") {
+            isShowingSyncInformation = true
+        }
         Button("Reload", systemImage: "arrow.clockwise", action: model.reload)
         #if DEBUG
         // The error alert otherwise needs a real Keychain or authentication failure, which demo
