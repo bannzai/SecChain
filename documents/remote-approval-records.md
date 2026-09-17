@@ -116,6 +116,46 @@ Every record read from the private database is a claim, not a fact: any process 
 can write there, and that process is exactly the actor the *confirm* level exists to stop. The Mac
 verifies against what it holds itself.
 
+### A query is a couple of seconds behind
+
+A fetch by record name reads the record; a `CKQuery` reads an index CloudKit updates asynchronously.
+Measured, a record saved a moment earlier appeared in a query after 2 seconds
+(`documents/PROJECT.md`, "Remote approval, while it was built"). Two consequences:
+
+- The Mac polls for the answer by **record name**, never with a query, which is why it sees an
+  approval as soon as the iPhone has written it.
+- The iPhone's query for open requests can be behind the notification that told it about one. A
+  request named by a notification is fetched by identifier (`request(requestIdentifier:)`); the
+  query is the backup for notifications that were coalesced or dropped, and it catches up on its
+  own within seconds.
+
+### Who deletes a record
+
+Nothing expires by itself in CloudKit, and a request that nobody removes stays in the user's
+database forever. Each record therefore has one device that is responsible for removing it, and the
+rule is the same for all of them: **the device that can no longer be waiting for the record deletes
+it.**
+
+| Situation | Who deletes | What is deleted | When |
+| --- | --- | --- | --- |
+| The Mac learns the outcome: approved, rejected, expired, or an answer it refused | The Mac | The request, the answer, and any cancellation of it | Before the command starts, or before the error is reported |
+| The user pressed Ctrl-C on the Mac | The iPhone | The request, its cancellation, and any answer | When the iPhone acts on the cancellation — it stops offering the request, and removes the three records. Nothing has to be shown first: a cancelled request is simply gone |
+| The Mac was killed while waiting (SIGKILL, a closed lid, a lost power cable), so it wrote neither an answer nor a cancellation | The iPhone | The request and any answer or cancellation of it | Whenever the iPhone queries `ApprovalRequest` (at launch, on a notification) and finds a request whose `expiry` has passed. The iPhone never offers such a request |
+| The same, but the iOS app is not opened for a long time | The Mac | The requests that carry this Mac's `requestingDeviceName` and whose `expiry` has passed | Before the Mac files its next request (`RemoteApprovalSession.forgetExpiredRequests`) |
+| A device published a new approval key | The iPhone that published the old one | Its own `DevicePairing` record | When it publishes the new key |
+
+Two rules keep this safe:
+
+- **Only an expired request is removed by the device that did not file it.** A Mac deletes another
+  device's request only after its `expiry` has passed, which is the moment after which no device may
+  act on it anyway; two Macs that happen to share a name cannot remove each other's open requests.
+- **Nobody but the publishing iPhone removes a `DevicePairing` record.** A Mac that is paired holds
+  its own copy of the public key, so removing the published record does not unpair anything, but
+  removing someone else's published key would stop another Mac from pairing.
+
+Deleting a record that is already gone succeeds, so every one of these steps can be repeated without
+checking first.
+
 ## The signed message
 
 `RemoteApproval.signedMessage(request:)` is the byte string the iPhone signs and the Mac verifies:
