@@ -17,7 +17,14 @@ SecChain ships as a macOS app with an embedded command-line tool, plus an iOS ap
 - **macOS app (Developer ID, GitHub Releases):** download the `.dmg` from the [Releases page](https://github.com/bannzai/SecChain/releases) once a release exists, open it, and move `SecChain.app` to `/Applications`. The app is notarized, so Gatekeeper opens it without a warning.
 - **Homebrew cask:** `brew install --cask bannzai/tap/secchain` (tap name and formula land with the first release).
 
-Either path installs the same signed app bundle, with the command-line tool embedded inside it at `SecChain.app/Contents/Helpers/secchain.app`. The app puts `secchain` on your `PATH` as a symlink into that bundle; it does not install a second, separately signed copy of the tool.
+Either path installs the same signed app bundle, with the command-line tool embedded inside it at `SecChain.app/Contents/Helpers/secchain.app`. The Homebrew cask puts `secchain` on your `PATH` through its `binary` stanza. Installing from the DMG puts only the app in `/Applications`; put `secchain` on your `PATH` yourself:
+
+```bash
+mkdir -p ~/.local/bin
+ln -sf /Applications/SecChain.app/Contents/Helpers/secchain.app/Contents/MacOS/secchain ~/.local/bin/secchain
+```
+
+Either way it is a symlink into the app bundle, not a second, separately signed copy of the tool.
 
 The iOS app is distributed through the App Store once published; it manages the same iCloud-synchronized secrets from an iPhone or iPad and has no command-line equivalent.
 
@@ -28,7 +35,7 @@ Secrets synchronize between your Macs through **iCloud Keychain**. To get sync:
 1. Sign in to the same Apple Account on every Mac.
 2. Turn on iCloud Keychain: System Settings → *[your name]* → iCloud → Passwords and Keychain.
 
-SecChain is fully usable as a local-only secret manager when iCloud Keychain is off; sync just does not happen, and a secret stored as *standard* or *confirm* stays on that one Mac (see "Protection levels"). macOS cannot reliably report whether iCloud Keychain is enabled, so SecChain never claims a sync status it cannot observe — run `secchain doctor` if a secret you expect to see on another Mac is missing.
+SecChain is fully usable as a local-only secret manager when iCloud Keychain is off; sync just does not happen, and a secret stored as *standard* or *confirm* stays on that one Mac (see "Protection levels"). macOS cannot reliably report whether iCloud Keychain is enabled, so SecChain never claims a sync status it cannot observe. If a secret you expect to see on another Mac is missing, check the conditions above by hand — the same Apple Account, iCloud Keychain on for both Macs, and a level that syncs (*this Mac only* and *device-bound* secrets never do).
 
 ## CLI usage
 
