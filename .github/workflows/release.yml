@@ -1,0 +1,107 @@
+name: Release
+
+# Publishes the notarized DMG of the macOS app, and the matching Homebrew cask, as a GitHub release
+# when a version tag is pushed. Setup, secrets, and the publishing steps that follow:
+# documents/macos-distribution.md.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    # Adds -o pipefail to the default shell options.
+    shell: bash
+
+jobs:
+  release:
+    # The repository is public, so GitHub-hosted macOS runners are free of charge.
+    runs-on: macos-26
+    # Notarization usually finishes within minutes but has no upper bound; an hour leaves room for a
+    # slow notary queue after a build of about five minutes.
+    timeout-minutes: 60
+    permissions:
+      # Creating the release and uploading its assets.
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # The DMG and the cask are named after the app's version, so a tag that differs from it would
+      # publish assets that the cask's URL does not point to.
+      - name: Check that the tag matches the app version
+        run: |
+          marketing_version="$(xcodebuild -project SecChain.xcodeproj -target SecChain -configuration Release -showBuildSettings -json | jq -er '.[0].buildSettings.MARKETING_VERSION')"
+          if [ "${GITHUB_REF_NAME}" != "v${marketing_version}" ]; then
+            echo "::error::The tag ${GITHUB_REF_NAME} does not match MARKETING_VERSION ${marketing_version}"
+            exit 1
+          fi
+
+      # Follows https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications.
+      # The keychain password only protects this job's temporary keychain, so it is generated here
+      # instead of being stored as a secret.
+      - name: Import the Developer ID Application certificate
+        env:
+          DEVELOPER_ID_APPLICATION_P12_BASE64: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_BASE64 }}
+          DEVELOPER_ID_APPLICATION_P12_PASSWORD: ${{ secrets.DEVELOPER_ID_APPLICATION_P12_PASSWORD }}
+        run: |
+          if [ -z "${DEVELOPER_ID_APPLICATION_P12_BASE64}" ] || [ -z "${DEVELOPER_ID_APPLICATION_P12_PASSWORD}" ]; then
+            echo "::error::DEVELOPER_ID_APPLICATION_P12_BASE64 and DEVELOPER_ID_APPLICATION_P12_PASSWORD must be set (documents/macos-distribution.md)"
+            exit 1
+          fi
+          keychain_path="${RUNNER_TEMP}/developer-id.keychain-db"
+          certificate_path="${RUNNER_TEMP}/developer-id-application.p12"
+          keychain_password="$(openssl rand -base64 32)"
+          echo "::add-mask::${keychain_password}"
+
+          printf '%s' "${DEVELOPER_ID_APPLICATION_P12_BASE64}" | base64 --decode > "${certificate_path}"
+          security create-keychain -p "${keychain_password}" "${keychain_path}"
+          security set-keychain-settings -lut 21600 "${keychain_path}"
+          security unlock-keychain -p "${keychain_password}" "${keychain_path}"
+          security import "${certificate_path}" -P "${DEVELOPER_ID_APPLICATION_P12_PASSWORD}" -A -t cert -f pkcs12 -k "${keychain_path}"
+          rm -f "${certificate_path}"
+          # codesign needs the intermediate authority to build the certificate chain. The runner image
+          # only installs the G2 authority, while certificates issued by the original authority are
+          # still valid.
+          for intermediate_certificate in DeveloperIDCA.cer DeveloperIDG2CA.cer; do
+            curl -fsSL "https://www.apple.com/certificateauthority/${intermediate_certificate}" -o "${RUNNER_TEMP}/${intermediate_certificate}"
+            security import "${RUNNER_TEMP}/${intermediate_certificate}" -k "${keychain_path}"
+          done
+          security set-key-partition-list -S apple-tool:,apple: -k "${keychain_password}" "${keychain_path}"
+          security list-keychain -d user -s "${keychain_path}"
+
+      - name: Build, notarize, and staple the DMG
+        env:
+          ASC_API_KEY_ID: ${{ secrets.ASC_API_KEY_ID }}
+          ASC_API_KEY_ISSUER_ID: ${{ secrets.ASC_API_KEY_ISSUER_ID }}
+          ASC_API_KEY_P8_BASE64: ${{ secrets.ASC_API_KEY_P8_BASE64 }}
+        run: make dmg
+
+      # Re-running the workflow for the same tag replaces the assets instead of failing.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          dmg_path="tmp/distribution/SecChain-${version}.dmg"
+          cask_path="tmp/distribution/secchain.rb"
+          dmg_sha256="$(shasum -a 256 "${dmg_path}" | cut -d ' ' -f 1)"
+          sed -e "s/^  version \".*\"$/  version \"${version}\"/" \
+            -e "s/^  sha256 \".*\"$/  sha256 \"${dmg_sha256}\"/" \
+            Casks/secchain.rb > "${cask_path}"
+          if gh release view "${GITHUB_REF_NAME}" > /dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" "${dmg_path}" "${cask_path}" --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" "${dmg_path}" "${cask_path}" \
+              --verify-tag --title "SecChain ${version}" --generate-notes
+          fi
+
+      - name: Delete the temporary keychain
+        if: always()
+        run: security delete-keychain "${RUNNER_TEMP}/developer-id.keychain-db" || true
