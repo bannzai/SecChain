@@ -13,6 +13,7 @@
 		54A2DA7988874ABBCC84B368 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A47287727475FC624176A50 /* ContentView.swift */; };
 		763B7B4B686F1ECB7926AA7D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82F8E60608181DC37F8073D4 /* ContentView.swift */; };
 		92A61B111F00A0105BFE6469 /* SecChainiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09F40483B4DDFB0DC6BF6AE1 /* SecChainiOSApp.swift */; };
+		1A2B3C4D5E6F70819A0B0C01 /* RemoteApprovalAppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A2B3C4D5E6F70819A0B0C02 /* RemoteApprovalAppDelegate.swift */; };
 		E33CE551C90DC8AA49B0F115 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F0899F93912E898B605AC56B /* Assets.xcassets */; };
 		CA6CBC15CFFB15F70B75A871 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D130D40A702EEF51726A1969 /* Assets.xcassets */; };
 		CDE66650367751835787144A /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9E6344EB4B498380387E2707 /* InfoPlist.xcstrings */; };
@@ -22,6 +23,7 @@
 		09F40483B4DDFB0DC6BF6AE1 /* SecChainiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecChainiOSApp.swift; sourceTree = "<group>"; };
 		0F260E7D03DFB80F44713724 /* SecChainCore */ = {isa = PBXFileReference; lastKnownFileType = folder; name = SecChainCore; path = SecChainCore; sourceTree = SOURCE_ROOT; };
 		291D74D3313275880A305CC8 /* SecChainiOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SecChainiOS.entitlements; sourceTree = "<group>"; };
+		1A2B3C4D5E6F70819A0B0C02 /* RemoteApprovalAppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteApprovalAppDelegate.swift; sourceTree = "<group>"; };
 		2EA57FBA41FEF9F4972C85BA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		45E45B6157D81C1485239943 /* SecChain.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = SecChain.entitlements; sourceTree = "<group>"; };
 		5A47287727475FC624176A50 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -80,6 +82,7 @@
 				82F8E60608181DC37F8073D4 /* ContentView.swift */,
 				2EA57FBA41FEF9F4972C85BA /* Info.plist */,
 				9E6344EB4B498380387E2707 /* InfoPlist.xcstrings */,
+				1A2B3C4D5E6F70819A0B0C02 /* RemoteApprovalAppDelegate.swift */,
 				291D74D3313275880A305CC8 /* SecChainiOS.entitlements */,
 				09F40483B4DDFB0DC6BF6AE1 /* SecChainiOSApp.swift */,
 			);
@@ -243,6 +246,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				763B7B4B686F1ECB7926AA7D /* ContentView.swift in Sources */,
+				1A2B3C4D5E6F70819A0B0C01 /* RemoteApprovalAppDelegate.swift in Sources */,
 				92A61B111F00A0105BFE6469 /* SecChainiOSApp.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
