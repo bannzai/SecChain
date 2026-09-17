@@ -44,6 +44,11 @@ jobs:
       duration_minutes: ${{ inputs.duration_minutes }}
       build_project: SecChain.xcodeproj
       build_scheme: SecChain
+      # The runner has no signing identity, and the reusable workflow passes no extra build flags,
+      # so the macOS target has a configuration that is Debug without code signing. Such a build
+      # cannot reach the shared Keychain access group: the app opens on its "cannot reach its
+      # Keychain items" screen, where a debug build offers demo data.
+      build_configuration: DebugUnsigned
     secrets:
       TS_OIDC_CLIENT_ID: ${{ secrets.TS_OIDC_CLIENT_ID }}
       TS_OIDC_AUDIENCE: ${{ secrets.TS_OIDC_AUDIENCE }}
