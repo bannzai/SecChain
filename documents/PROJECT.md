@@ -36,7 +36,7 @@ User authentication (Touch ID, Apple Watch, or the login password) is opt-in per
 | Level | Synchronizes | When authentication is requested | Enforced by |
 | --- | --- | --- | --- |
 | Standard (default) | Yes, or *this device only* if the user turns sync off | Only when a value is revealed in an app | SecChain |
-| Confirm | Yes, or *this device only* | Additionally every time `secchain run` reads the secret, and before update / delete | SecChain (LocalAuthentication prompt shown by the command-line tool itself, or an approval from the user's paired iPhone once "Remote approval" ships) |
+| Confirm | Yes, or *this device only* | Additionally every time `secchain run` reads the secret, and before update / delete | SecChain (LocalAuthentication prompt shown by the command-line tool itself, or an approval from the user's paired iPhone, see "Remote approval") |
 | Device-bound | Never | Every read, by any front end | The Keychain (`kSecAttrAccessControl` with user presence and a `ThisDeviceOnly` accessibility class) |
 
 - *Confirm* exists because `secchain run -- env` would otherwise let any process running as the user, including an AI coding agent, print every secret without the user noticing.
@@ -47,9 +47,9 @@ User authentication (Touch ID, Apple Watch, or the login password) is opt-in per
 - A new secret is *standard* and synchronized unless the user chooses otherwise.
 - When a local and a synchronized item of the same name coexist (a copy arrived from another Mac), the local one is the effective secret, and the next write removes the other.
 
-### Remote approval (after the first release)
+### Remote approval
 
-Tracked in https://github.com/bannzai/SecChain/issues/32. The open design points (who talks to CloudKit on the Mac, pairing, when the fallback applies) are decided there with measurements and then recorded under "Design decisions".
+Part of the first release. Tracked in https://github.com/bannzai/SecChain/issues/32; how it is built is fixed in design decision 5.
 
 An authentication that SecChain itself requests on a Mac (the *confirm* level) can be answered on the user's iPhone or iPad instead of at the Mac: the Mac files an approval request, the iOS app shows what is being asked and approves it after Face ID / Touch ID. It serves Macs without Touch ID, sessions where the local prompt cannot be shown (SSH), and commands started by an AI coding agent while the user is away from the Mac.
 
@@ -57,7 +57,7 @@ An authentication that SecChain itself requests on a Mac (the *confirm* level) c
 - It is another way to answer an existing authentication, not a fourth protection level.
 - *Device-bound* secrets are excluded: the Keychain itself enforces user presence on the device that holds the value, and a remote approval cannot satisfy that.
 - The request travels through the user's **CloudKit private database**. SecChain runs no server. A request or an approval never contains a secret value; it names the repository, the secret names, the command, the requesting Mac, and an expiry.
-- An approval must not be forgeable by a process running as the user on the Mac, because that is exactly the actor *confirm* exists to stop. An approval is therefore a signature made by a key that only the iPhone holds, over the request's identifier, nonce, and expiry, and the Mac verifies it against a public key enrolled once.
+- An approval must not be forgeable by a process running as the user on the Mac, because that is exactly the actor *confirm* exists to stop. An approval is therefore a signature made by a key that only the iPhone holds, over the request's identifier, nonce, expiry, and a digest of what the iPhone showed, and the Mac verifies it against a public key enrolled once.
 
 ### Repository scoping
 
@@ -184,7 +184,37 @@ Authentication can be requested in two different places, and SecChain offers bot
 
 Neither is the default, because a prompt on every `secchain run` makes frequent invocations unusable. In every level, the shared access group limits item access to binaries signed by the SecChain team with the entitlement.
 
-The command-line prompt needs a logged-in graphical session. Over SSH or in other contexts where the prompt cannot be shown, protected secrets fail with an authentication error instead of being read without confirmation. "Remote approval" is the planned way to answer such an authentication from a paired iPhone; until it ships, and whenever no iPhone is paired, the authentication error stays.
+The command-line prompt needs a logged-in graphical session. Over SSH or in other contexts where the prompt cannot be shown, protected secrets fail with an authentication error instead of being read without confirmation. "Remote approval" answers such an authentication from a paired iPhone (decision 5); whenever no iPhone is paired, the authentication error stays.
+
+### 5. Remote approval: the command-line tool talks to CloudKit, and an approval is a signature by the paired iPhone
+
+Decided on 2026-09-18 from the measurements under "Remote approval spike".
+
+**The command-line tool uses CloudKit directly.** The embedded tool saves the approval request to the private database of `iCloud.com.bannzai.SecChain` and fetches the approval itself. The macOS app does not have to run, so the tool keeps working the same way over SSH and on a Mac where the app was never opened. Routing requests through the app (XPC) was not chosen: it would make a resident app a precondition of `secchain run`.
+
+- The tool is signed with the container entitlements and with `com.apple.application-identifier`, whose value must match the profile the build embeds (`scripts/xcode/embed_cli.sh`).
+- A command-line process cannot receive pushes, so the tool polls. The iPhone saves the approval under a record name derived from the request identifier, and the tool fetches that record by identifier every 2 seconds until the request expires: a CloudKit call measured about 0.3 seconds, and a 2 minute expiry bounds one request to about 60 fetches.
+- The iPhone learns about a request from a `CKQuerySubscription` with a visible notification. Notifications can be coalesced or dropped, so the iOS app also queries for open requests when it launches and when a notification arrives.
+
+**An approval is a signature by a key that only the paired iPhone holds.** The iPhone creates a P-256 key in its Secure Enclave with the access control `.privateKeyUsage` and `.biometryAny`; the Mac verifies the signature against the public key enrolled during pairing (`RemoteApproval.swift`) and against its own copy of the request, never against values read back from CloudKit.
+
+- Sharing an Apple Account is not enough to approve. Without the signature the Mac would accept any approval record in the private database, which every binary carrying the container entitlement can write: another device signed in to the same Apple Account, and, for a contributor who signs a build with their own team (decision 3), any program an AI coding agent builds and signs on that Mac. The signature ties an approval to one enrolled device and to a biometric match on it.
+- `.biometryAny` rather than `.biometryCurrentSet`: changing the enrolled Face ID or Touch ID does not force a new pairing. The device passcode alone cannot sign. This is already stricter than revealing a value in the iOS app, which accepts the passcode (`.deviceOwnerAuthentication`), so a stricter key would not protect synchronized secrets from someone who knows the passcode.
+- The Simulator cannot create such a key, so signing behind Face ID is verified on a device (pre-release checklist).
+
+**Pairing compares a short number on both screens.** The iPhone publishes its public key in the private database. `secchain` on the Mac and the iOS app both show a short number derived from the SHA-256 of that key; after the user confirms that they match, the Mac authenticates the user locally (Touch ID or password) and stores the public key in its data protection keychain as a *this device only* item. A QR code was not chosen: the tool has no camera, and scanning the Mac's screen with the iPhone would still leave CloudKit as the way the key reaches the Mac. Each Mac is paired separately.
+
+**When remote approval is used.** It stays opt-in, and only a paired Mac uses it:
+
+1. `secchain run --approve-remotely -- <command>` asks the iPhone for this run.
+2. When the local prompt cannot be shown and LocalAuthentication fails at once (SSH), a paired Mac falls back to the iPhone. A prompt that nobody answers in a graphical session keeps waiting (measured), so being away from the Mac cannot be detected and needs 1 or 3.
+3. A per-Mac setting makes the iPhone the default way to answer *confirm* authentications, for Macs without Touch ID and for commands started by AI coding agents. The setting is stored next to the enrolled public key, and changing it requires local authentication.
+
+Without a pairing, all three behave as before: the local prompt, or the authentication error.
+
+**While waiting**, the tool writes the waiting state and the remaining time to standard error (standard output belongs to the child process) and waits until the expiry (2 minutes). Ctrl-C saves a cancellation record so that the iPhone stops offering the request. Rejected, expired, and cancelled are distinct errors, and all of them exit with the status of a failed authentication.
+
+**Production schema.** Developer ID and App Store builds can only use the production environment of the container, where a record type exists only after the schema has been deployed from the development environment in the CloudKit Console. Deployed record types cannot be deleted, so the doctor's `DoctorProbe` type is not deployed, and `secchain doctor --cloudkit` moves to the record types of the protocol.
 
 ## Measured behavior
 
