@@ -36,7 +36,7 @@ User authentication (Touch ID, Apple Watch, or the login password) is opt-in per
 | Level | Synchronizes | When authentication is requested | Enforced by |
 | --- | --- | --- | --- |
 | Standard (default) | Yes, or *this device only* if the user turns sync off | Only when a value is revealed in an app | SecChain |
-| Confirm | Yes, or *this device only* | Additionally every time `secchain run` reads the secret, and before update / delete | SecChain (LocalAuthentication prompt shown by the command-line tool itself) |
+| Confirm | Yes, or *this device only* | Additionally every time `secchain run` reads the secret, and before update / delete | SecChain (LocalAuthentication prompt shown by the command-line tool itself, or an approval from the user's paired iPhone once "Remote approval" ships) |
 | Device-bound | Never | Every read, by any front end | The Keychain (`kSecAttrAccessControl` with user presence and a `ThisDeviceOnly` accessibility class) |
 
 - *Confirm* exists because `secchain run -- env` would otherwise let any process running as the user, including an AI coding agent, print every secret without the user noticing.
@@ -46,6 +46,18 @@ User authentication (Touch ID, Apple Watch, or the login password) is opt-in per
 - Updating or deleting a secret that is not *standard* authenticates first. Every way of lowering a level goes through such an update, so lowering always requires authentication.
 - A new secret is *standard* and synchronized unless the user chooses otherwise.
 - When a local and a synchronized item of the same name coexist (a copy arrived from another Mac), the local one is the effective secret, and the next write removes the other.
+
+### Remote approval (after the first release)
+
+Tracked in https://github.com/bannzai/SecChain/issues/32. The open design points (who talks to CloudKit on the Mac, pairing, when the fallback applies) are decided there with measurements and then recorded under "Design decisions".
+
+An authentication that SecChain itself requests on a Mac (the *confirm* level) can be answered on the user's iPhone or iPad instead of at the Mac: the Mac files an approval request, the iOS app shows what is being asked and approves it after Face ID / Touch ID. It serves Macs without Touch ID, sessions where the local prompt cannot be shown (SSH), and commands started by an AI coding agent while the user is away from the Mac.
+
+- It is opt-in. The default stays the local prompt.
+- It is another way to answer an existing authentication, not a fourth protection level.
+- *Device-bound* secrets are excluded: the Keychain itself enforces user presence on the device that holds the value, and a remote approval cannot satisfy that.
+- The request travels through the user's **CloudKit private database**. SecChain runs no server. A request or an approval never contains a secret value; it names the repository, the secret names, the command, the requesting Mac, and an expiry.
+- An approval must not be forgeable by a process running as the user on the Mac, because that is exactly the actor *confirm* exists to stop. An approval is therefore a signature made by a key that only the iPhone holds, over the request's identifier, nonce, and expiry, and the Mac verifies it against a public key enrolled once.
 
 ### Repository scoping
 
@@ -127,6 +139,8 @@ Repository identification, per-repository isolation, add / update / delete, miss
 
 Team vaults, organizations, workspaces, member management, share links, a custom cloud backend or sync service, a web console, and sharing between different Apple Accounts. The target is one person using several Macs with the same Apple Account.
 
+"Remote approval" does not change this: it uses the user's own CloudKit private database, which SecChain's maintainer cannot read, only to carry approval requests between that user's devices. Secret values keep traveling through iCloud Keychain alone.
+
 Masking secrets before an AI agent reads them (outside of `secchain run`) is not part of this project.
 
 ## Design decisions
@@ -170,7 +184,7 @@ Authentication can be requested in two different places, and SecChain offers bot
 
 Neither is the default, because a prompt on every `secchain run` makes frequent invocations unusable. In every level, the shared access group limits item access to binaries signed by the SecChain team with the entitlement.
 
-The command-line prompt needs a logged-in graphical session. Over SSH or in other contexts where the prompt cannot be shown, protected secrets fail with an authentication error instead of being read without confirmation.
+The command-line prompt needs a logged-in graphical session. Over SSH or in other contexts where the prompt cannot be shown, protected secrets fail with an authentication error instead of being read without confirmation. "Remote approval" is the planned way to answer such an authentication from a paired iPhone; until it ships, and whenever no iPhone is paired, the authentication error stays.
 
 ## Measured behavior
 
