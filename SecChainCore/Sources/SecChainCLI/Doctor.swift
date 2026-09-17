@@ -23,6 +23,15 @@ struct Doctor: AsyncParsableCommand {
     @Flag(name: .customLong("cloudkit"), help: .hidden)
     var cloudKit = false
 
+    #if DEBUG
+    /// Debug builds only, and hidden: plays both sides of one remote approval against the real
+    /// CloudKit container with a software key, because the iOS app that would answer does not
+    /// exist yet (issue #39). `make test-integration` runs it; the notarized DMG is a Release
+    /// build and does not contain it.
+    @Flag(name: .customLong("remote-approval-end-to-end"), help: .hidden)
+    var remoteApprovalEndToEnd = false
+    #endif
+
     func run() async throws {
         var checks: [KeychainDoctorCheck]
         if let writeFixture {
@@ -31,6 +40,8 @@ struct Doctor: AsyncParsableCommand {
             checks = KeychainDoctor.readAndDeleteFixture(account: readFixture)
         } else if cloudKit {
             checks = await KeychainDoctor.runCloudKitChecks()
+        } else if remoteApprovalEndToEndRequested {
+            checks = await KeychainDoctor.runRemoteApprovalEndToEndChecks()
         } else {
             checks = KeychainDoctor.runSelfContainedChecks() + (await KeychainDoctor.runStoreChecks())
         }
@@ -43,5 +54,15 @@ struct Doctor: AsyncParsableCommand {
         if checks.contains(where: { !$0.passed }) {
             throw ExitCode.failure
         }
+    }
+
+    /// Whether the end-to-end round was asked for. A release build has no such flag, so the
+    /// branch that runs it is compiled out with it.
+    var remoteApprovalEndToEndRequested: Bool {
+        #if DEBUG
+        remoteApprovalEndToEnd
+        #else
+        false
+        #endif
     }
 }

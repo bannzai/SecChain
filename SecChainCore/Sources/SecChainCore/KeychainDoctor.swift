@@ -41,7 +41,47 @@ public enum KeychainDoctor {
             listingFailsWhenAnAccessControlledItemMatches(),
             addUserPresenceItem(account: "device-bound-sync", synchronizable: true, expectSuccess: false),
             canEvaluateOwnerAuthentication(),
+            evaluateOwnerAuthenticationWithoutInteraction(),
         ]
+    }
+
+    /// Measures what LocalAuthentication answers when it may not present its prompt, which is the
+    /// situation remote approval falls back from (documents/PROJECT.md, design decision 5: over SSH
+    /// a paired Mac asks the iPhone instead). `LocalOrRemoteOwnerAuthenticator` switches over on
+    /// exactly the error this reports, so the doctor records the code rather than assuming it.
+    ///
+    /// It is one of the self-contained checks because it shows no prompt and returns at once: an
+    /// `LAContext` with `interactionNotAllowed` refuses to ask instead of waiting for an answer.
+    static func evaluateOwnerAuthenticationWithoutInteraction() -> KeychainDoctorCheck {
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        let start = Date()
+        let evaluation = CallbackResult<NSError>()
+        let semaphore = DispatchSemaphore(value: 0)
+        context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: "confirm that SecChain notices when it cannot ask here") { _, error in
+            evaluation.value = error as NSError?
+            semaphore.signal()
+        }
+        semaphore.wait()
+        let milliseconds = Int((Date().timeIntervalSince(start) * 1000).rounded())
+        guard let evaluationError = evaluation.value else {
+            return KeychainDoctorCheck(
+                name: "LocalAuthentication refuses to authenticate when it may not show a prompt",
+                status: errSecSuccess,
+                passed: false,
+                detail: "the policy was evaluated even though no interaction was allowed"
+            )
+        }
+        let secChainError = SecretStoreErrorMapping.error(
+            localAuthenticationErrorCode: evaluationError.code,
+            message: evaluationError.localizedDescription
+        )
+        return KeychainDoctorCheck(
+            name: "LocalAuthentication refuses to authenticate when it may not show a prompt",
+            status: OSStatus(evaluationError.code),
+            passed: secChainError == .authenticationNotPossible,
+            detail: "LAError code \(evaluationError.code) after \(milliseconds) ms, which SecChain reads as \(secChainError == .authenticationNotPossible ? "'no prompt can be shown here', the error remote approval takes over from" : "\(secChainError)")"
+        )
     }
 
     /// Leaves a synchronizable fixture item behind so that a different binary can prove it shares
@@ -130,6 +170,12 @@ public enum KeychainDoctor {
     /// the single read, which is why the class can be unchecked `Sendable`.
     final class BlockingResult: @unchecked Sendable {
         var checks: [KeychainDoctorCheck] = []
+    }
+
+    /// Carries one value out of a callback that runs on another queue, for the same reason and with
+    /// the same ordering by a semaphore.
+    final class CallbackResult<Value>: @unchecked Sendable {
+        var value: Value?
     }
 
     // MARK: - Steps
