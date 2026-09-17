@@ -27,8 +27,10 @@ struct SecretEditorView: View {
                 if case .add = mode {
                     Section {
                         // Only the entered name is monospaced; the Mac shows the label beside it.
-                        TextField(text: $rawName, prompt: Text("OPENAI_API_KEY")) {
-                            Text("Name")
+                        // The prompt is an environment variable name, which is the same in every
+                        // language.
+                        TextField(text: $rawName, prompt: Text(verbatim: "OPENAI_API_KEY")) {
+                            Text("Name", bundle: .module)
                                 .font(.body)
                         }
                         .font(.body.monospaced())
@@ -39,8 +41,8 @@ struct SecretEditorView: View {
                     } footer: {
                         Text(
                             rawName.isEmpty || isValidSecretName(name: rawName)
-                                ? "The name is also the environment variable that secchain run sets"
-                                : "Use letters, digits and underscores, not starting with a digit"
+                                ? String(localized: "The name is also the environment variable that secchain run sets", bundle: .module)
+                                : String(localized: "Use letters, digits and underscores, not starting with a digit", bundle: .module)
                         )
                         .foregroundStyle(rawName.isEmpty || isValidSecretName(name: rawName) ? Color.secondary : Color.red)
                     }
@@ -48,22 +50,22 @@ struct SecretEditorView: View {
                 if !isChangingProtection {
                     Section {
                         SecureField(text: $valueText) {
-                            Text("Value")
+                            Text("Value", bundle: .module)
                                 .font(.body)
                         }
                         .font(.body.monospaced())
                     } footer: {
-                        Text("The value is stored in the Keychain only")
+                        Text("The value is stored in the Keychain only", bundle: .module)
                     }
                 }
                 if !isUpdatingValue {
                     Section {
-                        Picker("Protection", selection: $protectionLevel) {
+                        Picker(String(localized: "Protection", bundle: .module), selection: $protectionLevel) {
                             ForEach(ProtectionLevel.allCases, id: \.self) { protectionLevel in
                                 Text(protectionLevelTitle(protectionLevel: protectionLevel)).tag(protectionLevel)
                             }
                         }
-                        Toggle("Synchronize with iCloud Keychain", isOn: $isSynchronized)
+                        Toggle(String(localized: "Synchronize with iCloud Keychain", bundle: .module), isOn: $isSynchronized)
                             .disabled(protectionLevel == .deviceBound)
                     } footer: {
                         Text(protectionLevelExplanation(protectionLevel: protectionLevel))
@@ -77,12 +79,12 @@ struct SecretEditorView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button(String(localized: "Cancel", bundle: .module)) {
                         dismiss()
                     }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save)
+                    Button(String(localized: "Save", bundle: .module), action: save)
                         .disabled(!canSave || isSaving)
                 }
             }
@@ -114,9 +116,9 @@ struct SecretEditorView: View {
 
     var title: String {
         switch mode {
-        case .add: "Add Secret"
-        case .updateValue(let storedSecret): "Update \(storedSecret.name.value)"
-        case .changeProtection(let storedSecret): "Protection of \(storedSecret.name.value)"
+        case .add: String(localized: "Add Secret", bundle: .module)
+        case .updateValue(let storedSecret): String(localized: "Update \(storedSecret.name.value)", bundle: .module)
+        case .changeProtection(let storedSecret): String(localized: "Protection of \(storedSecret.name.value)", bundle: .module)
         }
     }
 

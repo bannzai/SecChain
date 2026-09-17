@@ -14,7 +14,7 @@ LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/Launc
 SIGNING_FLAGS ?= -allowProvisioningUpdates -allowProvisioningDeviceRegistration
 IOS_SIMULATOR_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/SecChainiOS.app
 
-.PHONY: build-macos build-ios test test-integration macos cli ios dmg clean
+.PHONY: build-macos build-ios test check-localization test-integration macos cli ios dmg clean
 
 # Build the macOS app together with the embedded command-line tool.
 build-macos:
@@ -31,6 +31,11 @@ build-ios:
 # Unit tests. They use an in-memory Keychain double, so they need no signing identity.
 test:
 	swift test --package-path SecChainCore
+
+# Every text of the apps is in the String Catalog with a Japanese translation. What is checked is
+# described in the script.
+check-localization:
+	bash scripts/test/localization.sh
 
 # Tests against the real data protection keychain, executed by the signed embedded tool.
 test-integration: build-macos

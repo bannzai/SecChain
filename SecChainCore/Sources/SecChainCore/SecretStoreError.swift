@@ -30,30 +30,38 @@ public enum SecretStoreError: Error, Equatable, CustomStringConvertible {
     /// Any other Security framework failure, with the system's wording for the status.
     case keychainFailure(operation: String, status: OSStatus, message: String)
 
+    /// The message in English, as the command-line tool prints it: no SecChain binary has
+    /// translations in `Bundle.main`.
     public var description: String {
+        message(bundle: .main)
+    }
+
+    /// The message translated by the String Catalog in `bundle`, for the apps, which show it in the
+    /// user's language. English where the catalog has no translation.
+    public func message(bundle: Bundle) -> String {
         switch self {
         case .secretNotFound(let name, let repository):
-            "No value is stored for \(name) in \(repository). Store it with 'secchain set \(name)'."
+            String(localized: "No value is stored for \(name) in \(repository). Store it with 'secchain set \(name)'.", bundle: bundle)
         case .duplicateSecret(let name, let repository):
-            "\(name) already exists in \(repository)."
+            String(localized: "\(name) already exists in \(repository).", bundle: bundle)
         case .missingEntitlement:
-            "This binary is not signed with SecChain's Keychain access group, so it cannot reach any secret (errSecMissingEntitlement). Use the secchain tool inside SecChain.app; a binary built with 'swift build' or signed by another team cannot share the app's secrets. Run 'secchain doctor' for details."
+            String(localized: "This binary is not signed with SecChain's Keychain access group, so it cannot reach any secret (errSecMissingEntitlement). Use the secchain tool inside SecChain.app; a binary built with 'swift build' or signed by another team cannot share the app's secrets. Run 'secchain doctor' for details.", bundle: bundle)
         case .authenticationFailed:
-            "Authentication failed."
+            String(localized: "Authentication failed.", bundle: bundle)
         case .authenticationCancelled:
-            "Authentication was cancelled."
+            String(localized: "Authentication was cancelled.", bundle: bundle)
         case .authenticationNotPossible:
-            "This secret requires authentication, but no prompt can be shown here (for example over SSH). Run the command in a logged-in graphical session."
+            String(localized: "This secret requires authentication, but no prompt can be shown here (for example over SSH). Run the command in a logged-in graphical session.", bundle: bundle)
         case .authenticationUnavailable(let reason):
-            "Authentication is not available on this device: \(reason)"
+            String(localized: "Authentication is not available on this device: \(reason)", bundle: bundle)
         case .keychainUnavailable:
-            "The Keychain is not available. Unlock the device or log in and try again."
+            String(localized: "The Keychain is not available. Unlock the device or log in and try again.", bundle: bundle)
         case .deviceBoundCannotSynchronize:
-            "A device-bound secret cannot be synchronized. Choose either device-bound or synchronization."
+            String(localized: "A device-bound secret cannot be synchronized. Choose either device-bound or synchronization.", bundle: bundle)
         case .emptyValue:
-            "The value is empty."
+            String(localized: "The value is empty.", bundle: bundle)
         case .keychainFailure(let operation, let status, let message):
-            "Keychain \(operation) failed with status \(status): \(message)"
+            String(localized: "Keychain \(operation) failed with status \(status): \(message)", bundle: bundle)
         }
     }
 }

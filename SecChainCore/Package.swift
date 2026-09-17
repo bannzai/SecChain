@@ -4,6 +4,8 @@ import PackageDescription
 
 let package = Package(
     name: "SecChainCore",
+    // The strings in the source code are English; other languages are translations of them.
+    defaultLocalization: "en",
     platforms: [
         // LocalAuthentication's companion (Apple Watch) policies and current SwiftUI APIs used by
         // the apps are available from these versions.
@@ -28,6 +30,10 @@ let package = Package(
         .target(
             name: "SecChainUI",
             dependencies: ["SecChainCore"],
+            // The String Catalog translates the texts of both apps, including the messages and
+            // authentication reasons that SecChainCore builds. SecChainCore itself has no resources,
+            // so the command-line tool needs no resource bundle and its output stays English.
+            resources: [.process("Resources")],
             swiftSettings: [.defaultIsolation(MainActor.self)]
         ),
         .executableTarget(

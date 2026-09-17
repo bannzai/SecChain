@@ -48,15 +48,15 @@ struct RepositoryDetailView: View {
         .overlay {
             if storedSecrets.isEmpty {
                 ContentUnavailableView(
-                    "No secrets yet",
+                    String(localized: "No secrets yet", bundle: .module),
                     systemImage: "key",
-                    description: Text("Add the first secret of this repository")
+                    description: Text("Add the first secret of this repository", bundle: .module)
                 )
             }
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
-                Button("Add Secret", systemImage: "plus") {
+                Button(String(localized: "Add Secret", bundle: .module), systemImage: "plus") {
                     isAddingSecret = true
                 }
             }
@@ -75,7 +75,7 @@ struct RepositoryDetailView: View {
         }
         // The title names the secret; iOS hides a dialog's title unless it is made visible.
         .confirmationDialog(
-            "Delete \(storedSecretBeingDeleted?.name.value ?? "")?",
+            String(localized: "Delete \(storedSecretBeingDeleted?.name.value ?? "")?", bundle: .module),
             isPresented: Binding(
                 get: { storedSecretBeingDeleted != nil },
                 set: { isPresented in
@@ -87,7 +87,7 @@ struct RepositoryDetailView: View {
             titleVisibility: .visible,
             presenting: storedSecretBeingDeleted
         ) { storedSecret in
-            Button("Delete", role: .destructive) {
+            Button(String(localized: "Delete", bundle: .module), role: .destructive) {
                 Task {
                     _ = await model.delete(storedSecret: storedSecret)
                 }
@@ -95,8 +95,8 @@ struct RepositoryDetailView: View {
         } message: { storedSecret in
             Text(
                 storedSecret.isSynchronized
-                    ? "The secret is synchronized, so it is deleted on all your devices"
-                    : "The value cannot be recovered"
+                    ? String(localized: "The secret is synchronized, so it is deleted on all your devices", bundle: .module)
+                    : String(localized: "The value cannot be recovered", bundle: .module)
             )
         }
     }
@@ -111,7 +111,9 @@ struct RepositoryDetailView: View {
                     HStack(spacing: 12) {
                         Label(protectionLevelTitle(protectionLevel: storedSecret.protectionLevel), systemImage: protectionLevelSymbol(protectionLevel: storedSecret.protectionLevel))
                         Label(
-                            storedSecret.isSynchronized ? "iCloud Keychain" : "This device only",
+                            storedSecret.isSynchronized
+                                ? String(localized: "iCloud Keychain", bundle: .module)
+                                : String(localized: "This device only", bundle: .module),
                             systemImage: storedSecret.isSynchronized ? "icloud" : "desktopcomputer"
                         )
                     }
@@ -120,22 +122,22 @@ struct RepositoryDetailView: View {
                 }
                 Spacer()
                 Menu {
-                    Button("Reveal Value", systemImage: "eye") {
+                    Button(String(localized: "Reveal Value", bundle: .module), systemImage: "eye") {
                         reveal(storedSecret: storedSecret)
                     }
-                    Button("Update Value", systemImage: "pencil") {
+                    Button(String(localized: "Update Value", bundle: .module), systemImage: "pencil") {
                         storedSecretBeingUpdated = storedSecret
                     }
-                    Button("Change Protection", systemImage: "lock.shield") {
+                    Button(String(localized: "Change Protection", bundle: .module), systemImage: "lock.shield") {
                         storedSecretBeingProtected = storedSecret
                     }
                     Divider()
-                    Button("Delete", systemImage: "trash", role: .destructive) {
+                    Button(String(localized: "Delete", bundle: .module), systemImage: "trash", role: .destructive) {
                         storedSecretBeingDeleted = storedSecret
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .accessibilityLabel("Actions for \(storedSecret.name.value)")
+                        .accessibilityLabel(String(localized: "Actions for \(storedSecret.name.value)", bundle: .module))
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
@@ -155,9 +157,9 @@ struct RepositoryDetailView: View {
 
 func protectionLevelTitle(protectionLevel: ProtectionLevel) -> String {
     switch protectionLevel {
-    case .standard: "Standard"
-    case .confirm: "Confirm"
-    case .deviceBound: "Device-bound"
+    case .standard: String(localized: "Standard", bundle: .module)
+    case .confirm: String(localized: "Confirm", bundle: .module)
+    case .deviceBound: String(localized: "Device-bound", bundle: .module)
     }
 }
 
@@ -172,10 +174,10 @@ func protectionLevelSymbol(protectionLevel: ProtectionLevel) -> String {
 func protectionLevelExplanation(protectionLevel: ProtectionLevel) -> String {
     switch protectionLevel {
     case .standard:
-        "secchain run reads the secret without asking. Revealing the value here still asks for authentication."
+        String(localized: "secchain run reads the secret without asking. Revealing the value here still asks for authentication.", bundle: .module)
     case .confirm:
-        "secchain run asks for Touch ID or your password every time. The secret can still synchronize."
+        String(localized: "secchain run asks for Touch ID or your password every time. The secret can still synchronize.", bundle: .module)
     case .deviceBound:
-        "The Keychain itself demands authentication for every read. The secret never leaves this device and is not restored onto a new one."
+        String(localized: "The Keychain itself demands authentication for every read. The secret never leaves this device and is not restored onto a new one.", bundle: .module)
     }
 }

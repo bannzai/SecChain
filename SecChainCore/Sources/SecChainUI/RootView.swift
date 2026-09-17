@@ -25,7 +25,7 @@ public struct RootView: View {
             model.reload()
         }
         .alert(
-            "Something went wrong",
+            String(localized: "Something went wrong", bundle: .module),
             isPresented: Binding(
                 get: { model.presentedError != nil },
                 set: { isPresented in
@@ -36,9 +36,9 @@ public struct RootView: View {
             ),
             presenting: model.presentedError
         ) { _ in
-            Button("OK", role: .cancel) {}
+            Button(String(localized: "OK", bundle: .module), role: .cancel) {}
         } message: { error in
-            Text(error.description)
+            Text(error.message(bundle: .module))
         }
     }
 
@@ -55,22 +55,22 @@ public struct RootView: View {
                 repositoryRows
                 #endif
             }
-            .navigationTitle("Repositories")
+            .navigationTitle(String(localized: "Repositories", bundle: .module))
             #if os(macOS)
             .navigationSplitViewColumnWidth(min: 240, ideal: 280)
             #endif
             .overlay {
                 if model.repositoryIdentities.isEmpty {
                     ContentUnavailableView(
-                        "No repositories yet",
+                        String(localized: "No repositories yet", bundle: .module),
                         systemImage: "key",
-                        description: Text("Add a repository to store its first secret")
+                        description: Text("Add a repository to store its first secret", bundle: .module)
                     )
                 }
             }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button("Add Repository", systemImage: "plus") {
+                    Button(String(localized: "Add Repository", bundle: .module), systemImage: "plus") {
                         isAddingRepository = true
                     }
                 }
@@ -79,7 +79,7 @@ public struct RootView: View {
                 // one other item, Add Repository is pushed into the overflow menu. iOS already
                 // gathers secondary actions in a menu.
                 ToolbarItem(placement: .secondaryAction) {
-                    Menu("More", systemImage: "ellipsis.circle") {
+                    Menu(String(localized: "More", bundle: .module), systemImage: "ellipsis.circle") {
                         moreActions
                     }
                 }
@@ -93,7 +93,7 @@ public struct RootView: View {
             if let selectedRepositoryIdentity = model.selectedRepositoryIdentity {
                 RepositoryDetailView(model: model, repositoryIdentity: selectedRepositoryIdentity)
             } else {
-                ContentUnavailableView("Select a repository", systemImage: "folder")
+                ContentUnavailableView(String(localized: "Select a repository", bundle: .module), systemImage: "folder")
             }
         }
         .sheet(isPresented: $isAddingRepository) {
@@ -125,7 +125,7 @@ public struct RootView: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.head)
-                        Text("^[\(model.storedSecretsByRepository[repositoryIdentity]?.count ?? 0) secret](inflect: true)")
+                        Text("^[\(model.storedSecretsByRepository[repositoryIdentity]?.count ?? 0) secret](inflect: true)", bundle: .module)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -139,10 +139,10 @@ public struct RootView: View {
     /// Actions needed less often than adding a repository.
     @ViewBuilder
     var moreActions: some View {
-        Button("About Sync", systemImage: "icloud") {
+        Button(String(localized: "About Sync", bundle: .module), systemImage: "icloud") {
             isShowingSyncInformation = true
         }
-        Button("Reload", systemImage: "arrow.clockwise", action: model.reload)
+        Button(String(localized: "Reload", bundle: .module), systemImage: "arrow.clockwise", action: model.reload)
         #if DEBUG
         // Also offered outside the unreachable screen because a build that reaches the Keychain
         // (the iOS Simulator) never shows that screen, and the simulator cannot answer the
@@ -170,11 +170,11 @@ struct KeychainUnreachableView: View {
 
     var body: some View {
         ContentUnavailableView {
-            Label("SecChain cannot reach its Keychain items", systemImage: "lock.trianglebadge.exclamationmark")
+            Label(String(localized: "SecChain cannot reach its Keychain items", bundle: .module), systemImage: "lock.trianglebadge.exclamationmark")
         } description: {
-            Text(SecretStoreError.missingEntitlement.description)
+            Text(SecretStoreError.missingEntitlement.message(bundle: .module))
         } actions: {
-            Button("Try Again", action: model.reload)
+            Button(String(localized: "Try Again", bundle: .module), action: model.reload)
             #if DEBUG
             // A development build signed without SecChain's team lands here; demo data lets such a
             // build show every other screen.
