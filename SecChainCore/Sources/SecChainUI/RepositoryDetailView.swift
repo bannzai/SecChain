@@ -29,44 +29,16 @@ struct RepositoryDetailView: View {
     }
 
     var body: some View {
-        List(storedSecrets) { storedSecret in
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(storedSecret.name.value)
-                        .font(.body.monospaced())
-                    HStack(spacing: 12) {
-                        Label(protectionLevelTitle(protectionLevel: storedSecret.protectionLevel), systemImage: protectionLevelSymbol(protectionLevel: storedSecret.protectionLevel))
-                        Label(
-                            storedSecret.isSynchronized ? "iCloud Keychain" : "This device only",
-                            systemImage: storedSecret.isSynchronized ? "icloud" : "desktopcomputer"
-                        )
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Menu {
-                    Button("Reveal Value", systemImage: "eye") {
-                        reveal(storedSecret: storedSecret)
-                    }
-                    Button("Update Value", systemImage: "pencil") {
-                        storedSecretBeingUpdated = storedSecret
-                    }
-                    Button("Change Protection", systemImage: "lock.shield") {
-                        storedSecretBeingProtected = storedSecret
-                    }
-                    Divider()
-                    Button("Delete", systemImage: "trash", role: .destructive) {
-                        storedSecretBeingDeleted = storedSecret
-                    }
-                } label: {
-                    Image(systemName: "ellipsis.circle")
-                        .accessibilityLabel("Actions for \(storedSecret.name.value)")
-                }
-                .menuStyle(.borderlessButton)
-                .fixedSize()
+        List {
+            #if os(iOS)
+            Section {
+                secretRows
+            } footer: {
+                MacOnlySecretsNote()
             }
-            .padding(.vertical, 4)
+            #else
+            secretRows
+            #endif
         }
         .navigationTitle(repositoryIdentity.value)
         .overlay {
@@ -120,6 +92,49 @@ struct RepositoryDetailView: View {
                     ? "The secret is synchronized, so it is deleted on all your devices"
                     : "The value cannot be recovered"
             )
+        }
+    }
+
+    /// One row per secret: its name and settings, with the actions in a menu.
+    var secretRows: some View {
+        ForEach(storedSecrets) { storedSecret in
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(storedSecret.name.value)
+                        .font(.body.monospaced())
+                    HStack(spacing: 12) {
+                        Label(protectionLevelTitle(protectionLevel: storedSecret.protectionLevel), systemImage: protectionLevelSymbol(protectionLevel: storedSecret.protectionLevel))
+                        Label(
+                            storedSecret.isSynchronized ? "iCloud Keychain" : "This device only",
+                            systemImage: storedSecret.isSynchronized ? "icloud" : "desktopcomputer"
+                        )
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Menu {
+                    Button("Reveal Value", systemImage: "eye") {
+                        reveal(storedSecret: storedSecret)
+                    }
+                    Button("Update Value", systemImage: "pencil") {
+                        storedSecretBeingUpdated = storedSecret
+                    }
+                    Button("Change Protection", systemImage: "lock.shield") {
+                        storedSecretBeingProtected = storedSecret
+                    }
+                    Divider()
+                    Button("Delete", systemImage: "trash", role: .destructive) {
+                        storedSecretBeingDeleted = storedSecret
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                        .accessibilityLabel("Actions for \(storedSecret.name.value)")
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
+            }
+            .padding(.vertical, 4)
         }
     }
 
