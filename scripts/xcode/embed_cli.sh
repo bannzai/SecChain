@@ -26,10 +26,20 @@ if [ -f "${APP_PROFILE}" ]; then
   cp -f "${APP_PROFILE}" "${HELPER_APP}/Contents/embedded.provisionprofile"
 fi
 
+# CloudKit refuses a client without com.apple.application-identifier ("Trying to initialize a
+# container without an application ID"), and the value must match the embedded profile. A development
+# build embeds the app's profile, so the tool uses the app's identifier. The Developer ID export
+# replaces that profile with the tool's own and fails unless the archive already signed the tool with
+# the tool's identifier, which scripts/macos/export_developer_id.sh passes as CLI_APPLICATION_IDENTIFIER.
+CLI_ENTITLEMENTS="${DERIVED_FILE_DIR}/secchain.entitlements"
+mkdir -p "${DERIVED_FILE_DIR}"
+cp -f "${SRCROOT}/SecChainCLISupport/secchain.entitlements" "${CLI_ENTITLEMENTS}"
+/usr/libexec/PlistBuddy -c "Add :com.apple.application-identifier string ${CLI_APPLICATION_IDENTIFIER:-${DEVELOPMENT_TEAM}.${PRODUCT_BUNDLE_IDENTIFIER}}" "${CLI_ENTITLEMENTS}"
+
 # Without a signing identity (CI, contributors without a team) fall back to ad-hoc signing so the
 # build still succeeds. An ad-hoc signed tool cannot use the shared access group; it reports a
 # code-signing error at run time instead of reading secrets.
 codesign --force --options runtime \
   --sign "${EXPANDED_CODE_SIGN_IDENTITY:--}" \
-  --entitlements "${SRCROOT}/SecChainCLISupport/secchain.entitlements" \
+  --entitlements "${CLI_ENTITLEMENTS}" \
   "${HELPER_APP}"

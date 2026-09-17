@@ -18,12 +18,19 @@ struct Doctor: AsyncParsableCommand {
     @Option(help: .hidden)
     var readFixture: String?
 
+    /// Hidden until remote approval ships: checks this binary's access to the CloudKit container
+    /// instead of the Keychain (issue #32).
+    @Flag(name: .customLong("cloudkit"), help: .hidden)
+    var cloudKit = false
+
     func run() async throws {
         var checks: [KeychainDoctorCheck]
         if let writeFixture {
             checks = [KeychainDoctor.writeFixture(account: writeFixture)]
         } else if let readFixture {
             checks = KeychainDoctor.readAndDeleteFixture(account: readFixture)
+        } else if cloudKit {
+            checks = await KeychainDoctor.runCloudKitChecks()
         } else {
             checks = KeychainDoctor.runSelfContainedChecks() + (await KeychainDoctor.runStoreChecks())
         }
