@@ -31,4 +31,4 @@ jobs:
         run: make build-macos SIGNING_FLAGS='CODE_SIGNING_ALLOWED=NO'
 
       - name: Build the iOS app
-        run: make build-ios
+        run: make build-ios IOS_SIGNING_FLAGS='CODE_SIGNING_ALLOWED=NO'
