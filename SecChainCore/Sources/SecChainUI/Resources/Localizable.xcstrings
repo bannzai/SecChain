@@ -2,164 +2,920 @@
   "sourceLanguage" : "en",
   "strings" : {
     "%@ already exists in %@." : {
-      "comment" : "Error message. The first %@ is the secret name, the second %@ the repository"
+      "comment" : "Error message. The first %@ is the secret name, the second %@ the repository",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ は %@ にすでに存在します。"
+          }
+        }
+      }
     },
     "%@ is not inside a Git repository. Run secchain inside a repository, or declare an identifier in the secret definition file." : {
-      "comment" : "Error message after a folder was chosen. %@ is the folder path"
+      "comment" : "Error message after a folder was chosen. %@ is the folder path",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ は Git リポジトリ内にありません。リポジトリ内で secchain を実行するか、Secret 定義ファイルで識別子を宣言してください。"
+          }
+        }
+      }
     },
-    ".secchain line %lld: contains '='. The definition file lists secret names only; store the value with 'secchain set <NAME>'." : {},
-    ".secchain line %lld: not a valid secret name. Use letters, digits and underscores, not starting with a digit." : {},
-    ".secchain line %lld: unknown or incomplete directive. The only directive is '@repository <identifier>'." : {},
-    "A Git remote URL is accepted too and is normalized the same way secchain does it" : {},
-    "A device-bound secret cannot be synchronized. Choose either device-bound or synchronization." : {},
-    "About Sync" : {},
+    ".secchain line %lld: contains '='. The definition file lists secret names only; store the value with 'secchain set <NAME>'." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ".secchain の %lld 行目：「=」が含まれています。定義ファイルには Secret の名前だけを書きます。値は「secchain set <NAME>」で保存してください。"
+          }
+        }
+      }
+    },
+    ".secchain line %lld: not a valid secret name. Use letters, digits and underscores, not starting with a digit." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ".secchain の %lld 行目：有効な Secret 名ではありません。英字、数字、アンダースコアを使い、数字で始めないでください。"
+          }
+        }
+      }
+    },
+    ".secchain line %lld: unknown or incomplete directive. The only directive is '@repository <identifier>'." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ".secchain の %lld 行目：不明または不完全なディレクティブです。使用できるディレクティブは、リポジトリの識別子を宣言する「@repository <identifier>」だけです。"
+          }
+        }
+      }
+    },
+    "A Git remote URL is accepted too and is normalized the same way secchain does it" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Git のリモート URL も入力でき、secchain と同じ方法で正規化されます"
+          }
+        }
+      }
+    },
+    "A device-bound secret cannot be synchronized. Choose either device-bound or synchronization." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デバイス固定 (device-bound) の Secret は同期できません。デバイス固定と同期のどちらかを選んでください。"
+          }
+        }
+      }
+    },
+    "About Sync" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同期について"
+          }
+        }
+      }
+    },
     "Actions for %@" : {
-      "comment" : "Accessibility label of the menu button of the secret %@"
+      "comment" : "Accessibility label of the menu button of the secret %@",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ の操作"
+          }
+        }
+      }
     },
     "Add" : {
-      "comment" : "Button that adds the repository entered in the sheet"
+      "comment" : "Button that adds the repository entered in the sheet",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "追加"
+          }
+        }
+      }
     },
-    "Add Repository" : {},
-    "Add Secret" : {},
-    "Add a repository to store its first secret" : {},
-    "Add the first secret of this repository" : {},
-    "Authentication failed." : {},
+    "Add Repository" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リポジトリを追加"
+          }
+        }
+      }
+    },
+    "Add Secret" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret を追加"
+          }
+        }
+      }
+    },
+    "Add a repository to store its first secret" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リポジトリを追加して最初の Secret を保存"
+          }
+        }
+      }
+    },
+    "Add the first secret of this repository" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このリポジトリに最初の Secret を追加"
+          }
+        }
+      }
+    },
+    "Authentication failed." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "認証に失敗しました。"
+          }
+        }
+      }
+    },
     "Authentication is not available on this device: %@" : {
-      "comment" : "Error message. %@ is the reason given by the system"
+      "comment" : "Error message. %@ is the reason given by the system",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデバイスでは認証を利用できません：%@"
+          }
+        }
+      }
     },
-    "Authentication was cancelled." : {},
+    "Authentication was cancelled." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "認証がキャンセルされました。"
+          }
+        }
+      }
+    },
     "Cancel" : {
-      "comment" : "Button that closes a sheet without saving"
+      "comment" : "Button that closes a sheet without saving",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャンセル"
+          }
+        }
+      }
     },
-    "Change Protection" : {},
-    "Choose Folder" : {},
+    "Change Protection" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保護レベルを変更"
+          }
+        }
+      }
+    },
+    "Choose Folder" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フォルダを選択"
+          }
+        }
+      }
+    },
     "Confirm" : {
-      "comment" : "Name of a protection level, shown in the protection picker and in each secret's row. The command-line tool calls this level `confirm` (secchain set --level confirm), so the translated name is followed by that word in parentheses"
+      "comment" : "Name of a protection level, shown in the protection picker and in each secret's row. The command-line tool calls this level `confirm` (secchain set --level confirm), so the translated name is followed by that word in parentheses",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認 (confirm)"
+          }
+        }
+      }
     },
     "Copied" : {
-      "comment" : "The Copy button after the value was copied"
+      "comment" : "The Copy button after the value was copied",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コピー済み"
+          }
+        }
+      }
     },
     "Copy" : {
-      "comment" : "Button that copies the revealed value of a secret"
+      "comment" : "Button that copies the revealed value of a secret",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コピー"
+          }
+        }
+      }
     },
     "Delete" : {
-      "comment" : "Destructive menu action and confirmation button that delete a secret"
+      "comment" : "Destructive menu action and confirmation button that delete a secret",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除"
+          }
+        }
+      }
     },
     "Delete %@?" : {
-      "comment" : "Title of the confirmation dialog shown before the secret %@ is deleted"
+      "comment" : "Title of the confirmation dialog shown before the secret %@ is deleted",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ を削除しますか？"
+          }
+        }
+      }
     },
     "Device-bound" : {
-      "comment" : "Name of a protection level, shown in the protection picker and in each secret's row. The command-line tool calls this level `device-bound` (secchain set --level device-bound), so the translated name is followed by that word in parentheses"
+      "comment" : "Name of a protection level, shown in the protection picker and in each secret's row. The command-line tool calls this level `device-bound` (secchain set --level device-bound), so the translated name is followed by that word in parentheses",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デバイス固定 (device-bound)"
+          }
+        }
+      }
     },
     "Done" : {
-      "comment" : "Button that closes a sheet"
+      "comment" : "Button that closes a sheet",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "完了"
+          }
+        }
+      }
     },
-    "Hidden again after 30 seconds" : {},
-    "How secrets reach your other devices" : {},
+    "Hidden again after 30 seconds" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "30 秒後にまた非表示になります"
+          }
+        }
+      }
+    },
+    "How secrets reach your other devices" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ほかのデバイスに Secret が届く仕組み"
+          }
+        }
+      }
+    },
     "Identifier" : {
-      "comment" : "Label of the text field for a repository identifier such as github.com/owner/repository"
+      "comment" : "Label of the text field for a repository identifier such as github.com/owner/repository",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "識別子"
+          }
+        }
+      }
     },
     "Keychain %@ failed with status %d: %@" : {
-      "comment" : "Error message. The first %@ is an internal operation name that stays English, %d the OSStatus code, the last %@ the system's description of the status"
+      "comment" : "Error message. The first %@ is an internal operation name that stays English, %d the OSStatus code, the last %@ the system's description of the status",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keychain の「%@」操作に失敗しました（ステータス %d）：%@"
+          }
+        }
+      }
     },
     "More" : {
-      "comment" : "Toolbar menu with the less frequent actions (macOS)"
+      "comment" : "Toolbar menu with the less frequent actions (macOS)",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "その他"
+          }
+        }
+      }
     },
     "Name" : {
-      "comment" : "Label of the text field for the name of a secret (an environment variable name)"
+      "comment" : "Label of the text field for the name of a secret (an environment variable name)",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "名前"
+          }
+        }
+      }
     },
-    "No repositories yet" : {},
-    "No secrets yet" : {},
+    "No repositories yet" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リポジトリはまだありません"
+          }
+        }
+      }
+    },
+    "No secrets yet" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secret はまだありません"
+          }
+        }
+      }
+    },
     "No value is stored for %@ in %@. Store it with 'secchain set %@'." : {
-      "comment" : "Error message. The first and the last %@ are the secret name, the second %@ the repository"
+      "comment" : "Error message. The first and the last %@ are the secret name, the second %@ the repository",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ の値は %@ に保存されていません。「secchain set %@」で保存してください。"
+          }
+        }
+      }
     },
     "OK" : {
-      "comment" : "Button that closes an error alert"
+      "comment" : "Button that closes an error alert",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "OK"
+          }
+        }
+      }
     },
-    "Open Settings" : {},
+    "Open Settings" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定を開く"
+          }
+        }
+      }
+    },
     "Protection" : {
-      "comment" : "Label of the picker that chooses the protection level of a secret"
+      "comment" : "Label of the picker that chooses the protection level of a secret",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保護レベル"
+          }
+        }
+      }
     },
     "Protection of %@" : {
-      "comment" : "Title of the sheet that changes the protection level of the secret %@"
+      "comment" : "Title of the sheet that changes the protection level of the secret %@",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ の保護レベル"
+          }
+        }
+      }
     },
     "Reload" : {
-      "comment" : "Menu action that reads the secrets from the Keychain again"
+      "comment" : "Menu action that reads the secrets from the Keychain again",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再読み込み"
+          }
+        }
+      }
     },
-    "Repositories" : {},
-    "Reveal Value" : {},
+    "Repositories" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リポジトリ"
+          }
+        }
+      }
+    },
+    "Reveal Value" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "値を表示"
+          }
+        }
+      }
+    },
     "Save" : {
-      "comment" : "Button that saves the secret edited in the sheet"
+      "comment" : "Button that saves the secret edited in the sheet",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存"
+          }
+        }
+      }
     },
-    "SecChain cannot reach its Keychain items" : {},
-    "SecChain cannot see whether iCloud Keychain is on. When it is off, every secret simply stays on this device and keeps working here." : {},
-    "SecChain installed from the same developer on every device" : {},
-    "SecChain stores secrets in the system Keychain and nowhere else" : {},
-    "Secrets marked iCloud Keychain are synchronized by the system, end-to-end encrypted" : {},
-    "Secrets set to This device only or Device-bound on a Mac stay on that Mac and do not appear here" : {},
-    "Select a repository" : {},
-    "Something went wrong" : {},
+    "SecChain cannot reach its Keychain items" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SecChain は Keychain の項目にアクセスできません"
+          }
+        }
+      }
+    },
+    "SecChain cannot see whether iCloud Keychain is on. When it is off, every secret simply stays on this device and keeps working here." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SecChain からは iCloud キーチェーンがオンかどうかを確認できません。オフの場合、Secret はすべてこのデバイスにとどまり、ここでそのまま使えます。"
+          }
+        }
+      }
+    },
+    "SecChain installed from the same developer on every device" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべてのデバイスに同じデベロッパからインストールした SecChain"
+          }
+        }
+      }
+    },
+    "SecChain stores secrets in the system Keychain and nowhere else" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SecChain は Secret をシステムの Keychain だけに保存し、ほかの場所には保存しません"
+          }
+        }
+      }
+    },
+    "Secrets marked iCloud Keychain are synchronized by the system, end-to-end encrypted" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud キーチェーンと表示された Secret は、システムがエンドツーエンドで暗号化して同期します"
+          }
+        }
+      }
+    },
+    "Secrets set to This device only or Device-bound on a Mac stay on that Mac and do not appear here" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mac で「このデバイスのみ」または「デバイス固定 (device-bound)」にした Secret はその Mac にとどまり、ここには表示されません"
+          }
+        }
+      }
+    },
+    "Select a repository" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リポジトリを選択"
+          }
+        }
+      }
+    },
+    "Something went wrong" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "問題が発生しました"
+          }
+        }
+      }
+    },
     "Standard" : {
-      "comment" : "Name of a protection level, shown in the protection picker and in each secret's row. The command-line tool calls this level `standard` (secchain set --level standard), so the translated name is followed by that word in parentheses"
+      "comment" : "Name of a protection level, shown in the protection picker and in each secret's row. The command-line tool calls this level `standard` (secchain set --level standard), so the translated name is followed by that word in parentheses",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標準 (standard)"
+          }
+        }
+      }
     },
-    "Synchronize with iCloud Keychain" : {},
+    "Synchronize with iCloud Keychain" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud キーチェーンと同期"
+          }
+        }
+      }
+    },
     "The 'origin' remote (%@) is a local path, which differs between Macs. Declare an identifier in the secret definition file." : {
-      "comment" : "Error message after a folder was chosen. %@ is the remote URL"
+      "comment" : "Error message after a folder was chosen. %@ is the remote URL",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「origin」リモート（%@）はローカルのパスで、Mac ごとに異なります。Secret 定義ファイルで識別子を宣言してください。"
+          }
+        }
+      }
     },
     "The Git repository at %@ has no 'origin' remote, so it cannot be identified on other Macs. Add the remote, or declare an identifier in the secret definition file." : {
-      "comment" : "Error message after a folder was chosen. %@ is the folder path"
+      "comment" : "Error message after a folder was chosen. %@ is the folder path",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ の Git リポジトリには「origin」リモートがないため、ほかの Mac で識別できません。リモートを追加するか、Secret 定義ファイルで識別子を宣言してください。"
+          }
+        }
+      }
     },
-    "The Keychain is not available. Unlock the device or log in and try again." : {},
-    "The Keychain itself demands authentication for every read. The secret never leaves this device and is not restored onto a new one." : {},
-    "The copy is marked as a password so that clipboard managers skip it" : {},
-    "The copy stays on this device and is removed from the clipboard after one minute" : {},
-    "The name is also the environment variable that secchain run sets" : {},
-    "The repository is identified by its Git remote, so every checkout of it shares the same secrets" : {},
-    "The same Apple Account on every device" : {},
-    "The secret is synchronized, so it is deleted on all your devices" : {},
-    "The value cannot be recovered" : {},
-    "The value is empty." : {},
-    "The value is stored in the Keychain only" : {},
-    "This binary is not signed with SecChain's Keychain access group, so it cannot reach any secret (errSecMissingEntitlement). Use the secchain tool inside SecChain.app; a binary built with 'swift build' or signed by another team cannot share the app's secrets. Run 'secchain doctor' for details." : {},
+    "The Keychain is not available. Unlock the device or log in and try again." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keychain を利用できません。デバイスのロックを解除するか、ログインしてもう一度お試しください。"
+          }
+        }
+      }
+    },
+    "The Keychain itself demands authentication for every read. The secret never leaves this device and is not restored onto a new one." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keychain 自体が読み出しのたびに認証を求めます。Secret はこのデバイスから出ることがなく、新しいデバイスにも復元されません。"
+          }
+        }
+      }
+    },
+    "The copy is marked as a password so that clipboard managers skip it" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コピーはパスワードとして扱われ、クリップボードマネージャーの履歴に残りません"
+          }
+        }
+      }
+    },
+    "The copy stays on this device and is removed from the clipboard after one minute" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "コピーはこのデバイスだけにとどまり、1 分後にクリップボードから消去されます"
+          }
+        }
+      }
+    },
+    "The name is also the environment variable that secchain run sets" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この名前は secchain run が設定する環境変数の名前にもなります"
+          }
+        }
+      }
+    },
+    "The repository is identified by its Git remote, so every checkout of it shares the same secrets" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リポジトリは Git リモートで識別されるため、どのチェックアウトでも同じ Secret を共有します"
+          }
+        }
+      }
+    },
+    "The same Apple Account on every device" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべてのデバイスで同じ Apple アカウント"
+          }
+        }
+      }
+    },
+    "The secret is synchronized, so it is deleted on all your devices" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この Secret は同期されているため、すべてのデバイスから削除されます"
+          }
+        }
+      }
+    },
+    "The value cannot be recovered" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "値は復元できません"
+          }
+        }
+      }
+    },
+    "The value is empty." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "値が空です。"
+          }
+        }
+      }
+    },
+    "The value is stored in the Keychain only" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "値は Keychain だけに保存されます"
+          }
+        }
+      }
+    },
+    "This binary is not signed with SecChain's Keychain access group, so it cannot reach any secret (errSecMissingEntitlement). Use the secchain tool inside SecChain.app; a binary built with 'swift build' or signed by another team cannot share the app's secrets. Run 'secchain doctor' for details." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このバイナリは SecChain の Keychain アクセスグループで署名されていないため、どの Secret にもアクセスできません（errSecMissingEntitlement）。SecChain.app 内の secchain ツールを使ってください。「swift build」でビルドしたバイナリや別のチームが署名したバイナリは、アプリと Secret を共有できません。詳しくは「secchain doctor」を実行してください。"
+          }
+        }
+      }
+    },
     "This device only" : {
-      "comment" : "Shown in the row of a secret that does not synchronize through iCloud Keychain"
+      "comment" : "Shown in the row of a secret that does not synchronize through iCloud Keychain",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このデバイスのみ"
+          }
+        }
+      }
     },
-    "This device only and device-bound secrets never leave this device" : {},
-    "This secret requires authentication, but no prompt can be shown here (for example over SSH). Run the command in a logged-in graphical session." : {},
-    "This value is not text and cannot be displayed" : {},
-    "Try Again" : {},
+    "This device only and device-bound secrets never leave this device" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「このデバイスのみ」と「デバイス固定 (device-bound)」の Secret は、このデバイスから出ません"
+          }
+        }
+      }
+    },
+    "This secret requires authentication, but no prompt can be shown here (for example over SSH). Run the command in a logged-in graphical session." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この Secret には認証が必要ですが、ここでは認証のダイアログを表示できません（SSH 経由の場合など）。ログインしているグラフィカルセッションでコマンドを実行してください。"
+          }
+        }
+      }
+    },
+    "This value is not text and cannot be displayed" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この値はテキストではないため表示できません"
+          }
+        }
+      }
+    },
+    "Try Again" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再試行"
+          }
+        }
+      }
+    },
     "Update %@" : {
-      "comment" : "Title of the sheet that replaces the value of the secret %@"
+      "comment" : "Title of the sheet that replaces the value of the secret %@",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ を更新"
+          }
+        }
+      }
     },
-    "Update Value" : {},
-    "Use letters, digits and underscores, not starting with a digit" : {},
+    "Update Value" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "値を更新"
+          }
+        }
+      }
+    },
+    "Use letters, digits and underscores, not starting with a digit" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英字、数字、アンダースコアを使い、数字で始めないでください"
+          }
+        }
+      }
+    },
     "Value" : {
-      "comment" : "Label of the secure text field for the value of a secret"
+      "comment" : "Label of the secure text field for the value of a secret",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "値"
+          }
+        }
+      }
     },
-    "What synchronization needs" : {},
+    "What synchronization needs" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同期に必要なもの"
+          }
+        }
+      }
+    },
     "^[%lld secret](inflect: true)" : {
-      "comment" : "Number of secrets of a repository, shown under its name. The ^[…](inflect: true) markup makes English choose secret or secrets; a language without plural forms drops the markup"
+      "comment" : "Number of secrets of a repository, shown under its name. The ^[…](inflect: true) markup makes English choose secret or secrets; a language without plural forms drops the markup",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件の Secret"
+          }
+        }
+      }
     },
     "change the protection of %@" : {
-      "comment" : "Reason given to the system authentication prompt; %@ is the secret name. macOS puts it into its own sentence (English: “SecChain is trying to change the protection of NAME.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation"
+      "comment" : "Reason given to the system authentication prompt; %@ is the secret name. macOS puts it into its own sentence (English: “SecChain is trying to change the protection of NAME.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ の保護レベルを変更"
+          }
+        }
+      }
     },
     "delete %@" : {
-      "comment" : "Reason given to the system authentication prompt; %@ is the secret name. macOS puts it into its own sentence (English: “SecChain is trying to delete NAME.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation"
+      "comment" : "Reason given to the system authentication prompt; %@ is the secret name. macOS puts it into its own sentence (English: “SecChain is trying to delete NAME.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ を削除"
+          }
+        }
+      }
     },
     "git could not be run: %@" : {
-      "comment" : "Error message. %@ is the reason given by the system"
+      "comment" : "Error message. %@ is the reason given by the system",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "git を実行できませんでした：%@"
+          }
+        }
+      }
     },
     "iCloud Keychain" : {
-      "comment" : "Shown in the row of a secret that synchronizes through iCloud Keychain"
+      "comment" : "Shown in the row of a secret that synchronizes through iCloud Keychain",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iCloud キーチェーン"
+          }
+        }
+      }
     },
-    "iCloud Keychain turned on in the Apple Account settings of every device" : {},
+    "iCloud Keychain turned on in the Apple Account settings of every device" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべてのデバイスの Apple アカウント設定でオンにした iCloud キーチェーン"
+          }
+        }
+      }
+    },
     "reveal %@" : {
-      "comment" : "Reason given to the system authentication prompt; %@ is the secret name. macOS puts it into its own sentence (English: “SecChain is trying to reveal NAME.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation"
+      "comment" : "Reason given to the system authentication prompt; %@ is the secret name. macOS puts it into its own sentence (English: “SecChain is trying to reveal NAME.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ の値を表示"
+          }
+        }
+      }
     },
-    "secchain run asks for Touch ID or your password every time. The secret can still synchronize." : {},
-    "secchain run reads the secret without asking. Revealing the value here still asks for authentication." : {},
+    "secchain run asks for Touch ID or your password every time. The secret can still synchronize." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "secchain run は毎回 Touch ID またはパスワードでの認証を求めます。Secret は同期もできます。"
+          }
+        }
+      }
+    },
+    "secchain run reads the secret without asking. Revealing the value here still asks for authentication." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "secchain run は認証なしで Secret を読み取ります。ここで値を表示するときは認証が必要です。"
+          }
+        }
+      }
+    },
     "update %@" : {
-      "comment" : "Reason given to the system authentication prompt; %@ is the secret name. macOS puts it into its own sentence (English: “SecChain is trying to update NAME.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation"
+      "comment" : "Reason given to the system authentication prompt; %@ is the secret name. macOS puts it into its own sentence (English: “SecChain is trying to update NAME.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ を更新"
+          }
+        }
+      }
     }
   },
   "version" : "1.0"
