@@ -29,7 +29,81 @@ struct RepositoryDetailView: View {
     }
 
     var body: some View {
-        List(storedSecrets) { storedSecret in
+        List {
+            #if os(iOS)
+            Section {
+                secretRows
+            } footer: {
+                MacOnlySecretsNote()
+            }
+            #else
+            secretRows
+            #endif
+        }
+        .navigationTitle(repositoryIdentity.value)
+        #if os(iOS)
+        // A repository identifier is too long for a large title on an iPhone and would be cut off.
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .overlay {
+            if storedSecrets.isEmpty {
+                ContentUnavailableView(
+                    "No secrets yet",
+                    systemImage: "key",
+                    description: Text("Add the first secret of this repository")
+                )
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Add Secret", systemImage: "plus") {
+                    isAddingSecret = true
+                }
+            }
+        }
+        .sheet(isPresented: $isAddingSecret) {
+            SecretEditorView(model: model, mode: .add(repositoryIdentity: repositoryIdentity))
+        }
+        .sheet(item: $storedSecretBeingUpdated) { storedSecret in
+            SecretEditorView(model: model, mode: .updateValue(storedSecret: storedSecret))
+        }
+        .sheet(item: $storedSecretBeingProtected) { storedSecret in
+            SecretEditorView(model: model, mode: .changeProtection(storedSecret: storedSecret))
+        }
+        .sheet(item: $revealedSecret) { revealedSecret in
+            RevealedValueView(storedSecret: revealedSecret.storedSecret, value: revealedSecret.value)
+        }
+        // The title names the secret; iOS hides a dialog's title unless it is made visible.
+        .confirmationDialog(
+            "Delete \(storedSecretBeingDeleted?.name.value ?? "")?",
+            isPresented: Binding(
+                get: { storedSecretBeingDeleted != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        storedSecretBeingDeleted = nil
+                    }
+                }
+            ),
+            titleVisibility: .visible,
+            presenting: storedSecretBeingDeleted
+        ) { storedSecret in
+            Button("Delete", role: .destructive) {
+                Task {
+                    _ = await model.delete(storedSecret: storedSecret)
+                }
+            }
+        } message: { storedSecret in
+            Text(
+                storedSecret.isSynchronized
+                    ? "The secret is synchronized, so it is deleted on all your devices"
+                    : "The value cannot be recovered"
+            )
+        }
+    }
+
+    /// One row per secret: its name and settings, with the actions in a menu.
+    var secretRows: some View {
+        ForEach(storedSecrets) { storedSecret in
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(storedSecret.name.value)
@@ -67,59 +141,6 @@ struct RepositoryDetailView: View {
                 .fixedSize()
             }
             .padding(.vertical, 4)
-        }
-        .navigationTitle(repositoryIdentity.value)
-        .overlay {
-            if storedSecrets.isEmpty {
-                ContentUnavailableView(
-                    "No secrets yet",
-                    systemImage: "key",
-                    description: Text("Add the first secret of this repository")
-                )
-            }
-        }
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Add Secret", systemImage: "plus") {
-                    isAddingSecret = true
-                }
-            }
-        }
-        .sheet(isPresented: $isAddingSecret) {
-            SecretEditorView(model: model, mode: .add(repositoryIdentity: repositoryIdentity))
-        }
-        .sheet(item: $storedSecretBeingUpdated) { storedSecret in
-            SecretEditorView(model: model, mode: .updateValue(storedSecret: storedSecret))
-        }
-        .sheet(item: $storedSecretBeingProtected) { storedSecret in
-            SecretEditorView(model: model, mode: .changeProtection(storedSecret: storedSecret))
-        }
-        .sheet(item: $revealedSecret) { revealedSecret in
-            RevealedValueView(storedSecret: revealedSecret.storedSecret, value: revealedSecret.value)
-        }
-        .confirmationDialog(
-            "Delete \(storedSecretBeingDeleted?.name.value ?? "")?",
-            isPresented: Binding(
-                get: { storedSecretBeingDeleted != nil },
-                set: { isPresented in
-                    if !isPresented {
-                        storedSecretBeingDeleted = nil
-                    }
-                }
-            ),
-            presenting: storedSecretBeingDeleted
-        ) { storedSecret in
-            Button("Delete", role: .destructive) {
-                Task {
-                    _ = await model.delete(storedSecret: storedSecret)
-                }
-            }
-        } message: { storedSecret in
-            Text(
-                storedSecret.isSynchronized
-                    ? "The secret is synchronized, so it is deleted on all your devices"
-                    : "The value cannot be recovered"
-            )
         }
     }
 

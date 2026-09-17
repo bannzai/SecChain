@@ -43,27 +43,16 @@ public struct RootView: View {
 
     var navigation: some View {
         NavigationSplitView {
-            List(model.repositoryIdentities, id: \.self, selection: $model.selectedRepositoryIdentity) { repositoryIdentity in
-                NavigationLink(value: repositoryIdentity) {
-                    Label {
-                        VStack(alignment: .leading, spacing: 2) {
-                            // The last path component is what tells repositories apart at a
-                            // glance; the full identifier follows for disambiguation.
-                            Text(repositoryIdentity.value.split(separator: "/").last.map(String.init) ?? repositoryIdentity.value)
-                                .lineLimit(1)
-                            Text(repositoryIdentity.value)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.head)
-                            Text("^[\(model.storedSecretsByRepository[repositoryIdentity]?.count ?? 0) secret](inflect: true)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    } icon: {
-                        Image(systemName: "folder")
-                    }
+            List(selection: $model.selectedRepositoryIdentity) {
+                #if os(iOS)
+                Section {
+                    repositoryRows
+                } footer: {
+                    MacOnlySecretsNote()
                 }
+                #else
+                repositoryRows
+                #endif
             }
             .navigationTitle("Repositories")
             #if os(macOS)
@@ -116,6 +105,31 @@ public struct RootView: View {
         }
     }
 
+    /// One row per repository: the last path component tells repositories apart at a glance, the
+    /// full identifier follows for disambiguation.
+    var repositoryRows: some View {
+        ForEach(model.repositoryIdentities, id: \.self) { repositoryIdentity in
+            NavigationLink(value: repositoryIdentity) {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(repositoryIdentity.value.split(separator: "/").last.map(String.init) ?? repositoryIdentity.value)
+                            .lineLimit(1)
+                        Text(repositoryIdentity.value)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.head)
+                        Text("^[\(model.storedSecretsByRepository[repositoryIdentity]?.count ?? 0) secret](inflect: true)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: "folder")
+                }
+            }
+        }
+    }
+
     /// Actions needed less often than adding a repository.
     @ViewBuilder
     var moreActions: some View {
@@ -124,6 +138,10 @@ public struct RootView: View {
         }
         Button("Reload", systemImage: "arrow.clockwise", action: model.reload)
         #if DEBUG
+        // Also offered outside the unreachable screen because a build that reaches the Keychain
+        // (the iOS Simulator) never shows that screen, and the simulator cannot answer the
+        // authentication that revealing a stored value needs.
+        Button("Use Demo Data", systemImage: "tray.full", action: model.useDemoStore)
         // The error alert otherwise needs a real Keychain or authentication failure, which demo
         // data and a remote session cannot produce.
         Button("Show Sample Error", systemImage: "exclamationmark.triangle") {

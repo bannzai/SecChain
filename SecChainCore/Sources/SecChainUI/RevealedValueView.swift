@@ -34,7 +34,12 @@ struct RevealedValueView: View {
                     }
                     .disabled(value.exposedString == nil)
                 } footer: {
+                    // Each platform protects the copy differently (see `copyConcealed(text:)`).
+                    #if os(macOS)
                     Text("The copy is marked as a password so that clipboard managers skip it")
+                    #else
+                    Text("The copy stays on this device and is removed from the clipboard after one minute")
+                    #endif
                 }
             }
             .formStyle(.grouped)
