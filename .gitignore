@@ -1,0 +1,19 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# SwiftPM
+.build/
+.swiftpm/
+
+# Scratch directories for local verification output
+tmp/
+var/
+
+# Local-only values (signing identifiers, notarization credentials)
+.envrc
+
+# macOS
+.DS_Store
