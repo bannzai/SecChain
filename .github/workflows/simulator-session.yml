@@ -1,0 +1,47 @@
+# Opens an iOS Simulator running the iOS app on a GitHub Actions macOS runner and exposes it to
+# the maintainer's tailnet, so that screens are checked without a local simulator. The work is done
+# by the reusable workflow of simtunnel (https://github.com/bannzai/simtunnel, PROJECT.md
+# "各アプリ repo での実行"). Usage: AGENTS.md, "Checking screens".
+name: simulator-session
+# local/simtunnel finds its run by this name, so the format must stay.
+run-name: "session=${{ inputs.session }} device=${{ inputs.device }}"
+
+on:
+  # Manual dispatch only, so that pull requests from forks never receive the Tailscale secrets.
+  workflow_dispatch:
+    # local/simtunnel always sends session / device / duration_minutes, and a dispatch with an
+    # undeclared input is rejected.
+    inputs:
+      session:
+        description: "Session name; the runner joins the tailnet as simtunnel-<session> (lowercase letters, digits, hyphens)"
+        required: true
+        default: secchain
+      device:
+        description: "Simulator device name"
+        required: true
+        default: iPhone 17
+      duration_minutes:
+        description: "Minutes the session stays open"
+        required: true
+        default: "60"
+
+jobs:
+  session:
+    # Only the job that calls the reusable workflow gets an OIDC token.
+    permissions:
+      id-token: write # Tailscale authenticates the runner through OIDC
+      contents: read
+    # simtunnel has no release tags, so a commit of its main branch is pinned.
+    uses: bannzai/simtunnel/.github/workflows/session.yml@aa02a15765a76ab4c27d7e3fbd2eca6f17432b77 # main 2026-09-12
+    with:
+      session: ${{ inputs.session }}
+      device: ${{ inputs.device }}
+      duration_minutes: ${{ inputs.duration_minutes }}
+      # Built without extra flags on purpose: a simulator build is signed locally even without a
+      # signing identity, which embeds the Keychain access group (simtunnel issue #40).
+      # CODE_SIGNING_ALLOWED=NO would leave the app unable to reach the simulator's Keychain.
+      build_project: SecChain.xcodeproj
+      build_scheme: SecChainiOS
+    secrets:
+      TS_OIDC_CLIENT_ID: ${{ secrets.TS_OIDC_CLIENT_ID }}
+      TS_OIDC_AUDIENCE: ${{ secrets.TS_OIDC_AUDIENCE }}
