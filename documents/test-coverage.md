@@ -20,6 +20,9 @@ described in the README ("Tests").
 | Remote approval: a forged approval never authorizes a read | `RemoteApprovalTests` (no signature, bytes that are not a signature, another key, another request, a later expiry, other content) for the verification, and `RemoteApprovalSessionTests` (`aForgedApprovalIsRefusedWithTheReasonItWasRefused`, `rewritingTheFiledRequestDoesNotChangeWhatIsVerified`, `anApprovalForAnotherMacsEnrolledKeyIsRefused`, `anApprovalThatArrivesAfterTheExpiryIsRefused`) for the whole round against the in-memory transport |
 | Remote approval: rejected, expired, and cancelled are told apart | `RemoteApprovalSessionTests` (`aRejectionOnTheIPhoneIsItsOwnError`, `noAnswerBeforeTheExpiryIsItsOwnError`, `cancellingTheWaitingSavesACancellationAndKeepsTheRequest`, `aTransportFailureIsReportedAsItself`, `everySessionErrorExplainsItself`) |
 | Remote approval: no secret value in a record, a log, or the signed message | `RemoteApprovalRecordsTests.noRecordOfTheProtocolCanCarryASecretValue`, `RemoteApprovalCloudKitRecordsTests.noEncodedRecordCanCarryASecretValue`, and `RemoteApprovalSessionTests.theWaitingIsReportedWithTheRemainingTimeAndNoSecretValue` |
+| Remote approval: where a *confirm* authentication is answered | `OwnerAuthenticationRoutingTests` (the three cases of design decision 5, an unpaired Mac always asking locally, a device-bound secret always asking locally) and `RemoteApprovalOwnerAuthenticatorTests` (an approval authenticating without a `LAContext`, a rejection not authenticating, the question moving to the iPhone only for "no prompt can be shown here", a failed or cancelled prompt not being retried on the iPhone). `scripts/test/cli.sh` checks that `run --approve-remotely` changes nothing for a secret that needs no authentication |
+| Remote approval: pairing and the per-Mac setting | `RemoteApprovalPairingStoreTests` (the typed number deciding which published key is enrolled, digits compared without the grouping, a number that matches nothing enrolling nothing and not even prompting, a key that is not a P-256 key refused, a refused authentication leaving the Mac trusting what it trusted, the setting needing an authentication each time, removing being idempotent, the stored form round tripping) and `scripts/test/integration.sh`, where a refused pairing attempt against the real container leaves the enrolled pairing unchanged |
+| Remote approval: one whole round against the real CloudKit container | `scripts/test/integration.sh` runs `doctor --remote-approval-end-to-end` (debug builds only): a software key stands in for the iPhone, reads the request back out of the private database, and signs what it read, so the record layout and the signature are checked together. The same round with another key and with a rejection must not let the read through |
 | Remote approval: the record layout both front ends and the production schema depend on | `RemoteApprovalCloudKitRecordsTests` (round trips of all four record types, `theRecordsCarryExactlyTheDocumentedFields`, the refusals of another record type / another schema version / a missing or malformed field, `theQueryForEveryRecordFiltersOnAFieldOfTheProtocol`) and `RemoteApprovalRecordsTests` (record names, the pairing number, `theSchemaVersionMatchesTheSignedMessageVersion`) |
 
 ## Not covered by an automated run
@@ -30,3 +33,10 @@ described in the README ("Tests").
 - The iOS Simulator does not enforce the Keychain's own authentication for a device-bound item
   (`documents/PROJECT.md`, "Measured behavior"), so that enforcement is verified on macOS and has to
   be confirmed on an iOS device.
+- Answering an authentication over a real SSH session. What LocalAuthentication reports when it may
+  not show a prompt is measured (`LAError` -1004, the error a paired Mac takes over from), but
+  running the tool over SSH needs an authorized key on the Mac, which is the user's decision
+  (issue #16).
+- Pairing itself, end to end: enrolling a key asks for Touch ID, so the `enroll` path of
+  `RemoteApprovalPairingStore` is covered by unit tests with a stand-in authenticator, and the real
+  prompt is part of the pre-release checklist (issue #15).

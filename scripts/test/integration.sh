@@ -46,6 +46,24 @@ echo "== The embedded tool and the app use the CloudKit container's private data
 "${SECCHAIN}" doctor --cloudkit
 "${APP_EXECUTABLE}" --doctor-cloudkit
 
+echo "== The pairing subcommands answer without an iPhone, and enroll nothing"
+PAIRING_BEFORE="$("${SECCHAIN}" pair status)"
+echo "${PAIRING_BEFORE}"
+# A number that matches no published key is refused before any authentication is asked for, so this
+# runs unattended whether or not this Mac is paired. 12 zeros cannot collide with a real key's
+# number in any meaningful way.
+PAIRING_OUTPUT="$("${SECCHAIN}" pair --number 0000-0000-0000 2>&1 || true)"
+echo "${PAIRING_OUTPUT}"
+if [ "$("${SECCHAIN}" pair status)" != "${PAIRING_BEFORE}" ]; then
+  echo "FAIL: a refused pairing attempt changed what this Mac has enrolled" >&2
+  exit 1
+fi
+
+echo "== A whole remote approval round against CloudKit, with a software key standing in for the iPhone"
+# Debug builds only, which is what this script builds; the notarized DMG is a Release build and
+# contains no way to approve its own requests.
+"${SECCHAIN}" doctor --remote-approval-end-to-end
+
 echo "== An unsigned 'swift build' product fails with errSecMissingEntitlement"
 swift build --package-path "${REPOSITORY_ROOT}/SecChainCore" --product secchain-cli
 UNSIGNED_OUTPUT="$("$(swift build --package-path "${REPOSITORY_ROOT}/SecChainCore" --show-bin-path)/secchain-cli" doctor 2>&1 || true)"
