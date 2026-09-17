@@ -41,7 +41,9 @@ struct Doctor: AsyncParsableCommand {
         } else if cloudKit {
             checks = await KeychainDoctor.runCloudKitChecks()
         } else if remoteApprovalEndToEndRequested {
-            checks = await KeychainDoctor.runRemoteApprovalEndToEndChecks()
+            checks = await KeychainDoctor.runRemoteApprovalEndToEndChecks(
+                waitWithInterruptCancelling: { try await withInterruptCancellingTheOperation(operation: $0) }
+            )
         } else {
             checks = KeychainDoctor.runSelfContainedChecks() + (await KeychainDoctor.runStoreChecks())
         }
