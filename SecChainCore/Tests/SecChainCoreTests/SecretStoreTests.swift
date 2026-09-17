@@ -128,6 +128,18 @@ struct SecretStoreTests {
     }
 
     @Test
+    func listingNeverAuthenticatesAndCarriesNoValue() async throws {
+        try await store.set(name: try name("A"), value: dummyValue, repositoryIdentity: repositoryA, protectionLevel: .deviceBound, isSynchronized: nil)
+        try await store.set(name: try name("B"), value: dummyValue, repositoryIdentity: repositoryA, protectionLevel: .confirm, isSynchronized: nil)
+        let listed = try store.storedSecrets(repositoryIdentity: repositoryA)
+        #expect(listed.map(\.name.value) == ["A", "B"])
+        #expect(try store.repositoryIdentities() == [repositoryA])
+        #expect(authenticator.reasons.isEmpty)
+        // A listed secret is an attribute record: no member of it can hand out the value.
+        #expect(!listed.contains { Mirror(reflecting: $0).children.contains { $0.value is SecretValue } })
+    }
+
+    @Test
     func aFailedAuthenticationReturnsNoValue() async throws {
         try await store.set(name: try name("A"), value: dummyValue, repositoryIdentity: repositoryA, protectionLevel: .confirm, isSynchronized: nil)
         let rejectingStore = SecretStore(keychain: keychain, ownerAuthenticator: CountingOwnerAuthenticator(failure: .authenticationCancelled))

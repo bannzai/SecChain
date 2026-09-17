@@ -157,6 +157,26 @@ cp -R /path/to/SecChain/skills/secchain .claude/skills/secchain   # Claude Code,
 
 Other Agent-Skills-compatible tools look for the same `SKILL.md` shape under their own skill directory (for example `~/.agents/skills/secchain` for a personal, cross-project install). See the skill file itself for the exact instructions given to the agent.
 
+## Development
+
+### Tests
+
+Tests are split by what they need to run, so that most of them run anywhere while the ones that need a real Keychain stay honest about it.
+
+| Layer | Command | Runs where | Covers |
+| --- | --- | --- | --- |
+| Unit tests | `make test` | Anywhere, including CI on pull requests from forks | Everything that can be decided without the system Keychain: repository identity, the `.secchain` file, the rules of `SecretStore` (protection levels, authentication, synchronization), the environment `run` builds, the error translation, and the assertions that a value never appears in a description or a log. They run against an in-memory Keychain double (`InMemorySecretKeychain`) and an authenticator double, so no prompt appears |
+| Signed integration tests | `make test-integration` | A Mac with the team's signing identity (not CI, because a runner has none) | The real data protection keychain, exercised by the signed binaries themselves: the app and the embedded tool read and write each other's items, a device-bound item is refused without user interaction, an unsigned `swift build` product fails with `errSecMissingEntitlement`, and the command-line tool end to end (`scripts/test/cli.sh`) |
+| Manual checks | — | Two Macs and an iPhone on one Apple Account | What no automated run can reach: actual iCloud Keychain propagation between devices, and answering a Touch ID / Face ID prompt. Tracked in the pre-release checklist issue |
+
+`make test-integration` builds the app first, then runs `scripts/test/integration.sh` with the embedded tool of that build. It stores only its own throwaway values (`dummy-value-for-…`) under a throwaway repository identifier and deletes them again, so it does not touch secrets you keep.
+
+Where each requirement of the project is covered is listed in [`documents/test-coverage.md`](documents/test-coverage.md).
+
+### Verification commands
+
+`AGENTS.md` lists the commands used while changing the project (`make build-macos`, `make build-ios`, `make macos`, `make cli`, and how screens are checked).
+
 ## More
 
 Scope, non-goals, security invariants, and the fixed design decisions: [documents/PROJECT.md](documents/PROJECT.md).

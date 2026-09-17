@@ -1,0 +1,28 @@
+# Test coverage of the requirements
+
+Where each item of `documents/PROJECT.md` ("Tests") is verified. The layers and how to run them are
+described in the README ("Tests").
+
+| Requirement | Where it is verified |
+| --- | --- |
+| Repository identification | `RepositoryIdentityTests` (normalizing the spellings of one remote, nested groups, credentials dropped, local paths refused, the Keychain service round trip) and `RepositoryIdentityResolverTests` (`origin`, a sub-directory and a linked worktree resolving to the same repository, a declared identifier winning, and the three errors) |
+| Per-repository isolation | `SecretStoreTests.theSameNameInTwoRepositoriesIsTwoSecrets`, and `RepositoryIdentityTests.keychainServiceRoundTrips` for the attribute the isolation rests on |
+| Add / update / delete | `SecretStoreTests` (`aNewSecretIsStandardAndSynchronizedByDefault`, `settingAnExistingNameUpdatesItAndKeepsItsSettings`, `deleteRemovesTheSecretAndIsIdempotent`, `anEmptyValueIsRejected`), `AppModelTests.savingAndDeletingRefreshTheLists` for the screens, `KeychainDoctorStoreChecks` through `make test-integration` for the real Keychain, and `scripts/test/cli.sh` for the command-line tool |
+| A secret that does not exist | `SecretStoreTests.readingAMissingSecretIsSecretNotFound`, `RunPlanTests.aDeclaredSecretWithoutAValueStopsTheRun`, and the `run --only` case of `scripts/test/cli.sh` |
+| Interoperability between the front ends (a signed build) | `scripts/test/integration.sh`: the app writes a fixture that the embedded tool reads, and the other way around. `AppModelTests.secretsStoredByAnotherFrontEndAppearAfterReload` covers the same direction against the in-memory double |
+| Handing secrets to a child process | `RunPlanTests` (`withoutADefinitionEveryStoredSecretIsUsed`, `onlyNamesRestrictTheSelection`, `secretsAreAddedToTheInheritedEnvironmentAndOverrideIt`) and `scripts/test/cli.sh` (the child sees the value, `run` returns the child's exit status, reports a signal, and fails for a command that does not exist) |
+| No secret value in output, logs, or error messages | `SecretValueAndErrorTests` (`noTextualRepresentationContainsTheValue`, `theValueIsOnlyReachableThroughTheExposingMembers`), `SecretDefinitionTests.aLineWithAValueIsRejectedWithoutEchoingIt`, `RunPlanTests.aNonTextValueIsRejectedWithoutEchoingIt`, and the last check of `scripts/test/cli.sh`, which greps every byte the tool printed and every file of the working directory for the value |
+| No secret value in the definition file or any other file | `SecretDefinitionTests` (`parsesNamesCommentsAndTheRepositoryDirective`, `addingAndRemovingKeepTheUsersCommentsAndOrder`, `addingCreatesTheFileWithAHeaderAndIsIdempotent`) and the same grep in `scripts/test/cli.sh` |
+| Reading by protection level, with the authenticator replaced | `SecretStoreTests` (`standardSecretsAreReadWithoutAuthentication`, `oneAuthenticationCoversEveryProtectedSecretOfARun`, `selectingOnlyStandardSecretsDoesNotAuthenticate`, `revealAlwaysAuthenticates`, `updatingOrDeletingAProtectedSecretAuthenticatesFirst`, `loweringTheLevelRequiresAuthenticationAndIsRefusedWithoutIt`, `raisingTheLevelOfAStandardSecretNeedsNoAuthentication`, `aFailedAuthenticationReturnsNoValue`) and `AppModelTests` for what the screens do with a cancelled or failed prompt |
+| Device-bound items and synchronization | `SecretStoreTests` (`deviceBoundIsNeverSynchronized`, `changingSynchronizationKeepsTheValueAndLeavesOneVariant`, `theLocalVariantWinsOverASynchronizedOneAndSetRemovesTheStaleVariant`) against the double, and `KeychainDoctorStoreChecks` through `make test-integration` against the real Keychain, where the Keychain itself refuses a device-bound value without user interaction |
+| Code signing and the shared access group | `SecChainSharedConfigTests.keychainAccessGroupIsPrefixedWithTeamIdentifier`, `SecretStoreTests.aMissingEntitlementIsReportedAsSuchNotAsAnEmptyList`, `SecretValueAndErrorTests.theMissingEntitlementMessagePointsToCodeSigning`, and `scripts/test/integration.sh`, which asserts both bundles are signed with the group and that an unsigned `swift build` product fails with `errSecMissingEntitlement` |
+| Errors a user can act on | `SecretValueAndErrorTests` (`keychainStatusesBecomeActionableErrors`, `localAuthenticationCodesBecomeActionableErrors`) and `AppModelTests.aMissingEntitlementSwitchesToTheUnreachableScreen` for how a screen reacts |
+
+## Not covered by an automated run
+
+- Actual iCloud Keychain propagation between devices, and answering a Touch ID / Face ID prompt.
+  Both need two Macs and an iPhone on one Apple Account; they are tracked in the pre-release
+  checklist issue.
+- The iOS Simulator does not enforce the Keychain's own authentication for a device-bound item
+  (`documents/PROJECT.md`, "Measured behavior"), so that enforcement is verified on macOS and has to
+  be confirmed on an iOS device.

@@ -102,6 +102,18 @@ struct AppModelTests {
     }
 
     @Test
+    func revealingAValueLeavesNothingInTheModel() async throws {
+        let model = makeModel(authenticationFailure: nil)
+        let name = try #require(SecretName(rawName: "API_KEY"))
+        #expect(await model.save(name: name, value: dummyValue, repositoryIdentity: repositoryIdentity, protectionLevel: .standard, isSynchronized: true))
+        let storedSecret = try #require(model.storedSecretsByRepository[repositoryIdentity]?.first)
+        #expect(await model.revealedValue(storedSecret: storedSecret) == dummyValue)
+        // The revealed value belongs to the view that asked for it; the model that outlives every
+        // sheet must not hold one.
+        #expect(!Mirror(reflecting: model).children.contains { $0.value is SecretValue })
+    }
+
+    @Test
     func demoDataReplacesAnUnreachableKeychain() {
         keychain.setFailure(failure: .missingEntitlement)
         let model = makeModel(authenticationFailure: nil)

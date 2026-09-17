@@ -7,6 +7,8 @@ xcuserdata/
 # SwiftPM
 .build/
 .swiftpm/
+# Coverage counters a test run leaves in the directory it was started from
+*.profraw
 
 # Scratch directories for local verification output
 tmp/
