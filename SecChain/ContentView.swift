@@ -1,11 +1,12 @@
-import SecChainCore
+import SecChainUI
 import SwiftUI
 
-/// Root view of the macOS app. It only proves that the app links `SecChainCore`; repository and
-/// secret management replace it.
+/// Root view of the macOS app: the shared screens, sized for a desktop window.
 struct ContentView: View {
+    let model: AppModel
+
     var body: some View {
-        Text(SecChainSharedConfig.keychainAccessGroup)
-            .padding()
+        RootView(model: model)
+            .frame(minWidth: 720, minHeight: 440)
     }
 }

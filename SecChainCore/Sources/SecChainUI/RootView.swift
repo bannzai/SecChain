@@ -1,0 +1,143 @@
+import SecChainCore
+import SwiftUI
+
+/// Root of both apps: repositories on the left, the selected repository's secrets on the right
+/// (a navigation stack on iPhone).
+public struct RootView: View {
+    @State private var model: AppModel
+    @State private var isAddingRepository = false
+    @State private var isShowingSyncInformation = false
+
+    public init(model: AppModel) {
+        _model = State(initialValue: model)
+    }
+
+    public var body: some View {
+        Group {
+            if model.isKeychainUnreachable {
+                KeychainUnreachableView(retry: model.reload)
+            } else {
+                navigation
+            }
+        }
+        .task {
+            model.reload()
+            #if DEBUG
+            if let demoScreen = model.demoScreen {
+                model.selectedRepositoryIdentity = model.repositoryIdentities.first(where: { $0.value.hasSuffix("web-app") })
+                isAddingRepository = demoScreen == "add-repository"
+                isShowingSyncInformation = demoScreen == "sync"
+                if demoScreen == "unreachable" {
+                    model.present(error: SecretStoreError.missingEntitlement)
+                }
+                if demoScreen == "error" {
+                    model.present(error: SecretStoreError.authenticationNotPossible)
+                }
+            }
+            #endif
+        }
+        .alert(
+            "Something went wrong",
+            isPresented: Binding(
+                get: { model.presentedError != nil },
+                set: { isPresented in
+                    if !isPresented {
+                        model.presentedError = nil
+                    }
+                }
+            ),
+            presenting: model.presentedError
+        ) { _ in
+            Button("OK", role: .cancel) {}
+        } message: { error in
+            Text(error.description)
+        }
+    }
+
+    var navigation: some View {
+        NavigationSplitView {
+            List(model.repositoryIdentities, id: \.self, selection: $model.selectedRepositoryIdentity) { repositoryIdentity in
+                NavigationLink(value: repositoryIdentity) {
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            // The last path component is what tells repositories apart at a
+                            // glance; the full identifier follows for disambiguation.
+                            Text(repositoryIdentity.value.split(separator: "/").last.map(String.init) ?? repositoryIdentity.value)
+                                .lineLimit(1)
+                            Text(repositoryIdentity.value)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.head)
+                            Text("^[\(model.storedSecretsByRepository[repositoryIdentity]?.count ?? 0) secret](inflect: true)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "folder")
+                    }
+                }
+            }
+            .navigationTitle("Repositories")
+            #if os(macOS)
+            .navigationSplitViewColumnWidth(min: 240, ideal: 280)
+            #endif
+            .overlay {
+                if model.repositoryIdentities.isEmpty {
+                    ContentUnavailableView(
+                        "No repositories yet",
+                        systemImage: "key",
+                        description: Text("Add a repository to store its first secret")
+                    )
+                }
+            }
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Add Repository", systemImage: "plus") {
+                        isAddingRepository = true
+                    }
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button("About Sync", systemImage: "icloud") {
+                        isShowingSyncInformation = true
+                    }
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button("Reload", systemImage: "arrow.clockwise", action: model.reload)
+                }
+            }
+        } detail: {
+            if let selectedRepositoryIdentity = model.selectedRepositoryIdentity {
+                RepositoryDetailView(model: model, repositoryIdentity: selectedRepositoryIdentity)
+            } else {
+                ContentUnavailableView("Select a repository", systemImage: "folder")
+            }
+        }
+        .sheet(isPresented: $isAddingRepository) {
+            AddRepositoryView { repositoryIdentity in
+                model.addRepository(repositoryIdentity: repositoryIdentity)
+            }
+        }
+        .sheet(isPresented: $isShowingSyncInformation) {
+            SyncInformationView()
+        }
+    }
+}
+
+/// Shown instead of the app when the Keychain refuses the binary itself. It explains the cause
+/// (code signing) because nothing else in the app can work in that state.
+struct KeychainUnreachableView: View {
+    /// Called when the user wants to check again.
+    let retry: () -> Void
+
+    var body: some View {
+        ContentUnavailableView {
+            Label("SecChain cannot reach its Keychain items", systemImage: "lock.trianglebadge.exclamationmark")
+        } description: {
+            Text(SecretStoreError.missingEntitlement.description)
+        } actions: {
+            Button("Try Again", action: retry)
+        }
+        .padding()
+    }
+}
