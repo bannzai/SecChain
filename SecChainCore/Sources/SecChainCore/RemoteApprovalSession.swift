@@ -114,7 +114,13 @@ public struct RemoteApprovalSession: Sendable {
                     return
                 }
                 try await sleep(Self.pollInterval)
-            } catch is CancellationError {
+            } catch {
+                // Once the task is cancelled, whatever the transport threw is a consequence of the
+                // cancellation, not a reason of its own: CloudKit reports a cancelled operation as
+                // a `CKError` rather than as a `CancellationError`.
+                guard error is CancellationError || Task.isCancelled else {
+                    throw error
+                }
                 try await cancel(request: request)
                 throw RemoteApprovalError.cancelled
             }
