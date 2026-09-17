@@ -161,6 +161,54 @@ struct RemoteApprovalOwnerAuthenticatorTests {
         }
     }
 
+    /// The completion condition of issue #38, on the whole path a `secchain run` takes: a forged
+    /// approval must not get a value out of the Keychain. The same store with a working approval
+    /// does return it, so the refusal is the reason the value stayed in.
+    @Test
+    func aForgedApprovalGetsNoValueOutOfTheKeychain() async throws {
+        let keychain = InMemorySecretKeychain()
+        let repositoryIdentity = RepositoryIdentity(value: "github.com/example/repository")
+        let secretName = try #require(SecretName(rawName: "API_TOKEN"))
+        try await SecretStore(keychain: keychain, ownerAuthenticator: CountingOwnerAuthenticator(failure: nil))
+            .set(
+                name: secretName,
+                value: SecretValue(exposingString: "dummy-value-for-test"),
+                repositoryIdentity: repositoryIdentity,
+                protectionLevel: .confirm,
+                isSynchronized: true
+            )
+
+        let forgedStore = InMemoryRemoteApprovalStore()
+        let request = makeRequest()
+        try await forgedStore.save(
+            decision: RemoteApprovalDecision(
+                requestIdentifier: request.requestIdentifier,
+                outcome: .approved,
+                // A process running as the user can write an answer, but not one the enrolled key
+                // would verify.
+                signature: try RemoteApproval.signature(request: request) { try P256.Signing.PrivateKey().signature(for: $0) }
+            )
+        )
+        await #expect(throws: RemoteApprovalError.unverifiableApproval(.signatureMismatch)) {
+            try await SecretStore(keychain: keychain, ownerAuthenticator: makeAuthenticator(store: forgedStore, request: request))
+                .values(names: [secretName], repositoryIdentity: repositoryIdentity, authenticationReason: "run true")
+        }
+
+        let approvedStore = InMemoryRemoteApprovalStore()
+        try await approvedStore.save(
+            decision: RemoteApprovalDecision(
+                requestIdentifier: request.requestIdentifier,
+                outcome: .approved,
+                signature: try RemoteApproval.signature(request: request) { try pairedKey.signature(for: $0) }
+            )
+        )
+        #expect(
+            try await SecretStore(keychain: keychain, ownerAuthenticator: makeAuthenticator(store: approvedStore, request: request))
+                .values(names: [secretName], repositoryIdentity: repositoryIdentity, authenticationReason: "run true")[secretName]?
+                .exposedString == "dummy-value-for-test"
+        )
+    }
+
     @Test
     func anAnsweredLocalPromptNeverReachesTheIPhone() async throws {
         let remoteAuthenticator = CountingOwnerAuthenticator(failure: nil)
