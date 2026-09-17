@@ -135,6 +135,46 @@ struct RemoteApprovalSessionTests {
         #expect(requestsSeenByTheIPhone.all.contains(request.requestIdentifier.uuidString))
     }
 
+    /// A request whose expiry has passed and that carries no answer is what a Mac killed while
+    /// waiting leaves behind. Nothing expires by itself in CloudKit, so the Mac clears its own
+    /// leftovers before it files the next request (documents/remote-approval-records.md, "Who
+    /// deletes a record").
+    @Test
+    func theExpiredRequestsOfThisMacAreRemovedBeforeANewOneIsFiled() async throws {
+        let clock = ManualClock(instant: startOfWaiting)
+        let store = InMemoryRemoteApprovalStore()
+        let abandonedRequest = makeRequest(clock: ManualClock(instant: startOfWaiting.addingTimeInterval(-RemoteApprovalSession.expiryInterval * 2)))
+        try await store.save(request: abandonedRequest)
+        let request = makeRequest(clock: clock)
+        try await answer(store: store, request: request, outcome: .approved, signature: try signature(request: request, key: pairedKey))
+        try await makeSession(store: store, clock: clock).waitForApproval(request: request)
+        #expect(try await store.request(requestIdentifier: abandonedRequest.requestIdentifier) == nil)
+    }
+
+    /// The sweep must not touch a request another device may still act on: only an expired request
+    /// of this Mac's own name goes.
+    @Test
+    func anOpenRequestAndAnotherMacsRequestSurviveTheSweep() async throws {
+        let clock = ManualClock(instant: startOfWaiting)
+        let store = InMemoryRemoteApprovalStore()
+        let openRequestOfThisMac = makeRequest(clock: clock)
+        let expiredRequestOfAnotherMac = RemoteApprovalRequest.filed(
+            repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
+            secretNames: [SecretName(rawName: "API_TOKEN")].compactMap { $0 },
+            commandArguments: ["npm", "run", "deploy"],
+            requestingDeviceName: "Another Mac",
+            now: startOfWaiting.addingTimeInterval(-RemoteApprovalSession.expiryInterval * 2),
+            expiryInterval: RemoteApprovalSession.expiryInterval
+        )
+        try await store.save(request: openRequestOfThisMac)
+        try await store.save(request: expiredRequestOfAnotherMac)
+        let request = makeRequest(clock: clock)
+        try await answer(store: store, request: request, outcome: .approved, signature: try signature(request: request, key: pairedKey))
+        try await makeSession(store: store, clock: clock).waitForApproval(request: request)
+        #expect(try await store.request(requestIdentifier: openRequestOfThisMac.requestIdentifier) == openRequestOfThisMac)
+        #expect(try await store.request(requestIdentifier: expiredRequestOfAnotherMac.requestIdentifier) == expiredRequestOfAnotherMac)
+    }
+
     @Test
     func aRejectionOnTheIPhoneIsItsOwnError() async throws {
         let clock = ManualClock(instant: startOfWaiting)
