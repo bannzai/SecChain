@@ -216,6 +216,10 @@ Observed on 2026-09-17 for https://github.com/bannzai/SecChain/issues/32, with t
 | The embedded tool additionally signed with the application identifier of the profile it embeds (a development build embeds the app's profile) | Account status, the user record identifier, saving / fetching / deleting a record in the private database, and saving / fetching / deleting a `CKQuerySubscription` whose notification has an `alertBody` all succeed, with the app not running |
 | The macOS app binary (`--doctor-cloudkit`) | Same result as the embedded tool |
 | Developer ID export when the archived tool carries the app's application identifier | `xcodebuild -exportArchive` fails: the tool's profile "doesn't match the entitlements file's value for the com.apple.application-identifier entitlement". The archive must already sign the tool with its own identifier |
+| A process without the container entitlement creates `CKContainer(identifier:)` | The process stops with a trace trap inside CloudKit (exit status 133) |
+| Developer ID export with `iCloudContainerEnvironment` = `Production`, the tool archived with its own application identifier | Export, notarization, stapling, and the Gatekeeper assessment succeed. Both bundles are signed with the container and `com.apple.developer.icloud-container-environment` = `Production`, the only environment the Developer ID profiles allow |
+| The Developer ID signed tool and app against the production environment | The account status and the user record identifier are returned. Saving a record fails with `CKError` 12 ("Cannot create new type DoctorProbe in production schema") and saving the subscription with `CKError` 11 ("Did not find record type"): a record type created in the development environment is usable in production only after the schema is deployed |
+| Duration of CloudKit calls from a development build of the tool | The doctor's ten calls (account status, user record identifier, and the saves, fetches, and deletes of the record and the subscription, including the two clean-up deletes) take 3.19 seconds in total |
 
 ## Test layers
 

@@ -96,9 +96,10 @@ extension KeychainDoctor {
     }
 
     #if os(macOS)
-    /// CloudKit terminates the process with an exception when the container entitlement is missing,
-    /// so the doctor reads its own signature first and reports a code-signing problem instead. The
-    /// environment entitlement is reported because Developer ID builds must name Production.
+    /// Creating a `CKContainer` stops a process that lacks the container entitlement (measured: a trace
+    /// trap inside CloudKit), so the doctor reads its own signature first and reports a code-signing
+    /// problem instead. The environment is reported because a Developer ID profile allows only
+    /// Production.
     static func cloudKitContainerEntitlementCheck() -> KeychainDoctorCheck {
         let task = SecTaskCreateFromSelf(nil)
         let containerIdentifiers = task.flatMap {
