@@ -1,3 +1,11 @@
+---
+layout: legal
+title: Privacy Policy
+# The landing page links to ./privacy/ and App Store Connect stores the same URL, so the page is
+# published as a directory index instead of privacy.html, which would only answer /privacy.
+permalink: /privacy/
+---
+
 # Privacy Policy
 
 bannzai (the "Provider") establishes this Privacy Policy (this "Policy") for SecChain for macOS, SecChain for iOS and iPadOS, and the `secchain` command-line tool (together, the "Service").
