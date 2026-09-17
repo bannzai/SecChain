@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ page.title }} — SecChain</title>
+    <link rel="icon" href="{{ '/favicon.svg' | relative_url }}" type="image/svg+xml">
+    <style>
+      /* The landing page is a standalone document with its own styles; these pages only need to
+         stay readable on a phone and in a reviewer's browser. */
+      body {
+        margin: 0 auto;
+        padding: 2rem 1.25rem 4rem;
+        max-width: 42rem;
+        font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+        line-height: 1.7;
+        color: #1c1c1e;
+        background: #ffffff;
+      }
+      h1 { font-size: 1.9rem; }
+      h2 { margin-top: 2.5rem; }
+      h3 { margin-top: 1.75rem; }
+      code { background: #f2f2f7; padding: 0.1em 0.35em; border-radius: 4px; }
+      a { color: #0a63c9; }
+      nav { margin-bottom: 2rem; font-size: 0.9rem; }
+      @media (prefers-color-scheme: dark) {
+        body { color: #f2f2f7; background: #111114; }
+        code { background: #26262b; }
+        a { color: #6cb0ff; }
+      }
+    </style>
+  </head>
+  <body>
+    <nav><a href="{{ '/' | relative_url }}">SecChain</a></nav>
+    {{ content }}
+  </body>
+</html>

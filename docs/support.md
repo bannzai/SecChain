@@ -1,3 +1,11 @@
+---
+layout: legal
+title: Support
+# App Store Connect stores this page's URL with a trailing slash, matching the landing page's
+# links, so the page is published as a directory index instead of support.html.
+permalink: /support/
+---
+
 # Support
 
 SecChain keeps development secrets in the Keychain of your devices instead of `.env` files. This page answers common questions and tells you how to reach the developer.
