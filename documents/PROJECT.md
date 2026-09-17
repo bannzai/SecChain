@@ -43,6 +43,9 @@ User authentication (Touch ID, Apple Watch, or the login password) is opt-in per
 - *Device-bound* is the most robust level and the least convenient: the value does not reach other devices, is not restored onto a replacement Mac from a backup, and prompts on every read.
 - The protection level is stored as a non-secret attribute of the Keychain item, not in a repository file, so that editing a file in the working tree cannot lower it. Lowering a level requires authentication.
 - When one `run` needs several protected secrets, a single authentication covers all of them (one `LAContext` passed through `kSecUseAuthenticationContext`).
+- Updating or deleting a secret that is not *standard* authenticates first. Every way of lowering a level goes through such an update, so lowering always requires authentication.
+- A new secret is *standard* and synchronized unless the user chooses otherwise.
+- When a local and a synchronized item of the same name coexist (a copy arrived from another Mac), the local one is the effective secret, and the next write removes the other.
 
 ### Repository scoping
 
@@ -181,6 +184,7 @@ Observed on 2026-09-17 with macOS 26 / Xcode 26.5, using `secchain doctor` and `
 | A non-secret attribute (`kSecAttrDescription`) read with `kSecReturnAttributes` | Readable without reading the value |
 | Item with `kSecAttrAccessControl` (user presence, `WhenPasscodeSetThisDeviceOnly`) read with `LAContext.interactionNotAllowed = true` | `errSecInteractionNotAllowed` (-25308) on macOS: the Keychain enforces the prompt. The iOS 26.5 Simulator returns the value without authentication, so enforcement on iOS must be checked on a device |
 | The same access control combined with `kSecAttrSynchronizable = true` | `SecItemAdd` fails with `errSecParam` (-50): device-bound and synchronized are mutually exclusive |
+| An attribute-only list query that matches an access-controlled item, with prompting disabled | The whole query fails with `errSecInteractionNotAllowed`. A device-bound secret is therefore stored as a listable generic-password marker (empty value) plus the protected value under another item class (internet password), which no list query can match |
 | `LAContext.canEvaluatePolicy(.deviceOwnerAuthentication)` from the embedded tool | `true` |
 | `LAContext.evaluatePolicy` from the embedded tool with nobody answering | The call stays pending (the process was still waiting after 6 seconds), i.e. the tool can present the system prompt. Answering it is a manual check |
 | The iOS app on the Simulator (locally signed, entitlements embedded) | Reads and writes items in the shared access group |

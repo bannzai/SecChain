@@ -25,7 +25,7 @@ struct Doctor: AsyncParsableCommand {
         } else if let readFixture {
             checks = KeychainDoctor.readAndDeleteFixture(account: readFixture)
         } else {
-            checks = KeychainDoctor.runSelfContainedChecks()
+            checks = KeychainDoctor.runSelfContainedChecks() + (await KeychainDoctor.runStoreChecks())
         }
         if authenticate {
             checks.append(await KeychainDoctor.evaluateOwnerAuthentication())
