@@ -47,6 +47,32 @@ secchain set <NAME>
 
 They run this themselves, in their own terminal, because the prompt reads the value with a hidden `readpassphrase` prompt or from standard input — never as a command-line argument. Do not offer to run `secchain set` for them with the value inline, and do not ask them to tell you the value so that you can run it.
 
+## Enforcing these rules with a Claude Code hook
+
+The rules above are instructions, and an instruction can be forgotten. `hooks/secchain-guard.py` is a `PreToolUse` hook that refuses the calls those rules rule out before they run, and `hooks/settings.json` is the configuration that installs it.
+
+Put the `hooks` key of `hooks/settings.json` into the project's `.claude/settings.json`, keeping whatever that file already holds. When the project has no settings file yet, the example is the whole file:
+
+```bash
+mkdir -p .claude
+cp .claude/skills/secchain/hooks/settings.json .claude/settings.json
+```
+
+For every project instead of one, put the same `hooks` key into `~/.claude/settings.json` and replace `${CLAUDE_PROJECT_DIR}/.claude/skills/secchain` in the path with the directory the skill is installed in, such as `$HOME/.agents/skills/secchain`. The hook runs `python3`, which macOS provides with the Xcode Command Line Tools.
+
+What it refuses, with a message that names `secchain run -- <command>` as the way to do the same thing:
+
+| Call | Example |
+| --- | --- |
+| Reading a `.env` or `.env.*` file with the `Read` tool | `Read .env.local` |
+| A command that reads one | `cat .env`, `grep TOKEN .env.production`, `source .env`, `secchain set NAME < .env` |
+| A command under `secchain run` that prints the environment | `secchain run -- env`, `secchain run -- printenv NAME`, `secchain run -- sh -c 'env \| grep API'` |
+| A command under `secchain run` that prints a value | `secchain run -- sh -c 'echo $OPENAI_API_KEY'`, the same piped into `cat` or `tee` |
+
+It lets through everything these rules describe as the way to work, including piping a value straight into the program that consumes it (`printf … \| curl -H @-`), `env NAME=value <command>` under `secchain run`, and naming a `.env` file in a command that does not read it (`rm .env`, `echo '.env' >> .gitignore`). A `.env.example` is refused like any other `.env.*` file: nothing in the name tells the hook that the file holds no real value.
+
+Codex CLI reads the same hook input and the same decision on standard output, so the script works there as well; only the file the configuration goes in differs.
+
 ## Checking what is available
 
 ```bash
