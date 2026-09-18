@@ -126,7 +126,7 @@ Both devices are signed in to the same Apple Account with iCloud on. This uses C
 
 ### Pair a Mac with your iPhone
 
-1. On the iPhone, open SecChain, open the toolbar menu (`•••`), choose **Remote Approval**, and tap **Pair This iPhone**. The screen then shows a 12-digit number, and **Allow Notifications** is what lets a request reach you while the app is closed.
+1. On the iPhone, open SecChain, open the toolbar's menu of further actions, choose **Remote Approval**, and tap **Pair This iPhone**. The screen then shows a 12-digit number, and **Allow Notifications** is what lets a request reach you while the app is closed.
 2. On the Mac, run `secchain pair`, type the number the iPhone shows, and confirm with Touch ID or your password.
 
 ```bash
