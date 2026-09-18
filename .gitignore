@@ -14,6 +14,9 @@ xcuserdata/
 tmp/
 var/
 
+# Screenshots as the capture run produced them. What is delivered lives in fastlane/screenshots.
+scripts/generate_screenshots/artifacts/
+
 # Local-only values (signing identifiers, notarization credentials)
 .envrc
 
