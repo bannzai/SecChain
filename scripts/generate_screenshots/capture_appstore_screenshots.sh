@@ -29,7 +29,10 @@ SIMULATOR_UDID="$(SCRIPT_QUIET=1 SIM_DEVICE_TYPE="${DEVICE_TYPE}" sim-boot --num
 [ -n "${SIMULATOR_UDID}" ] || { echo "sim-boot did not return a simulator" >&2; exit 1; }
 
 echo "== fixing the status bar of ${SIMULATOR_UDID}"
-xcrun simctl status_bar "${SIMULATOR_UDID}" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --batteryState charged --batteryLevel 100
+# An empty operator name so that no carrier of the maintainer's can appear. The date the iPad shows
+# beside the clock is not part of the override (every ISO string this runtime was given came back as
+# "Invalid, non-ISO date/time string"), so it follows the day the pictures were taken.
+xcrun simctl status_bar "${SIMULATOR_UDID}" override --time "9:41" --dataNetwork wifi --wifiMode active --wifiBars 3 --cellularMode active --cellularBars 4 --operatorName '' --batteryState charged --batteryLevel 100
 
 # The layout puts the app's screen as a light surface on a dark background, so the app is captured
 # in light appearance. Set explicitly because the simulator keeps whatever it was last left in.

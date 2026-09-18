@@ -112,6 +112,9 @@ final class AppStoreScreenshotUITest: XCTestCase {
         // A second launch rather than a way back: the debug controls live in the toolbar of the
         // repository list, and the protection sheet was opened two screens away from it.
         let appWithDemoApproval = launchedApp(language: language)
+        // Also demo secrets, because on the iPad the request is a sheet over the repository list,
+        // which would otherwise say that there are none.
+        tapDebugButton(app: appWithDemoApproval, label: "Use Demo Data")
         tapDebugButton(app: appWithDemoApproval, label: "Use Demo Remote Approval")
         // The screen appears once the demo request has been filed and read back.
         XCTAssertTrue(
@@ -119,6 +122,13 @@ final class AppStoreScreenshotUITest: XCTestCase {
             "The approval screen did not appear. UI: \(appWithDemoApproval.debugDescription)"
         )
         captures[.approval] = screenCapture(app: appWithDemoApproval)
+        // What the approval covers ends with the command, which is below the fold of the sheet the
+        // iPad shows. On the iPhone the request fits, and the scroll view stays where it is.
+        let requestScrollView = appWithDemoApproval.scrollViews.firstMatch
+        if requestScrollView.waitForExistence(timeout: 5) {
+            requestScrollView.swipeUp()
+        }
+        captures[.approvalDetails] = screenCapture(app: appWithDemoApproval)
         appWithDemoApproval.terminate()
 
         return captures

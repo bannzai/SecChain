@@ -40,7 +40,7 @@ enum AppStoreScreenshotDevice {
     var horizontalPadding: CGFloat {
         switch self {
         case .iPhone: 110
-        case .iPad: 230
+        case .iPad: 180
         }
     }
 
@@ -77,15 +77,17 @@ enum AppStoreScreenshotDevice {
     var subjectTop: CGFloat {
         switch self {
         case .iPhone: 660
-        case .iPad: 800
+        case .iPad: 640
         }
     }
 
-    /// Outer width of the device mock and of the terminal.
+    /// Outer width of the device mock and of the terminal. Close to the canvas on the iPad, whose
+    /// screen puts a sidebar and a detail column side by side and would otherwise be unreadable at
+    /// the size a product page shows a screenshot at.
     var subjectWidth: CGFloat {
         switch self {
         case .iPhone: 1060
-        case .iPad: 1560
+        case .iPad: 1880
         }
     }
 

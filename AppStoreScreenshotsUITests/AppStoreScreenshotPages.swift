@@ -6,6 +6,9 @@ import UIKit
 enum AppStoreScreenshotScreen: String, CaseIterable {
     /// The approval a Mac is waiting for, filled by the debug demo request.
     case approval
+    /// The same screen scrolled to the end of what the approval covers. On the iPad the request is
+    /// a sheet, and the command it names is below the fold of the first screen.
+    case approvalDetails
     /// The secrets of one repository.
     case secretList
     /// The sheet that changes how one secret is protected.
@@ -38,8 +41,8 @@ func appStoreScreenshotPage(
             // The part of the same screen the copy is about: the Mac, the repository, the secret
             // names, and the command. Enlarged out of the mock because at the size of a whole
             // phone those lines are unreadable in the App Store's preview.
-            if let capture = captures[.approval] {
-                AppStoreScreenshotCaptureCard(device: device, capture: capture, region: approvalDetailsRegion)
+            if let capture = captures[.approvalDetails] {
+                AppStoreScreenshotCaptureCard(device: device, capture: capture, region: approvalDetailsRegion(device: device))
             }
         }
     case 3:
@@ -77,9 +80,15 @@ private func deviceMock(
     }
 }
 
-/// Where the approval screen's details sit, in unit coordinates of the capture. Measured on the
-/// captured screen: below the headline and the remaining time, above the two answer buttons.
-let approvalDetailsRegion = CGRect(x: 0.03, y: 0.355, width: 0.94, height: 0.52)
+/// Where the approval's details sit, in unit coordinates of the capture. Measured on the captured
+/// screens: the iPhone fills its screen with the request, while the iPad shows it as a sheet in the
+/// middle of the split view.
+func approvalDetailsRegion(device: AppStoreScreenshotDevice) -> CGRect {
+    switch device {
+    case .iPhone: CGRect(x: 0.03, y: 0.355, width: 0.94, height: 0.52)
+    case .iPad: CGRect(x: 0.19, y: 0.24, width: 0.62, height: 0.52)
+    }
+}
 
 /// What the Mac side looks like. The `secchain list` output is names only, which is what the
 /// command prints (`ListCommand.swift`); the rest is the deploy command's own output. No line
