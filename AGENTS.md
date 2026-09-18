@@ -24,6 +24,7 @@ Run these after every change, save the full output under `./tmp/`, and inspect t
 | `make test-integration` | Tests against the real data protection keychain. Requires a build signed with the team's identity; not available in CI for pull requests from forks |
 | `make macos` | Install the Release build to `/Applications/SecChain.app` |
 | `make cli` | Symlink the embedded tool from the installed app into `~/.local/bin/secchain` |
+| `make screenshots` | The App Store screenshots of the iOS app, in every language and for both device classes, into `fastlane/screenshots` (`scripts/generate_screenshots/README.md`). Runs simulators, so not in CI |
 
 An unsigned `swift build` product cannot read SecChain's Keychain items (`documents/PROJECT.md`, design decision 2). Verify command-line behavior that touches the Keychain through `make macos` and `make cli`, not through `swift run`.
 
