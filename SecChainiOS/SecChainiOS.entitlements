@@ -18,5 +18,10 @@
 	<array>
 		<string>CloudKit</string>
 	</array>
+	<!-- Lets the app receive the push that the CKQuerySubscription on approval requests sends
+	     (documents/PROJECT.md, design decision 5). Development builds use the sandbox environment;
+	     the App Store build is re-signed for production by Apple. -->
+	<key>aps-environment</key>
+	<string>development</string>
 </dict>
 </plist>

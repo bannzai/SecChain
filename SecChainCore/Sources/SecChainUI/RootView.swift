@@ -8,6 +8,11 @@ public struct RootView: View {
     @State private var isAddingRepository = false
     @State private var isShowingSyncInformation = false
     @State private var isShowingRemoteApprovalChecks = false
+    #if os(iOS)
+    /// Provided by the iOS app, which owns it because a notification reaches the app delegate.
+    @Environment(RemoteApprovalModel.self) private var remoteApprovalModel
+    @State private var isShowingRemoteApproval = false
+    #endif
 
     public init(model: AppModel) {
         _model = State(initialValue: model)
@@ -104,6 +109,18 @@ public struct RootView: View {
         .sheet(isPresented: $isShowingSyncInformation) {
             SyncInformationView()
         }
+        #if os(iOS)
+        .sheet(isPresented: $isShowingRemoteApproval, onDismiss: remoteApprovalModel.dismissRequest) {
+            RemoteApprovalPairingView(model: remoteApprovalModel)
+        }
+        .onChange(of: remoteApprovalModel.presentedRequest) { _, presentedRequest in
+            // A request found when the app opens, or after a notification, shows itself: answering
+            // it is what the user came for, and the Mac waits only two minutes.
+            if presentedRequest != nil {
+                isShowingRemoteApproval = true
+            }
+        }
+        #endif
         #if DEBUG
         .sheet(isPresented: $isShowingRemoteApprovalChecks) {
             RemoteApprovalChecksView()
@@ -143,6 +160,13 @@ public struct RootView: View {
             isShowingSyncInformation = true
         }
         Button(String(localized: "Reload", bundle: .module), systemImage: "arrow.clockwise", action: model.reload)
+        #if os(iOS)
+        // Only the iPhone and iPad answer an approval; the macOS app has no approval screen
+        // (issue #39).
+        Button(String(localized: "Remote Approval", bundle: .module), systemImage: "checkmark.shield") {
+            isShowingRemoteApproval = true
+        }
+        #endif
         #if DEBUG
         // Also offered outside the unreachable screen because a build that reaches the Keychain
         // (the iOS Simulator) never shows that screen, and the simulator cannot answer the
@@ -155,9 +179,18 @@ public struct RootView: View {
         }
         // The Secure Enclave and CloudKit behavior that remote approval depends on differs between
         // the Simulator and a device, and neither can be driven by launch arguments remotely.
-        Button("Run Remote Approval Checks", systemImage: "checkmark.shield") {
+        Button("Run Remote Approval Checks", systemImage: "list.bullet.clipboard") {
             isShowingRemoteApprovalChecks = true
         }
+        #if os(iOS)
+        // The Simulator has neither an Apple Account nor a Secure Enclave key that requires Face
+        // ID, so the approval and pairing screens are filled from here instead.
+        Button("Use Demo Remote Approval", systemImage: "iphone.gen3.badge.checkmark") {
+            Task {
+                await remoteApprovalModel.useDemoData()
+            }
+        }
+        #endif
         #endif
     }
 }

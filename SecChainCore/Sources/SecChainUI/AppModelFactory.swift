@@ -1,6 +1,10 @@
 import Foundation
 import SecChainCore
 
+#if os(iOS)
+import UIKit
+#endif
+
 /// Builds the model an app starts with.
 public enum AppModelFactory {
     /// The real Keychain, with authentication reasons in the app's language. A debug build can
@@ -14,6 +18,26 @@ public enum AppModelFactory {
             )
         )
     }
+
+    #if os(iOS)
+    /// The model of the remote approval screens, which only the iOS app has: approving is what the
+    /// paired iPhone does (issue #39).
+    public static func makeRemoteApprovalModel() -> RemoteApprovalModel {
+        RemoteApprovalModel(
+            makeStore: CloudKitRemoteApprovalStore.system,
+            keyStore: SecureEnclaveRemoteApprovalKeyStore(
+                authenticationReason: String(localized: "approve a request from your Mac", bundle: .module)
+            ),
+            // Without the user-assigned device name entitlement this is the model name ("iPhone"),
+            // which is what the Mac shows next to the key while pairing. SecChain does not ask for
+            // that entitlement: the number both screens compare is what identifies the key, and the
+            // name only helps the user recognize the device.
+            deviceName: UIDevice.current.name,
+            notifying: SystemRemoteApprovalNotifying(),
+            installSubscription: RemoteApprovalSubscription.install(alertTitle:alertBody:)
+        )
+    }
+    #endif
 
     #if DEBUG
     /// Authenticator of the demo store: succeeds without a prompt, so that reveal can be shown.
