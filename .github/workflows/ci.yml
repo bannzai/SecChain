@@ -27,6 +27,9 @@ jobs:
       - name: Translations of the app texts
         run: make check-localization
 
+      - name: The Claude Code hook of the agent skill
+        run: make test-hooks
+
       # The runner has no signing identity, so the app is built unsigned and the embed build phase
       # falls back to ad-hoc signing. Such a build cannot use the shared Keychain access group,
       # which is why tests against the real Keychain are not part of CI.

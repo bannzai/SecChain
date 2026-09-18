@@ -47,6 +47,39 @@ secchain set <NAME>
 
 They run this themselves, in their own terminal, because the prompt reads the value with a hidden `readpassphrase` prompt or from standard input — never as a command-line argument. Do not offer to run `secchain set` for them with the value inline, and do not ask them to tell you the value so that you can run it.
 
+## Enforcing these rules with a Claude Code hook
+
+The rules above are instructions, and an instruction can be forgotten. `hooks/secchain-guard.py` is a `PreToolUse` hook that refuses the calls those rules rule out before they run, and `hooks/settings.json` is the configuration that installs it.
+
+Put the `hooks` key of `hooks/settings.json` into the project's `.claude/settings.json`, keeping whatever that file already holds. When the project has no settings file yet, the example is the whole file:
+
+```bash
+mkdir -p .claude
+cp .claude/skills/secchain/hooks/settings.json .claude/settings.json
+```
+
+For every project instead of one, put the same `hooks` key into `~/.claude/settings.json` and replace `${CLAUDE_PROJECT_DIR}/.claude/skills/secchain` in the path with the directory the skill is installed in, such as `$HOME/.agents/skills/secchain`. The hook runs `python3`, which macOS provides with the Xcode Command Line Tools.
+
+What it refuses, with a message that names `secchain run -- <command>` as the way to do the same thing:
+
+| Call | Example |
+| --- | --- |
+| Reading a `.env` or `.env.*` file with the `Read` tool | `Read .env.local` |
+| A command that reads one | `cat .env`, `grep TOKEN .env.production`, `source .env`, `secchain set NAME < .env` |
+| A command under `secchain run` that prints the environment | `secchain run -- env`, `secchain run -- printenv NAME`, `secchain run -- sh -c 'env \| grep API'` |
+| A command under `secchain run` that prints a value | `secchain run -- sh -c 'echo $OPENAI_API_KEY'`, the same piped into `cat` or `tee` |
+| A script of another language written on the command line, under `secchain run` | `secchain run -- python3 -c '…'`, `secchain run -- node -e '…'`. Put the script in a file and run `secchain run -- python3 script.py` |
+
+A launcher in front of any of these does not hide it: `env secchain run -- env` and `nohup secchain run -- printenv` are refused too.
+
+It lets through everything these rules describe as the way to work, including piping a value straight into the program that consumes it (`printf … \| curl -H @-`), `env NAME=value <command>` under `secchain run`, running a script file with any interpreter, and naming a `.env` file in a command that does not read it (`rm .env`, `echo '.env' >> .gitignore`). A `.env.example` is refused like any other `.env.*` file: nothing in the name tells the hook that the file holds no real value.
+
+The hook reads a command the way a shell parses it, and it does not evaluate the command. A value carried through a shell variable (`SECRET_FILE=.env; cat "$SECRET_FILE"`) therefore gets past it. It is a guard against reaching for a secret by habit, not a sandbox: what keeps a value out of a file and out of the terminal is `secchain` itself, which has no command that prints one.
+
+Where the configuration goes matters for the same reason. A hook in the project's `.claude/settings.json` runs a script inside the working tree, which an agent that may write to the project can change. Put it in `~/.claude/settings.json`, with the path of an installation outside the repository, wherever that matters.
+
+Codex CLI sends the same hook input and reads the same decision from standard output, so the script runs there too, from `~/.codex/hooks.json` or `<repository>/.codex/hooks.json` (or an inline `[hooks]` table in `config.toml`). What it covers there is narrower: Codex matches a shell call as `Bash` with the command in `tool_input.command`, which is the half of this hook that works, and it has no `Read` tool — a file read goes through an MCP tool under that tool's own name (`mcp__filesystem__read_file`), which this hook neither matches nor knows how to read. On Codex, treat it as a guard on shell commands only ([Codex hooks](https://learn.chatgpt.com/docs/hooks), "Tool coverage").
+
 ## Checking what is available
 
 ```bash
