@@ -36,6 +36,12 @@ PASS_THROUGH = frozenset(
 # Commands that take a file path without reading its contents, so naming a `.env` file is not a read.
 LEAVE_FILE_UNREAD = frozenset({"rm", "mv", "touch", "ls", "stat", "chmod"}) | VALUE_PRINTS
 SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh"})
+# Commands that set something up and then run another command, which is the one that matters here.
+LAUNCHERS = frozenset({"env", "command", "nohup", "nice", "stdbuf", "time"})
+# Language runtimes whose script this hook cannot read. Under `secchain run` an inline script is
+# refused rather than guessed at, because printing the environment is one expression in all of them.
+INTERPRETERS = frozenset({"python", "python3", "node", "ruby", "perl", "php", "deno", "bun", "osascript"})
+INLINE_SCRIPT_OPTIONS = ("-c", "-e", "--eval", "--eval-file", "-E", "-p")
 
 SEPARATORS = frozenset({"|", "||", "&&", ";", "&", "(", ")"})
 
@@ -47,6 +53,11 @@ ENV_FILE_DENIAL = (
 PRINT_DENIAL = (
     "SecChain hook: this command would print secret values. "
     "Hand them to the program that consumes them instead: `secchain run -- <command>`."
+)
+INLINE_SCRIPT_DENIAL = (
+    "SecChain hook: this hook cannot read the script of another language, and under `secchain run` "
+    "that script has every secret in its environment. Put it in a file and run "
+    "`secchain run -- <interpreter> <file>`."
 )
 
 
@@ -122,16 +133,14 @@ def env_file_denial(command):
 
 
 def print_denial(command, reaches_terminal):
-    if command.name in ENVIRONMENT_DUMPS:
-        # `env FOO=bar some-command` sets variables for a command instead of printing them; every
-        # word before that command is either an option or an assignment. The other commands of the
-        # set print a value for every name they are given, so an argument does not exempt them.
-        runs_a_command = command.name == "env" and any(
-            not word.startswith("-") and "=" not in word for word in command.words[1:]
-        )
-        return None if runs_a_command else PRINT_DENIAL
-    if command.name in VALUE_PRINTS and reaches_terminal:
-        if any(VARIABLE_REFERENCE.search(word) for word in command.words[1:]):
+    # `env FOO=bar some-command` sets variables for a command instead of printing them, and after
+    # the launcher is removed only a command that really prints is left at the front.
+    words = launched_words(command.words)
+    name = os.path.basename(words[0]) if words else ""
+    if name in ENVIRONMENT_DUMPS:
+        return PRINT_DENIAL
+    if name in VALUE_PRINTS and reaches_terminal:
+        if any(VARIABLE_REFERENCE.search(word) for word in words[1:]):
             return PRINT_DENIAL
     return None
 
@@ -165,16 +174,31 @@ def scan_pipelines(commands, under_run):
     return None
 
 
+def launched_words(words):
+    """What a line really runs, with the launchers that only prepare its environment removed. Left
+    as it is when nothing follows the launcher, because a bare `env` prints the environment."""
+    index = 0
+    while index < len(words) and os.path.basename(words[index]) in LAUNCHERS:
+        index += 1
+        while index < len(words) and (words[index].startswith("-") or "=" in words[index]):
+            index += 1
+    return words[index:] if index < len(words) else words
+
+
 def scan_nested(command, under_run):
     """The denial for the commands this one starts: the child of `secchain run`, which receives the
     secrets, and the script of a shell."""
-    if command.name == "secchain" and command.words[1:2] == ["run"] and "--" in command.words:
+    words = launched_words(command.words)
+    name = os.path.basename(words[0]) if words else ""
+    if name == "secchain" and words[1:2] == ["run"] and "--" in words:
         child = Command()
-        child.words = command.words[command.words.index("--") + 1 :]
+        child.words = words[words.index("--") + 1 :]
         return scan_pipelines([child], under_run=True)
-    if command.name in SHELLS:
-        body = option_value(command.words, "-c")
+    if name in SHELLS:
+        body = option_value(words, "-c")
         return scan_line(body, under_run) if body else None
+    if under_run and name in INTERPRETERS and any(word in INLINE_SCRIPT_OPTIONS for word in words[1:]):
+        return INLINE_SCRIPT_DENIAL
     return None
 
 
