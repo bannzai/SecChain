@@ -35,7 +35,7 @@ denied() {
     || fail "the decision does not name the event: $3"
   [ "$(printf '%s' "${OUTPUT}" | jq -r '.hookSpecificOutput.permissionDecision')" = "deny" ] \
     || fail "the decision is not a denial: $3"
-  printf '%s' "${OUTPUT}" | jq -r '.hookSpecificOutput.permissionDecisionReason' | grep -q 'secchain run -- <command>' \
+  printf '%s' "${OUTPUT}" | jq -r '.hookSpecificOutput.permissionDecisionReason' | grep -q 'secchain run -- <' \
     || fail "the reason does not say how to run the command instead: $3"
 }
 
@@ -77,6 +77,17 @@ denied Bash command "secchain run -- sh -c 'npm run build && echo \$OPENAI_API_K
 denied Bash command "secchain run -- sh -c 'env > /tmp/environment.txt'"
 denied Bash command "cd app && secchain run -- env"
 denied Bash command "bash -c 'secchain run -- printenv'"
+# A launcher in front of the run does not hide it.
+denied Bash command "env secchain run -- env"
+denied Bash command "command secchain run -- printenv"
+denied Bash command "nohup secchain run -- sh -c 'echo \$OPENAI_API_KEY'"
+denied Bash command "secchain run -- env NODE_ENV=production printenv"
+
+echo "== a script this hook cannot read is not run with the secrets"
+denied Bash command "secchain run -- python3 -c 'import os; print(os.environ)'"
+denied Bash command "secchain run -- node -e 'console.log(process.env)'"
+denied Bash command "secchain run -- ruby -e 'puts ENV.to_h'"
+denied Bash command "secchain run -- sh -c 'python3 -c \"import os; print(os.environ)\"'"
 
 echo "== the documented ways of using a secret pass"
 allowed Bash command "secchain run -- npm run dev"
@@ -85,8 +96,12 @@ allowed Bash command "secchain run --only CLOUDFLARE_API_TOKEN -- ./scripts/depl
 allowed Bash command "secchain run -- sh -c 'printf \"Authorization: Bearer %s\" \"\$OPENAI_API_KEY\" | curl -H @- https://api.openai.com/v1/models'"
 allowed Bash command "secchain run -- env NODE_ENV=production npm start"
 allowed Bash command "secchain run -- sh -c 'npm run build && npm test'"
+allowed Bash command "secchain run -- python3 scripts/deploy.py"
+allowed Bash command "env NODE_ENV=production secchain run -- npm run dev"
 allowed Bash command "secchain list"
 allowed Bash command "secchain set OPENAI_API_KEY"
+# Outside a run an inline script has no secret in its environment.
+allowed Bash command "python3 -c 'print(1 + 1)'"
 
 echo "== calls that have nothing to do with secrets pass"
 allowed Read file_path "/Users/someone/project/.secchain"

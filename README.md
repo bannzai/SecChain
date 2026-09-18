@@ -166,14 +166,15 @@ mkdir -p .claude
 cp .claude/skills/secchain/hooks/settings.json .claude/settings.json   # a project without other settings
 ```
 
-The hook refuses two kinds of call and answers with the `secchain run -- <command>` that does the same work without exposing a value:
+The hook refuses three kinds of call and answers with the `secchain run -- <command>` that does the same work without exposing a value:
 
 - reading a `.env` or `.env.*` file — through the `Read` tool, or through a command that reads one (`cat`, `grep`, `source`, an input redirect);
-- printing the environment of a run — `secchain run -- env`, `printenv`, or a shell command under `secchain run` that echoes a variable into the terminal.
+- printing the environment of a run — `secchain run -- env`, `printenv`, or a shell command under `secchain run` that echoes a variable into the terminal;
+- running a script of another language written on the command line under `secchain run` (`python3 -c …`, `node -e …`), which the hook cannot read while every secret is in its environment. The same script in a file passes.
 
 It leaves the documented ways of using a secret alone, including piping a value straight into the program that consumes it. The list of what stops and what passes, with examples, is in [the skill](skills/secchain/SKILL.md); `make test-hooks` checks the script against every case of that list. The hook needs `python3`, which comes with the Xcode Command Line Tools. Codex CLI uses the same input and output shape, so the same script works there.
 
-Masking secret values in the output of a command an agent runs is not part of SecChain (`documents/PROJECT.md`, "Non-goals"): the hook stops the calls whose purpose is to expose a value, not every way a program could print one it was given.
+The hook is a guard against reaching for a secret by habit, not a sandbox. It parses a command the way a shell would without evaluating it, so a path carried through a shell variable gets past it, and a hook configured inside the project runs a script the agent may be able to edit — which is why the skill also describes installing it in `~/.claude/settings.json`. What keeps a value out of a file and out of a terminal is `secchain` itself, which has no command that prints one. Masking secret values in the output of a command an agent runs stays outside SecChain (`documents/PROJECT.md`, "Non-goals").
 
 ## Development
 

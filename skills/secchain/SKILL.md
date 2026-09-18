@@ -68,8 +68,15 @@ What it refuses, with a message that names `secchain run -- <command>` as the wa
 | A command that reads one | `cat .env`, `grep TOKEN .env.production`, `source .env`, `secchain set NAME < .env` |
 | A command under `secchain run` that prints the environment | `secchain run -- env`, `secchain run -- printenv NAME`, `secchain run -- sh -c 'env \| grep API'` |
 | A command under `secchain run` that prints a value | `secchain run -- sh -c 'echo $OPENAI_API_KEY'`, the same piped into `cat` or `tee` |
+| A script of another language written on the command line, under `secchain run` | `secchain run -- python3 -c '…'`, `secchain run -- node -e '…'`. Put the script in a file and run `secchain run -- python3 script.py` |
 
-It lets through everything these rules describe as the way to work, including piping a value straight into the program that consumes it (`printf … \| curl -H @-`), `env NAME=value <command>` under `secchain run`, and naming a `.env` file in a command that does not read it (`rm .env`, `echo '.env' >> .gitignore`). A `.env.example` is refused like any other `.env.*` file: nothing in the name tells the hook that the file holds no real value.
+A launcher in front of any of these does not hide it: `env secchain run -- env` and `nohup secchain run -- printenv` are refused too.
+
+It lets through everything these rules describe as the way to work, including piping a value straight into the program that consumes it (`printf … \| curl -H @-`), `env NAME=value <command>` under `secchain run`, running a script file with any interpreter, and naming a `.env` file in a command that does not read it (`rm .env`, `echo '.env' >> .gitignore`). A `.env.example` is refused like any other `.env.*` file: nothing in the name tells the hook that the file holds no real value.
+
+The hook reads a command the way a shell parses it, and it does not evaluate the command. A value carried through a shell variable (`SECRET_FILE=.env; cat "$SECRET_FILE"`) therefore gets past it. It is a guard against reaching for a secret by habit, not a sandbox: what keeps a value out of a file and out of the terminal is `secchain` itself, which has no command that prints one.
+
+Where the configuration goes matters for the same reason. A hook in the project's `.claude/settings.json` runs a script inside the working tree, which an agent that may write to the project can change. Put it in `~/.claude/settings.json`, with the path of an installation outside the repository, wherever that matters.
 
 Codex CLI reads the same hook input and the same decision on standard output, so the script works there as well; only the file the configuration goes in differs.
 
