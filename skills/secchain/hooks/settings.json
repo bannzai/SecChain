@@ -1,0 +1,18 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Read|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3",
+            "args": ["${CLAUDE_PROJECT_DIR}/.claude/skills/secchain/hooks/secchain-guard.py"],
+            "timeout": 10,
+            "statusMessage": "Checking the call against SecChain's rules"
+          }
+        ]
+      }
+    ]
+  }
+}
