@@ -40,11 +40,11 @@ filters on the system `recordName`, which CloudKit does not index on its own.
 
 Deploying copies the indexes along with the types and their fields ("Deploying the schema copies its
 record types, fields, and indexes to the production environment, but doesn't copy any records",
-https://developer.apple.com/documentation/cloudkit/deploying-an-icloud-container-s-schema), and the
-development environment adds the queryable index by itself when the first record is saved —
-measured, the queries work in development with no step in the console (`documents/PROJECT.md`,
-"Remote approval, while it was built"). Looking at the two indexes before deploying is therefore a
-check, not a setup step.
+https://developer.apple.com/documentation/cloudkit/deploying-an-icloud-container-s-schema), and in
+development both queries return the record that was just saved, with no step in the console —
+measured (`documents/PROJECT.md`, "Remote approval, while it was built"), so the development schema
+already carries the index that is deployed. Looking at the two indexes before deploying is therefore
+a check, not a setup step.
 
 ### The notification subscription is not part of the schema
 
