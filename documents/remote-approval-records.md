@@ -190,17 +190,6 @@ digits would be matched in seconds.
 
 Developer ID and App Store builds can only use the production environment of the container, where a
 record type exists only after the schema has been deployed from the development environment in the
-CloudKit Console (`documents/PROJECT.md`, "Remote approval spike"). Deployed record types cannot be
-deleted, which is why `secchain doctor --cloudkit` exercises these four record types instead of a
-type of its own.
-
-Before deploying (issue #16):
-
-- Run `make test-integration` on a Mac signed in to iCloud with a build signed by the team. It
-  creates every record type above, with every field populated, in the **development** environment,
-  which is what the console deploys from.
-- `ApprovalRequest` needs a queryable index so that the iOS app can query for open requests, and
-  `DevicePairing` needs one so that a Mac can list published keys. Both queries filter on
-  `schemaVersion`, a field of every record, rather than on the system `recordName`, which is not
-  indexed unless someone marks it in the console.
-- `ApprovalRequest` also needs the subscription the iOS app installs on it.
+CloudKit Console (`documents/PROJECT.md`, "Remote approval spike"). Which types have to be deployed,
+what to check before deploying, and how to verify it afterwards are in
+`documents/cloudkit-production-schema.md`.
