@@ -120,7 +120,7 @@ The authentication a `confirm` secret asks for can be answered on your iPhone in
 
 ## Remote approval
 
-Your iPhone can answer the authentication that a `confirm` secret asks for: the Mac files the request in your own iCloud, SecChain on the iPhone shows what is being asked, and Face ID signs the approval. It is for Macs without Touch ID, for sessions where no prompt can be shown at all (SSH), and for commands an AI coding agent starts while you are away from the Mac. Nothing changes until you pair a Mac, and no secret value ever travels: the iPhone is shown the repository, the secret names, the command, and the name of the Mac.
+Your iPhone can answer the authentication that a `confirm` secret asks for: the Mac files the request in your own iCloud, SecChain on the iPhone shows what is being asked, and Face ID signs the approval. It is for Macs without Touch ID, for sessions where no prompt can be shown at all (SSH), and for commands an AI coding agent starts while you are away from the Mac. Nothing changes until you pair a Mac, and SecChain never puts a stored secret value into the request: the iPhone is shown the repository, the secret names, the command as you typed it, and the name of the Mac.
 
 Both devices are signed in to the same Apple Account with iCloud on. This uses CloudKit, which is a different setting from the iCloud Keychain that synchronizes the secrets themselves — the records are in your own private database, which nobody else, the author of SecChain included, can read.
 
