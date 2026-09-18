@@ -41,7 +41,7 @@ Once you do, the request travels through the private database of your own iCloud
 
 Apple states that only you can access your private database and that its contents are not visible to a developer (https://developer.apple.com/documentation/cloudkit/ckcontainer/privateclouddatabase). The Provider can therefore neither read these records nor tell that you use remote approval.
 
-The notification your iPhone shows says only that a Mac is asking for your approval and carries no part of the request. Notifications are delivered by Apple; the Provider receives no device token, again because it operates no server.
+The notification your iPhone shows says only that a Mac is asking for your approval. Its payload carries no field of the request — not the repository, not the secret names, not the command — only the identifier of the record that triggered it, which is a random value. SecChain reads what is being asked from the request itself once you open the app. Notifications are delivered by Apple; the Provider receives no device token, again because it operates no server.
 
 ### Clipboard
 
