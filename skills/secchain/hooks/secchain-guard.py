@@ -41,7 +41,10 @@ LAUNCHERS = frozenset({"env", "command", "nohup", "nice", "stdbuf", "time"})
 # Language runtimes whose script this hook cannot read. Under `secchain run` an inline script is
 # refused rather than guessed at, because printing the environment is one expression in all of them.
 INTERPRETERS = frozenset({"python", "python3", "node", "ruby", "perl", "php", "deno", "bun", "osascript"})
-INLINE_SCRIPT_OPTIONS = ("-c", "-e", "--eval", "--eval-file", "-E", "-p")
+# The options those runtimes take a script on the command line with. Options that mean something
+# else in one of them (`-E` is inline code in perl and an encoding in ruby) are left out, so that a
+# script file is never refused.
+INLINE_SCRIPT_OPTIONS = frozenset({"-c", "-e", "--eval"})
 
 SEPARATORS = frozenset({"|", "||", "&&", ";", "&", "(", ")"})
 
