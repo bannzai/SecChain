@@ -78,7 +78,7 @@ The hook reads a command the way a shell parses it, and it does not evaluate the
 
 Where the configuration goes matters for the same reason. A hook in the project's `.claude/settings.json` runs a script inside the working tree, which an agent that may write to the project can change. Put it in `~/.claude/settings.json`, with the path of an installation outside the repository, wherever that matters.
 
-Codex CLI reads the same hook input and the same decision on standard output, so the script works there as well; only the file the configuration goes in differs.
+Codex CLI sends the same hook input and reads the same decision from standard output, so the script runs there too, from `~/.codex/hooks.json` or `<repository>/.codex/hooks.json` (or an inline `[hooks]` table in `config.toml`). What it covers there is narrower: Codex matches a shell call as `Bash` with the command in `tool_input.command`, which is the half of this hook that works, and it has no `Read` tool — a file read goes through an MCP tool under that tool's own name (`mcp__filesystem__read_file`), which this hook neither matches nor knows how to read. On Codex, treat it as a guard on shell commands only ([Codex hooks](https://learn.chatgpt.com/docs/hooks), "Tool coverage").
 
 ## Checking what is available
 
