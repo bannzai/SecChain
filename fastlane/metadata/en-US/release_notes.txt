@@ -1,1 +1,1 @@
-The first release of SecChain for iPhone and iPad. Manage the secrets of your repositories, add and update them, choose their protection level, and reveal a value after Face ID or Touch ID.
+The first release of SecChain for iPhone and iPad. Manage the secrets of your repositories, add and update them, choose their protection level, and reveal a value after Face ID or Touch ID. A Mac paired with this iPhone can also ask you to approve a command that reads a protected secret.
