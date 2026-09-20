@@ -74,10 +74,14 @@ enum AppStoreScreenshotDevice {
 
     /// Where the device mock or the terminal starts. Fixed rather than derived from the height of
     /// the copy so that the mock sits at the same height in every language.
+    ///
+    /// Far enough below the copy that the longest one still breathes: the iPad's copy reaches row
+    /// 630 when both the title and the subtitle take two lines, which is the fourth and the fifth
+    /// page, and a subject starting at 640 read as stuck to it.
     var subjectTop: CGFloat {
         switch self {
         case .iPhone: 660
-        case .iPad: 640
+        case .iPad: 720
         }
     }
 
