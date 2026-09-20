@@ -17,6 +17,13 @@
 		E33CE551C90DC8AA49B0F115 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = F0899F93912E898B605AC56B /* Assets.xcassets */; };
 		CA6CBC15CFFB15F70B75A871 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = D130D40A702EEF51726A1969 /* Assets.xcassets */; };
 		CDE66650367751835787144A /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 9E6344EB4B498380387E2707 /* InfoPlist.xcstrings */; };
+		DDAE97C67C0D4B4A8BB00859 /* AppStoreScreenshotCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F5C47F6B419409D8C7FD390 /* AppStoreScreenshotCopy.swift */; };
+		F967A865ABA647098D82FC8E /* AppStoreScreenshotLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2DAC5EFEF594B17BC3A8843 /* AppStoreScreenshotLayout.swift */; };
+		69E90DA900A1422194E7DC89 /* AppStoreScreenshotTerminal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96AC91B550134B778A4B223A /* AppStoreScreenshotTerminal.swift */; };
+		A315CF2BE0F64863987ABE72 /* AppStoreScreenshotPages.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9585A66ADE141F9BA493615 /* AppStoreScreenshotPages.swift */; };
+		D06C03816FAF4BDD890D36A3 /* AppStoreScreenshotUITest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B7B3DA81A5E476380D81F6F /* AppStoreScreenshotUITest.swift */; };
+		B15521A2FEE7479EA6017A7A /* AppStoreScreenshotCopy.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = BAA6C8E5185D4010831E67FF /* AppStoreScreenshotCopy.xcstrings */; };
+		F5EF4EE264B54035B4773A9D /* settings.json in Resources */ = {isa = PBXBuildFile; fileRef = 0E471CDFA17A42C7BCA2639E /* settings.json */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -35,6 +42,14 @@
 		D0432E4B0289F5EA38420ED0 /* SecChain.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SecChain.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		D130D40A702EEF51726A1969 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		F0899F93912E898B605AC56B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A46E7386A9F14E408FA95DD2 /* AppStoreScreenshotsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppStoreScreenshotsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		2F5C47F6B419409D8C7FD390 /* AppStoreScreenshotCopy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotCopy.swift; sourceTree = "<group>"; };
+		C2DAC5EFEF594B17BC3A8843 /* AppStoreScreenshotLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotLayout.swift; sourceTree = "<group>"; };
+		96AC91B550134B778A4B223A /* AppStoreScreenshotTerminal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotTerminal.swift; sourceTree = "<group>"; };
+		C9585A66ADE141F9BA493615 /* AppStoreScreenshotPages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotPages.swift; sourceTree = "<group>"; };
+		8B7B3DA81A5E476380D81F6F /* AppStoreScreenshotUITest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStoreScreenshotUITest.swift; sourceTree = "<group>"; };
+		BAA6C8E5185D4010831E67FF /* AppStoreScreenshotCopy.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = AppStoreScreenshotCopy.xcstrings; sourceTree = "<group>"; };
+		0E471CDFA17A42C7BCA2639E /* settings.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; name = settings.json; path = skills/secchain/hooks/settings.json; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -54,6 +69,13 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		3CB48B2F0D5645B0B740899D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -63,8 +85,23 @@
 				2EDB9CD63A5505210CD8FC58 /* Packages */,
 				F35AF82492E854A3C15951D5 /* SecChain */,
 				7295DCA7C001BCF369F348EE /* SecChainiOS */,
+				8BDAA3A47C8F4BD4AE4562B6 /* AppStoreScreenshotsUITests */,
 				F77C41F97391E2F3FD7C730B /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		8BDAA3A47C8F4BD4AE4562B6 /* AppStoreScreenshotsUITests */ = {
+			isa = PBXGroup;
+			children = (
+				2F5C47F6B419409D8C7FD390 /* AppStoreScreenshotCopy.swift */,
+				BAA6C8E5185D4010831E67FF /* AppStoreScreenshotCopy.xcstrings */,
+				C2DAC5EFEF594B17BC3A8843 /* AppStoreScreenshotLayout.swift */,
+				C9585A66ADE141F9BA493615 /* AppStoreScreenshotPages.swift */,
+				96AC91B550134B778A4B223A /* AppStoreScreenshotTerminal.swift */,
+				8B7B3DA81A5E476380D81F6F /* AppStoreScreenshotUITest.swift */,
+				0E471CDFA17A42C7BCA2639E /* settings.json */,
+			);
+			path = AppStoreScreenshotsUITests;
 			sourceTree = "<group>";
 		};
 		2EDB9CD63A5505210CD8FC58 /* Packages */ = {
@@ -106,6 +143,7 @@
 			children = (
 				D0432E4B0289F5EA38420ED0 /* SecChain.app */,
 				90A5C648ECB4A83AB10B3B5C /* SecChainiOS.app */,
+				A46E7386A9F14E408FA95DD2 /* AppStoreScreenshotsUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -155,6 +193,24 @@
 			productReference = 90A5C648ECB4A83AB10B3B5C /* SecChainiOS.app */;
 			productType = "com.apple.product-type.application";
 		};
+		1EA1F007928D480C9379017B /* AppStoreScreenshotsUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B4969F62F46C4472BD2E75C5 /* Build configuration list for PBXNativeTarget "AppStoreScreenshotsUITests" */;
+			buildPhases = (
+				1CAC64849E6B42B199680F14 /* Sources */,
+				3CB48B2F0D5645B0B740899D /* Frameworks */,
+				3E17641275FE427D83AB5B85 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				F649AE79763E474C8F3587E3 /* PBXTargetDependency */,
+			);
+			name = AppStoreScreenshotsUITests;
+			productName = AppStoreScreenshotsUITests;
+			productReference = A46E7386A9F14E408FA95DD2 /* AppStoreScreenshotsUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -171,6 +227,11 @@
 					7C814B9CD699195B55B8C536 = {
 						DevelopmentTeam = TQPN82UBBY;
 						ProvisioningStyle = Automatic;
+					};
+					1EA1F007928D480C9379017B = {
+						DevelopmentTeam = TQPN82UBBY;
+						ProvisioningStyle = Automatic;
+						TestTargetID = 7C814B9CD699195B55B8C536;
 					};
 				};
 			};
@@ -194,6 +255,7 @@
 			targets = (
 				310E9DAB042DF0B1BC90C856 /* SecChain */,
 				7C814B9CD699195B55B8C536 /* SecChainiOS */,
+				1EA1F007928D480C9379017B /* AppStoreScreenshotsUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -213,6 +275,15 @@
 			buildActionMask = 2147483647;
 			files = (
 				CA6CBC15CFFB15F70B75A871 /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		3E17641275FE427D83AB5B85 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B15521A2FEE7479EA6017A7A /* AppStoreScreenshotCopy.xcstrings in Resources */,
+				F5EF4EE264B54035B4773A9D /* settings.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -260,12 +331,39 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		1CAC64849E6B42B199680F14 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DDAE97C67C0D4B4A8BB00859 /* AppStoreScreenshotCopy.swift in Sources */,
+				F967A865ABA647098D82FC8E /* AppStoreScreenshotLayout.swift in Sources */,
+				A315CF2BE0F64863987ABE72 /* AppStoreScreenshotPages.swift in Sources */,
+				69E90DA900A1422194E7DC89 /* AppStoreScreenshotTerminal.swift in Sources */,
+				D06C03816FAF4BDD890D36A3 /* AppStoreScreenshotUITest.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXContainerItemProxy section */
+		D0556D21B100418BAB11B707 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B33E926E71D5091A05CEFCF9 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7C814B9CD699195B55B8C536;
+			remoteInfo = SecChainiOS;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXTargetDependency section */
 		EBA66CF24EA37B33B197C2E6 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			productRef = "TEMP_7342D23A-D1CD-47BB-88EE-B6EEC9BB40F1" /* secchain-cli */;
+		};
+		F649AE79763E474C8F3587E3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7C814B9CD699195B55B8C536 /* SecChainiOS */;
+			targetProxy = D0556D21B100418BAB11B707 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -600,6 +698,64 @@
 			};
 			name = Debug;
 		};
+		2C66F3AFA9434E14AF3353D5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bannzai.SecChain.AppStoreScreenshotsUITests;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SecChainiOS;
+			};
+			name = Debug;
+		};
+		23DC6557DBAD42C290A6B1C4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bannzai.SecChain.AppStoreScreenshotsUITests;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SecChainiOS;
+			};
+			name = Release;
+		};
+		51A657D1916A4345926FC67D /* DebugUnsigned */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
+				CODE_SIGNING_ALLOWED = NO;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.bannzai.SecChain.AppStoreScreenshotsUITests;
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = SecChainiOS;
+			};
+			name = DebugUnsigned;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -629,6 +785,16 @@
 				FA243E7B2E596FBCFD068489 /* Debug */,
 				AE4C2BD417BAA05863E8C8FE /* Release */,
 				E48F07C1B270B6A0F111D767 /* DebugUnsigned */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B4969F62F46C4472BD2E75C5 /* Build configuration list for PBXNativeTarget "AppStoreScreenshotsUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2C66F3AFA9434E14AF3353D5 /* Debug */,
+				23DC6557DBAD42C290A6B1C4 /* Release */,
+				51A657D1916A4345926FC67D /* DebugUnsigned */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;
