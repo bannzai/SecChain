@@ -28,8 +28,8 @@ VARIABLE_REFERENCE = re.compile(r"\$\{?[A-Za-z_][A-Za-z0-9_]*")
 ENVIRONMENT_DUMPS = frozenset({"env", "printenv"})
 # Shell builtins that print that same environment unless an argument names what to set. An
 # attribute flag on its own lists the variables that carry the attribute together with their values
-# (`declare -x` prints every exported variable), so the boundary is a name or an assignment rather
-# than the `-p` option alone.
+# (`declare -x` prints every exported variable), and the print option prints the value of the names
+# that follow it, so neither a name nor the absence of an option is enough on its own.
 ENVIRONMENT_BUILTINS = frozenset({"export", "declare", "typeset"})
 # Commands that print their arguments, which exposes a secret only when an argument names one.
 VALUE_PRINTS = frozenset({"echo", "printf"})
@@ -146,6 +146,14 @@ def names_something(word):
     return not word.startswith(("-", "+"))
 
 
+def prints_declarations(word):
+    """Whether an argument of an `ENVIRONMENT_BUILTINS` command is the print option, which prints
+    the declaration of the names that follow it with their values. It combines with an attribute
+    (`-px`), and `+p` prints as well (measured on bash 5.3.9 and zsh 5.9), so a name is not what
+    decides here."""
+    return word.startswith(("-", "+")) and "p" in word[1:]
+
+
 def print_denial(command, reaches_terminal):
     # `env FOO=bar some-command` sets variables for a command instead of printing them, and after
     # the launcher is removed only a command that really prints is left at the front.
@@ -157,7 +165,10 @@ def print_denial(command, reaches_terminal):
     # `set -o` on its own lists the state of those options instead of a value.
     if name == "set" and len(words) == 1:
         return PRINT_DENIAL
-    if name in ENVIRONMENT_BUILTINS and not any(names_something(word) for word in words[1:]):
+    if name in ENVIRONMENT_BUILTINS and (
+        any(prints_declarations(word) for word in words[1:])
+        or not any(names_something(word) for word in words[1:])
+    ):
         return PRINT_DENIAL
     if name in VALUE_PRINTS and reaches_terminal:
         if any(VARIABLE_REFERENCE.search(word) for word in words[1:]):
