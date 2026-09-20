@@ -14,7 +14,7 @@ LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/Launc
 SIGNING_FLAGS ?= -allowProvisioningUpdates -allowProvisioningDeviceRegistration
 IOS_SIMULATOR_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/SecChainiOS.app
 
-.PHONY: build-macos build-ios test check-localization test-integration macos cli ios dmg clean
+.PHONY: build-macos build-ios test check-localization test-hooks test-integration macos cli ios dmg clean
 
 # Build the macOS app together with the embedded command-line tool.
 build-macos:
@@ -36,6 +36,11 @@ test:
 # described in the script.
 check-localization:
 	bash scripts/test/localization.sh
+
+# The Claude Code hook of the agent skill, against the calls it has to stop and the ones it has to
+# let through. It needs no build: the hook reads a tool call on standard input.
+test-hooks:
+	bash scripts/test/hooks.sh
 
 # Tests against the real data protection keychain, executed by the signed embedded tool.
 test-integration: build-macos

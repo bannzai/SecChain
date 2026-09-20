@@ -198,6 +198,25 @@ cp -R /path/to/SecChain/skills/secchain .claude/skills/secchain   # Claude Code,
 
 Other Agent-Skills-compatible tools look for the same `SKILL.md` shape under their own skill directory (for example `~/.agents/skills/secchain` for a personal, cross-project install). See the skill file itself for the exact instructions given to the agent.
 
+### Claude Code hooks
+
+A skill tells an agent what to do; a [hook](https://code.claude.com/docs/en/hooks) decides whether a call runs at all. The skill folder ships both parts of one: [`skills/secchain/hooks/secchain-guard.py`](skills/secchain/hooks/secchain-guard.py), a `PreToolUse` hook, and [`skills/secchain/hooks/settings.json`](skills/secchain/hooks/settings.json), the configuration that installs it. Put that `hooks` key into the project's `.claude/settings.json`, or into `~/.claude/settings.json` with the path of a cross-project install:
+
+```bash
+mkdir -p .claude
+cp .claude/skills/secchain/hooks/settings.json .claude/settings.json   # a project without other settings
+```
+
+The hook refuses three kinds of call and answers with the `secchain run -- <command>` that does the same work without exposing a value:
+
+- reading a `.env` or `.env.*` file — through the `Read` tool, or through a command that reads one (`cat`, `grep`, `source`, an input redirect);
+- printing the environment of a run — `secchain run -- env`, `printenv`, or a shell command under `secchain run` that echoes a variable into the terminal;
+- running a script of another language written on the command line under `secchain run` (`python3 -c …`, `node -e …`), which the hook cannot read while every secret is in its environment. The same script in a file passes.
+
+It leaves the documented ways of using a secret alone, including piping a value straight into the program that consumes it. The list of what stops and what passes, with examples, is in [the skill](skills/secchain/SKILL.md); `make test-hooks` checks the script against every case of that list. The hook needs `python3`, which comes with the Xcode Command Line Tools. Codex CLI sends the same input and reads the same decision, so the same script runs there from `~/.codex/hooks.json`, but it guards shell commands only: Codex has no `Read` tool, and a file read through an MCP tool arrives under that tool's own name, which this hook does not match. Codex also runs that hook only after the exact definition is trusted with `/hooks` (and trusted again after every change to it), so until that step the guard is configured but inactive.
+
+The hook is a guard against reaching for a secret by habit, not a sandbox. It parses a command the way a shell would without evaluating it, so a path carried through a shell variable gets past it, and a hook configured inside the project runs a script the agent may be able to edit — which is why the skill also describes installing it in `~/.claude/settings.json`. What keeps a value out of a file and out of a terminal is `secchain` itself, which has no command that prints one. Masking secret values in the output of a command an agent runs stays outside SecChain (`documents/PROJECT.md`, "Non-goals").
+
 ## Development
 
 ### Tests
