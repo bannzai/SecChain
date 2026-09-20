@@ -54,3 +54,13 @@ screenshot_fastlane_language() {
     *) echo "$1" ;;
   esac
 }
+
+# The locale the simulator itself is put in, which is what writes the date beside the iPad's clock
+# in the language being captured.
+# screenshot_system_locale <language>
+screenshot_system_locale() {
+  case "$1" in
+    ja) echo "ja_JP" ;;
+    *) echo "en_US" ;;
+  esac
+}

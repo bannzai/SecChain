@@ -111,16 +111,13 @@ enum AppStoreScreenshotDevice {
 
 /// One finished screenshot: the background, the copy, and the subject below it.
 ///
-/// The subject is taller than the space left under the copy, so it runs past the bottom edge and is
-/// cut off there. That is the layout the skill describes (`appstore-screenshot-builder`): the eye
-/// goes from the copy into a screen that continues beyond the image.
+/// Every subject starts at `subjectTop`, so the seven pages line up when they are read one after
+/// the other. A device mock is taller than the space left there and runs past the bottom edge,
+/// which is the layout the skill describes (`appstore-screenshot-builder`): the eye goes from the
+/// copy into a screen that continues beyond the image.
 struct AppStoreScreenshotLayout<Subject: View>: View {
     let device: AppStoreScreenshotDevice
     let copy: AppStoreScreenshotCopy
-    /// Where the subject sits in the space under the copy. A device mock starts at the top of it
-    /// and runs past the bottom edge; a subject shorter than that space is centered in it instead
-    /// of leaving the picture bottom-heavy with background.
-    var subjectAlignment: Alignment = .top
     @ViewBuilder let subject: () -> Subject
 
     var body: some View {
@@ -138,7 +135,7 @@ struct AppStoreScreenshotLayout<Subject: View>: View {
                 .offset(x: device.horizontalPadding, y: device.topPadding)
             subject()
                 .frame(width: device.subjectWidth)
-                .frame(height: device.canvasSize.height - device.subjectTop, alignment: subjectAlignment)
+                .frame(height: device.canvasSize.height - device.subjectTop, alignment: .top)
                 .offset(x: (device.canvasSize.width - device.subjectWidth) / 2, y: device.subjectTop)
         }
         .frame(width: device.canvasSize.width, height: device.canvasSize.height, alignment: .topLeading)

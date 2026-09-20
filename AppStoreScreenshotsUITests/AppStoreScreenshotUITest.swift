@@ -7,14 +7,23 @@ import XCTest
 /// Captures the screens the App Store screenshots are built from, composes the seven pages over
 /// them, and attaches each page as the PNG that goes to App Store Connect (issue #46).
 ///
-/// One run covers every language of `screenshotLanguages`, because relaunching the app with another
-/// language is cheap while starting the runner again is not. The device class comes from the
-/// simulator the run was started on (`AppStoreScreenshotDevice.current`), so the generation script
-/// decides it by choosing the destination.
+/// A run covers the one language `SCREENSHOT_LANGUAGE` names: the status bar in the picture belongs
+/// to the simulator, and a simulator is in one language at a time, so the capture script sets the
+/// language and starts a run per language. The device class comes from the simulator the run was
+/// started on (`AppStoreScreenshotDevice.current`), so the generation script decides it by choosing
+/// the destination.
 final class AppStoreScreenshotUITest: XCTestCase {
     /// The languages App Store Connect gets screenshots for. They are also the localizations of
     /// `AppStoreScreenshotCopy.xcstrings` and of `fastlane/metadata/`.
     let screenshotLanguages = ["en", "ja"]
+    /// The languages this run captures. A run started by hand, without the variable the capture
+    /// script sets, covers every language and leaves the status bar in the simulator's language.
+    var capturedLanguages: [String] {
+        guard let language = ProcessInfo.processInfo.environment["SCREENSHOT_LANGUAGE"] else {
+            return screenshotLanguages
+        }
+        return [language]
+    }
     /// Repository of the demo data whose secrets cover every protection level and both
     /// synchronization states (`AppModelFactory.demoStore`).
     let demoRepositoryIdentity = "github.com/example/web-app"
@@ -30,6 +39,10 @@ final class AppStoreScreenshotUITest: XCTestCase {
     func testAppStoreScreenshots() throws {
         try assertSettingsExcerptMatchesTheShippedHook()
         assertCopyIsTranslated()
+        XCTAssertTrue(
+            capturedLanguages.allSatisfy(screenshotLanguages.contains),
+            "SCREENSHOT_LANGUAGE names \(capturedLanguages), which AppStoreScreenshotCopy.xcstrings has no copy for"
+        )
         let device = AppStoreScreenshotDevice.current
         // The app's screen is the light surface the dark canvas sets off; the capture script sets
         // the same appearance on the simulator.
@@ -37,14 +50,15 @@ final class AppStoreScreenshotUITest: XCTestCase {
         // App Store Connect takes portrait pictures for both classes, and an iPad simulator can
         // start in landscape.
         XCUIDevice.shared.orientation = .portrait
-        for language in screenshotLanguages {
-            let captures = capturedScreens(language: language)
+        for language in capturedLanguages {
+            let (captures, approvalDetailsRegion) = capturedScreens(language: language)
             for pageNumber in appStoreScreenshotPageNumbers {
                 let page = appStoreScreenshotPage(
                     pageNumber: pageNumber,
                     device: device,
                     language: language,
-                    captures: captures
+                    captures: captures,
+                    approvalDetailsRegion: approvalDetailsRegion
                 )
                 let attachment = XCTAttachment(
                     data: try pngData(view: page, size: device.canvasSize),
@@ -91,13 +105,14 @@ final class AppStoreScreenshotUITest: XCTestCase {
 
     // MARK: - The screens of the app
 
-    /// Launches the app in `language`, walks to every screen a page needs, and returns the captures.
+    /// Launches the app in `language`, walks to every screen a page needs, and returns the captures
+    /// together with where the approval's details sit on the screen they were captured from.
     ///
     /// Everything on these screens comes from the app's debug demo data (`AppModel.useDemoStore`,
     /// `RemoteApprovalModel.useDemoData`): dummy values under example repositories, so that no
     /// secret value, no real public key, and nothing personal can reach a screenshot.
     @MainActor
-    func capturedScreens(language: String) -> [AppStoreScreenshotScreen: UIImage] {
+    func capturedScreens(language: String) -> ([AppStoreScreenshotScreen: UIImage], CGRect) {
         var captures: [AppStoreScreenshotScreen: UIImage] = [:]
 
         let appWithDemoSecrets = launchedApp(language: language)
@@ -129,9 +144,54 @@ final class AppStoreScreenshotUITest: XCTestCase {
             requestScrollView.swipeUp()
         }
         captures[.approvalDetails] = screenCapture(app: appWithDemoApproval)
+        let approvalDetailsRegion = approvalDetailsRegion(app: appWithDemoApproval)
         appWithDemoApproval.terminate()
 
-        return captures
+        return (captures, approvalDetailsRegion)
+    }
+
+    /// The card that holds the four rows the approval covers, in unit coordinates of the capture.
+    ///
+    /// Read off the screen rather than written down as a measured rectangle: the card is as tall as
+    /// the request's own text, and on the iPad it sits in a sheet the system places. Its edges are
+    /// derived from the two paddings `RemoteApprovalRequestView` gives it — one around the content
+    /// of the scroll view, one inside every row — so that neither the buttons below the card nor
+    /// the screen behind the sheet can end up in the picture.
+    @MainActor
+    func approvalDetailsRegion(app: XCUIApplication) -> CGRect {
+        // SwiftUI's `.padding()` without a length, which is what both places use.
+        let defaultPadding: CGFloat = 16
+        // The label of the first row. It reads "Mac" in both languages, so the query needs no
+        // translation the way the buttons of `localizedButton` do.
+        let firstRowLabel = app.staticTexts["Mac"].firstMatch
+        // The last row is the command, whose last argument the demo request ends with.
+        let lastRowValue = app.staticTexts.matching(NSPredicate(format: "label ENDSWITH %@", "production")).firstMatch
+        XCTAssertTrue(
+            firstRowLabel.waitForExistence(timeout: 10),
+            "The approval screen has no Mac row to measure the card from. UI: \(app.debugDescription)"
+        )
+        XCTAssertTrue(
+            lastRowValue.waitForExistence(timeout: 10),
+            "The approval screen has no command row to measure the card from. UI: \(app.debugDescription)"
+        )
+        let scrollViewFrame = app.scrollViews.firstMatch.frame
+        let cardTop = firstRowLabel.frame.minY - defaultPadding
+        let card = CGRect(
+            x: scrollViewFrame.minX + defaultPadding,
+            y: cardTop,
+            width: scrollViewFrame.width - 2 * defaultPadding,
+            height: lastRowValue.frame.maxY + defaultPadding - cardTop
+        )
+        // The window of the app being captured, which is what a capture covers. Not the runner
+        // process's own `UIScreen`, which has no scene of its own and answers 320x480.
+        let screenSize = app.windows.firstMatch.frame.size
+        print("approval details card \(card) in window \(screenSize), scroll view \(scrollViewFrame)")
+        return CGRect(
+            x: card.minX / screenSize.width,
+            y: card.minY / screenSize.height,
+            width: card.width / screenSize.width,
+            height: card.height / screenSize.height
+        )
     }
 
     @MainActor

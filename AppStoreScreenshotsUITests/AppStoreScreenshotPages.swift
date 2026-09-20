@@ -28,7 +28,8 @@ func appStoreScreenshotPage(
     pageNumber: Int,
     device: AppStoreScreenshotDevice,
     language: String,
-    captures: [AppStoreScreenshotScreen: UIImage]
+    captures: [AppStoreScreenshotScreen: UIImage],
+    approvalDetailsRegion: CGRect
 ) -> some View {
     let copy = appStoreScreenshotCopy(pageNumber: pageNumber, language: language)
     switch pageNumber {
@@ -37,12 +38,12 @@ func appStoreScreenshotPage(
             deviceMock(device: device, captures: captures, screen: .approval)
         }
     case 2:
-        AppStoreScreenshotLayout(device: device, copy: copy, subjectAlignment: .center) {
+        AppStoreScreenshotLayout(device: device, copy: copy) {
             // The part of the same screen the copy is about: the Mac, the repository, the secret
             // names, and the command. Enlarged out of the mock because at the size of a whole
             // phone those lines are unreadable in the App Store's preview.
             if let capture = captures[.approvalDetails] {
-                AppStoreScreenshotCaptureCard(device: device, capture: capture, region: approvalDetailsRegion(device: device))
+                AppStoreScreenshotCaptureCard(device: device, capture: capture, region: approvalDetailsRegion)
             }
         }
     case 3:
@@ -50,11 +51,11 @@ func appStoreScreenshotPage(
             deviceMock(device: device, captures: captures, screen: .secretList)
         }
     case 4:
-        AppStoreScreenshotLayout(device: device, copy: copy, subjectAlignment: .center) {
+        AppStoreScreenshotLayout(device: device, copy: copy) {
             AppStoreScreenshotTerminal(device: device, title: "web-app — secchain", lines: secchainRunTerminalLines)
         }
     case 5:
-        AppStoreScreenshotLayout(device: device, copy: copy, subjectAlignment: .center) {
+        AppStoreScreenshotLayout(device: device, copy: copy) {
             AppStoreScreenshotTerminal(device: device, title: "web-app — claude", lines: claudeHooksTerminalLines)
         }
     case 6:
@@ -77,16 +78,6 @@ private func deviceMock(
 ) -> some View {
     if let capture = captures[screen] {
         AppStoreScreenshotDeviceMock(device: device, capture: capture)
-    }
-}
-
-/// Where the approval's details sit, in unit coordinates of the capture. Measured on the captured
-/// screens: the iPhone fills its screen with the request, while the iPad shows it as a sheet in the
-/// middle of the split view.
-func approvalDetailsRegion(device: AppStoreScreenshotDevice) -> CGRect {
-    switch device {
-    case .iPhone: CGRect(x: 0.03, y: 0.355, width: 0.94, height: 0.52)
-    case .iPad: CGRect(x: 0.19, y: 0.24, width: 0.62, height: 0.52)
     }
 }
 

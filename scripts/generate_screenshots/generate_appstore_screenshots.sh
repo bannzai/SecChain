@@ -3,9 +3,9 @@
 # the seven pages of AppStoreScreenshotPages.swift, in English and Japanese, for iPhone 6.9 inch and
 # iPad 13 inch.
 #
-# The whole set comes from two runs of the capture target, one per device class, because a run
-# covers every language of that device. Nothing is copied into fastlane/screenshots until the
-# generated files have passed the checks of verify_appstore_screenshots.sh.
+# The whole set comes from one run of the capture target per device class and language. Nothing is
+# copied into fastlane/screenshots until the generated files have passed the checks of
+# verify_appstore_screenshots.sh.
 #
 # Usage: generate_appstore_screenshots.sh [device class ...]  (default: every device class)
 set -euo pipefail

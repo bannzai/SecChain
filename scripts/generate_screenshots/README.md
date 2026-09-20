@@ -15,8 +15,8 @@ Nothing reaches `fastlane/screenshots` until the generated files pass the checks
 
 | Step | Script |
 | --- | --- |
-| Boot the simulator of the device class, fix its status bar and appearance, run the capture target | `capture_appstore_screenshots.sh <device class>` |
-| Take the pages out of the result bundle and name them `artifacts/<device class>/<language>/<device class>-<page>.png` | `organize_appstore_screenshots.sh <device class>` |
+| Per language: boot the simulator of the device class in that language, fix its status bar and appearance, run the capture target | `capture_appstore_screenshots.sh <device class>` |
+| Take the pages out of the result bundles and name them `artifacts/<device class>/<language>/<device class>-<page>.png` | `organize_appstore_screenshots.sh <device class>` |
 | Check pixel size, alpha channel, and page count | `verify_appstore_screenshots.sh <directory> <device class> [...]` |
 | All of it, for every device class, then copy into `fastlane/screenshots/<language>/` | `generate_appstore_screenshots.sh [device class ...]` |
 
@@ -27,7 +27,9 @@ languages, and the page count — are in `screenshot_environment.sh`.
 
 ## Where the pictures come from
 
-`AppStoreScreenshotsUITests` is a UI test target that is not part of any app build.
+`AppStoreScreenshotsUITests` is a UI test target that is not part of any app build. A run captures
+the language `SCREENSHOT_LANGUAGE` names, because the status bar in the picture belongs to the
+simulator and a simulator is in one language at a time.
 
 | File | Holds |
 | --- | --- |

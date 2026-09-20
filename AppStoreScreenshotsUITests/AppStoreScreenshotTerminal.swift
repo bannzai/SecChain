@@ -49,12 +49,15 @@ struct AppStoreScreenshotTerminal: View {
     let title: String
     let lines: [AppStoreScreenshotTerminalLine]
 
-    /// Large enough to stay readable in the App Store's small preview, which is the size most
-    /// people see a screenshot at.
+    /// As large as the panel allows, because the App Store's preview is the size most people see a
+    /// screenshot at. The limit is the longest line of `claudeHooksTerminalLines`, which no line
+    /// may wrap at: it measured 960px wide on the iPhone at 38 and 1162px on the iPad at 46, and
+    /// the horizontal padding is a full character on each side, so the panel's own width caps the
+    /// size at 38.8 for the 1060px iPhone panel and at 68.9 for the 1880px iPad one.
     var fontSize: CGFloat {
         switch device {
         case .iPhone: 38
-        case .iPad: 46
+        case .iPad: 66
         }
     }
 

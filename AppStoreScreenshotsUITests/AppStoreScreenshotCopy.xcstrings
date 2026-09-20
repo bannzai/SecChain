@@ -24,13 +24,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Approve your Mac's secrets from iPhone"
+            "value" : "Approve your Mac's\nsecrets from iPhone"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mac の Secret を iPhone で承認"
+            "value" : "Mac の Secret を\niPhone で承認"
           }
         }
       }
@@ -58,13 +58,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "See what your AI agent wants to run"
+            "value" : "See what your AI agent\nwants to run"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "AI エージェントの実行も内容を見てから"
+            "value" : "AI エージェントの実行も\n内容を見てから"
           }
         }
       }
@@ -92,13 +92,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Secrets stay in the Keychain"
+            "value" : "Secrets stay\nin the Keychain"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Secret は Keychain の中だけ"
+            "value" : "Secret は\nKeychain の中だけ"
           }
         }
       }
@@ -109,13 +109,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No .env file, secrets arrive as environment variables"
+            "value" : "No .env file\nsecrets arrive as environment variables"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : ".env を作らず、コマンドに環境変数として渡す"
+            "value" : ".env を作らず\nコマンドに環境変数として渡す"
           }
         }
       }
@@ -126,13 +126,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "On the Mac, just secchain run"
+            "value" : "On the Mac\njust secchain run"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mac では secchain run に渡すだけ"
+            "value" : "Mac では\nsecchain run に渡すだけ"
           }
         }
       }
@@ -149,7 +149,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : ".env の読み取りや値の表示を agent に許さない"
+            "value" : ".env の読み取りや値の表示を\nエージェントに許さない"
           }
         }
       }
@@ -160,13 +160,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Go further with Claude Code hooks"
+            "value" : "Go further with\nClaude Code hooks"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Claude Code の hooks でさらに守る"
+            "value" : "Claude Code の hooks で\nさらに守る"
           }
         }
       }
@@ -177,7 +177,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Ask every time or never leave the device"
+            "value" : "Ask every time or keep it on this device"
           }
         },
         "ja" : {
@@ -194,7 +194,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Choose protection per secret"
+            "value" : "Choose protection\nper secret"
           }
         },
         "ja" : {
@@ -228,13 +228,13 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Add a secret without your Mac"
+            "value" : "Add a secret\nwithout your Mac"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Mac が手元になくても追加できる"
+            "value" : "Mac が手元になくても\n追加できる"
           }
         }
       }
