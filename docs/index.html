@@ -276,7 +276,7 @@ secchain run -- npm run dev</code></pre>
           <tr>
             <td>Confirm</td>
             <td>Yes</td>
-            <td>Every <code>secchain run</code>, and before update or delete</td>
+            <td>Every <code>secchain run</code>, and before update or delete — on the Mac or on your paired iPhone</td>
           </tr>
           <tr>
             <td>Device-bound</td>
@@ -285,6 +285,34 @@ secchain run -- npm run dev</code></pre>
           </tr>
         </tbody>
       </table>
+    </div>
+  </section>
+
+  <section id="remote-approval">
+    <div class="wrap">
+      <span class="badge">Remote approval</span>
+      <h2>Approve a run from your iPhone</h2>
+      <p>
+        A <code>Confirm</code> secret asks for authentication before <code>secchain run</code> reads
+        it. Pair a Mac with your iPhone and that question can be answered there instead: the app
+        shows which Mac is asking, for which repository, which secrets, and which command, and Face
+        ID signs the approval. It covers Macs without Touch ID, SSH sessions where no prompt can be
+        shown, and commands an AI coding agent starts while you are away from the Mac.
+      </p>
+      <pre><code># pair this Mac with the iPhone whose number you type
+secchain pair
+
+# ask the iPhone for this run
+secchain run --approve-remotely -- npm run deploy
+
+# or let the iPhone answer every confirm authentication
+secchain pair confirm-on-iphone on</code></pre>
+      <p>
+        The request travels through the private database of your own iCloud account, which nobody
+        else can read — the developer included — and SecChain never puts a stored secret value into
+        it. Only the key in your iPhone's Secure Enclave can approve, so nothing else that reaches
+        your iCloud account can answer for you.
+      </p>
     </div>
   </section>
 

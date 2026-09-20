@@ -31,6 +31,21 @@ The single quotes around the `sh -c` script matter: double quotes would let the 
 
 Some secrets in this Keychain are protected at the `confirm` level: `secchain run` shows a Touch ID / password prompt before it starts. That prompt is the user confirming the run, not an error — wait for it instead of treating the run as stuck or failed.
 
+## Rule: when a run waits for the user's iPhone, let it wait
+
+The user can pair a Mac with their iPhone and have that confirmation answered there instead. `secchain run` then files a request, waits, and writes a line like this to standard error every two seconds:
+
+```text
+secchain: waiting for approval on MacBook Pro's paired iPhone, 118s left
+```
+
+That is progress, not an error: the user is being asked on their phone right now.
+
+- Let the command run to the end. A request stays open for two minutes, so allow at least three minutes before any timeout of your own. A process you kill leaves a request on the user's iPhone that answers nothing.
+- Do not interrupt it, and do not start the command again to retry. Every run files a new request and sends the user another notification.
+- `The request was rejected on your iPhone.`, `No answer arrived from your iPhone before the request expired.`, and `Waiting for the approval was cancelled.` are the user's answer, not a problem to work around. Say which one happened and ask the user how to proceed instead of running the command again yourself.
+- Do not add `--approve-remotely` yourself. Whether commands ask the iPhone is the user's setting (`secchain pair confirm-on-iphone on`), and it applies to the commands you start without any flag.
+
 ## Rule: never ask the user for a secret value, and never read one
 
 - Do not ask the user to paste a secret value into the chat, a file, or a command argument.

@@ -26,7 +26,7 @@ ln -sf /Applications/SecChain.app/Contents/Helpers/secchain.app/Contents/MacOS/s
 
 Either way it is a symlink into the app bundle, not a second, separately signed copy of the tool.
 
-The iOS app is distributed through the App Store once published; it manages the same iCloud-synchronized secrets from an iPhone or iPad and has no command-line equivalent.
+The iOS app is distributed through the App Store once published; it manages the same iCloud-synchronized secrets from an iPhone or iPad, answers the authentications of a paired Mac (see "Remote approval"), and has no command-line equivalent.
 
 ## Initial setup
 
@@ -77,7 +77,7 @@ secchain run -- npm run dev
 secchain run --only OPENAI_API_KEY -- ./scripts/smoke-test.sh
 ```
 
-`run` reads the repository's secrets and hands them to the child process as environment variables; the child replaces the `secchain` process (`execve`), so no SecChain process keeps holding the values and no plaintext temporary file is ever created. A secret above *standard* protection asks for Touch ID or your password before the command starts; one prompt covers every protected secret the command needs.
+`run` reads the repository's secrets and hands them to the child process as environment variables; the child replaces the `secchain` process (`execve`), so no SecChain process keeps holding the values and no plaintext temporary file is ever created. A secret above *standard* protection asks for Touch ID or your password before the command starts; one prompt covers every protected secret the command needs. A paired iPhone can answer that question instead of the Mac (see "Remote approval").
 
 There is deliberately no command that prints a secret value to standard output. `run` is the way a shell script or an AI coding agent consumes a secret without being able to read it — see the [`secchain` agent skill](#ai-agent-skill).
 
@@ -115,6 +115,47 @@ User authentication (Touch ID, Apple Watch, or your login password) is opt-in pe
 | `device-bound` | Never | Every read, by any front end, enforced by the Keychain itself |
 
 `confirm` exists because `secchain run -- env` would otherwise let any process running as you — including an AI coding agent — print every secret without you noticing. `device-bound` is the most robust and least convenient level: the value never reaches another device and is not restored from a backup onto a replacement Mac.
+
+The authentication a `confirm` secret asks for can be answered on your iPhone instead of at the Mac (see "Remote approval"). A `device-bound` secret cannot: the Keychain itself demands user presence on the Mac that holds the value.
+
+## Remote approval
+
+Your iPhone can answer the authentication that a `confirm` secret asks for: the Mac files the request in your own iCloud, SecChain on the iPhone shows what is being asked, and Face ID signs the approval. It is for Macs without Touch ID, for sessions where no prompt can be shown at all (SSH), and for commands an AI coding agent starts while you are away from the Mac. Nothing changes until you pair a Mac, and SecChain never puts a stored secret value into the request: the iPhone is shown the repository, the secret names, the command as you typed it, and the name of the Mac.
+
+Both devices are signed in to the same Apple Account with iCloud on. This uses CloudKit, which is a different setting from the iCloud Keychain that synchronizes the secrets themselves — the records are in your own private database, which nobody else, the author of SecChain included, can read.
+
+### Pair a Mac with your iPhone
+
+1. On the iPhone, open SecChain, open the toolbar's menu of further actions, choose **Remote Approval**, and tap **Pair This iPhone**. The screen then shows a 12-digit number, and **Allow Notifications** is what lets a request reach you while the app is closed.
+2. On the Mac, run `secchain pair`, type the number the iPhone shows, and confirm with Touch ID or your password.
+
+```bash
+secchain pair                          # enrolls the key of the iPhone whose number you type
+secchain pair --number 1234-5678-9012  # same, without being asked for the number
+secchain pair status                   # which iPhone is paired, and whether it is asked by default
+secchain pair confirm-on-iphone on     # ask that iPhone without --approve-remotely
+secchain pair remove                   # stop letting the iPhone answer
+```
+
+Each Mac is paired separately, and only the key you enroll can approve, so nothing else that reaches your iCloud account can answer for you. Changing the setting or removing the pairing authenticates first. Pairing again on the iPhone replaces its key, after which every Mac pairs once more.
+
+### Ask the iPhone
+
+```bash
+secchain run --approve-remotely -- npm run dev
+secchain set OPENAI_API_KEY --approve-remotely
+secchain delete OPENAI_API_KEY --approve-remotely
+```
+
+Without the flag, a paired Mac still prompts locally and asks the iPhone only where the prompt cannot be shown at all — over SSH, for example, where it reports `no authentication prompt can be shown here, asking your paired iPhone instead`. `secchain pair confirm-on-iphone on` turns that around: every `confirm` authentication on that Mac goes to the iPhone, which is the setting to use for a Mac without Touch ID and for commands an AI coding agent starts. `--approve-remotely` for a `device-bound` secret reports `a device-bound secret can only be confirmed on this Mac, asking here` and prompts locally.
+
+While it waits, `secchain` writes the time left to standard error (standard output belongs to the command being run):
+
+```text
+secchain: waiting for approval on MacBook Pro's paired iPhone, 118s left
+```
+
+A request stays open for two minutes. Ctrl-C stops waiting and tells the iPhone to drop the request. Rejected, expired, and cancelled are reported as what they are, and the command does not start.
 
 ## The `.secchain` file
 
