@@ -25,7 +25,11 @@ VARIABLE_REFERENCE = re.compile(r"\$\{?[A-Za-z_][A-Za-z0-9_]*")
 
 # Commands whose output is the environment itself, so that the value of every secret of the run
 # reaches whoever reads the output.
-ENVIRONMENT_DUMPS = frozenset({"env", "printenv", "export", "set", "declare", "typeset"})
+ENVIRONMENT_DUMPS = frozenset({"env", "printenv"})
+# Shell builtins that print that same environment only when they are asked for what they hold. An
+# assignment or an option makes them change the shell and print nothing, which is how a script under
+# `secchain run` uses them.
+ENVIRONMENT_BUILTINS = frozenset({"export", "set", "declare", "typeset"})
 # Commands that print their arguments, which exposes a secret only when an argument names one.
 VALUE_PRINTS = frozenset({"echo", "printf"})
 # Commands that hand what they read on to their own output, so piping into one of them still ends
@@ -141,6 +145,10 @@ def print_denial(command, reaches_terminal):
     words = launched_words(command.words)
     name = os.path.basename(words[0]) if words else ""
     if name in ENVIRONMENT_DUMPS:
+        return PRINT_DENIAL
+    # `-p` is the option that asks a builtin for what it holds. In bash `set -p` is a mode rather
+    # than a listing, but a run has no use for it, so the boundary stays one rule for all four.
+    if name in ENVIRONMENT_BUILTINS and (len(words) == 1 or "-p" in words[1:]):
         return PRINT_DENIAL
     if name in VALUE_PRINTS and reaches_terminal:
         if any(VARIABLE_REFERENCE.search(word) for word in words[1:]):

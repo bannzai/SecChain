@@ -77,6 +77,12 @@ denied Bash command "secchain run -- sh -c 'npm run build && echo \$OPENAI_API_K
 denied Bash command "secchain run -- sh -c 'env > /tmp/environment.txt'"
 denied Bash command "cd app && secchain run -- env"
 denied Bash command "bash -c 'secchain run -- printenv'"
+# A shell builtin asked for what it holds prints the same environment.
+denied Bash command "secchain run -- sh -c 'set'"
+denied Bash command "secchain run -- sh -c 'export'"
+denied Bash command "secchain run -- sh -c 'export -p'"
+denied Bash command "secchain run -- sh -c 'declare -p'"
+denied Bash command "secchain run -- sh -c 'typeset -p'"
 # A launcher in front of the run does not hide it.
 denied Bash command "env secchain run -- env"
 denied Bash command "command secchain run -- printenv"
@@ -96,6 +102,10 @@ allowed Bash command "secchain run --only CLOUDFLARE_API_TOKEN -- ./scripts/depl
 allowed Bash command "secchain run -- sh -c 'printf \"Authorization: Bearer %s\" \"\$OPENAI_API_KEY\" | curl -H @- https://api.openai.com/v1/models'"
 allowed Bash command "secchain run -- env NODE_ENV=production npm start"
 allowed Bash command "secchain run -- sh -c 'npm run build && npm test'"
+# The same builtins with something to set: they change the shell and print nothing.
+allowed Bash command "secchain run -- sh -c 'set -euo pipefail; npm ci && npm test'"
+allowed Bash command "secchain run -- sh -c 'export NODE_ENV=production; npm start'"
+allowed Bash command "secchain run -- sh -c 'declare -r LIMIT=1; ./run.sh'"
 allowed Bash command "secchain run -- python3 scripts/deploy.py"
 allowed Bash command "secchain run -- ruby -E UTF-8 scripts/deploy.rb"
 allowed Bash command "env NODE_ENV=production secchain run -- npm run dev"
@@ -115,6 +125,7 @@ allowed Bash command "ls -la .env"
 # Outside a run the environment holds no secret of this repository.
 allowed Bash command "printenv"
 allowed Bash command "env | sort"
+allowed Bash command "export -p"
 allowed Write file_path ".env"
 
 echo "== input the hook cannot read decides nothing"
