@@ -63,9 +63,11 @@ secchain set OPENAI_API_KEY --no-sync         # this Mac only
 ### List secrets
 
 ```bash
-secchain list                # names only
-secchain list --long         # + protection level, sync state, and declared-but-missing names
+secchain list                 # the names run passes to this repository
+secchain list --long          # + protection level, sync state, the scope of each name, and declared-but-missing names
 secchain list --repositories  # every repository that has secrets on this Mac
+secchain list --scopes        # every shared scope, with the repositories it is passed to
+secchain list --scope user    # the names of one scope; --scope repository lists the repository's own
 ```
 
 Values are never printed by any `list` form.
@@ -77,9 +79,27 @@ secchain run -- npm run dev
 secchain run --only OPENAI_API_KEY -- ./scripts/smoke-test.sh
 ```
 
-`run` reads the repository's secrets and hands them to the child process as environment variables; the child replaces the `secchain` process (`execve`), so no SecChain process keeps holding the values and no plaintext temporary file is ever created. A secret above *standard* protection asks for Touch ID or your password before the command starts; one prompt covers every protected secret the command needs. A paired iPhone can answer that question instead of the Mac (see "Remote approval").
+`run` reads the repository's secrets, and those of the shared scopes allowed for it (see "Share secrets between repositories"), and hands them to the child process as environment variables; the child replaces the `secchain` process (`execve`), so no SecChain process keeps holding the values and no plaintext temporary file is ever created. A secret above *standard* protection asks for Touch ID or your password before the command starts; one prompt covers every protected secret the command needs. A paired iPhone can answer that question instead of the Mac (see "Remote approval").
 
 There is deliberately no command that prints a secret value to standard output. `run` is the way a shell script or an AI coding agent consumes a secret without being able to read it — see the [`secchain` agent skill](#ai-agent-skill).
+
+### Share secrets between repositories
+
+A secret that several repositories use goes into a shared scope instead of into each repository: the built-in `user` scope for what is the same everywhere, or a custom scope you name for one purpose.
+
+```bash
+secchain set OPENAI_API_KEY --scope user                  # store it once
+secchain scope allow user 'github.com/bannzai/*'          # pass the user scope to your repositories
+secchain set YOUTUBE_API_KEY --scope youtube              # the first secret of a custom scope creates it
+secchain scope allow youtube github.com/bannzai/youtuber
+secchain scope deny youtube github.com/bannzai/youtuber
+secchain delete YOUTUBE_API_KEY --scope youtube
+```
+
+- A shared scope is passed only to the repositories an `@allow` of your `~/.secchain` names (see "`~/.secchain`"). `scope allow` and `scope deny` add and remove those lines; nothing inside a repository can add one, so a repository you merely cloned cannot claim your shared secrets.
+- A pattern is a repository identifier as `secchain list --repositories` prints it, or the start of one followed by `*`: `github.com/bannzai/*` covers every repository of `bannzai` and none of `bannzai-other`. Quote a pattern with `*` so that the shell leaves it alone.
+- When a name is in several scopes a repository gets, the repository's own secret wins, then the custom scopes in the order of `~/.secchain`, then the user scope. `secchain list --long` shows which scope each name comes from.
+- Custom scope names use lowercase letters, digits, and hyphens. Without `--scope`, `set` and `delete` act on the repository's own secrets as before.
 
 ### Delete a secret
 
@@ -100,9 +120,10 @@ secchain doctor --authenticate   # also asks for Touch ID / your password once
 
 `doctor` passing does not mean every secret you expect is visible. A binary signed by a different Apple Developer Team (a fork built and signed with your own team, for example) passes `doctor` — it can use its own access group just fine — but that access group is not the official app's, so a secret stored by the official app is genuinely absent from it, and you get a real "not found" for a secret you know exists elsewhere. When that happens, check, in order:
 
-1. Is this the same repository? `secchain list --repositories` shows the identifiers this Mac has secrets for; a different Git remote or `.secchain` `@repository` line means a different identifier.
-2. Is this the official, team-signed build? A build signed with a different team reads and writes a separate Keychain vault (see "Building from source").
-3. If the secret was set on another Mac, does it meet the sync conditions in "Initial setup"?
+1. Is this the same repository? `secchain list --repositories` shows the identifiers this Mac has secrets for; a different Git remote, `--repository`, or an `@alias` / `@path` of `~/.secchain` means a different identifier.
+2. Is the secret in a shared scope? `secchain list --scopes` shows each scope with the repositories it is passed to; a scope without an `@allow` for this repository is not passed to it.
+3. Is this the official, team-signed build? A build signed with a different team reads and writes a separate Keychain vault (see "Building from source").
+4. If the secret was set on another Mac, does it meet the sync conditions in "Initial setup"?
 
 ## Protection levels
 
@@ -163,19 +184,42 @@ A repository can list the names of the secrets it needs in a `.secchain` file at
 
 ```text
 # Secrets this project needs
-@repository my-notes
 OPENAI_API_KEY
 CLOUDFLARE_API_TOKEN
 ```
 
 - A secret name is a POSIX environment variable name (letters, digits, underscores, not starting with a digit) — `secchain run` exports it under that name.
-- `@repository <identifier>` is optional. It overrides the identity SecChain would otherwise derive from the Git remote, which is how a directory without a usable remote uses SecChain, and how a fork can be made to share (or not share) the upstream's secrets on purpose.
-- `secchain set` and `secchain delete` keep the current directory's `.secchain` in sync, as long as neither is given `--repository`; comments and ordering you wrote by hand survive. With `--repository`, the command acts on a different repository's secrets, so the local `.secchain` is not the right file to update and is left alone.
-- The file is optional. Without it, `run` uses every secret stored for the repository. With it, `run` refuses to start while a name it declares has no stored value, and names it in the error.
+- Names are all the file holds. Which repository it is and which shared scopes it gets are yours to decide in `~/.secchain`, not the repository's; an `@repository` line of an earlier development build is refused with the error saying what replaces it.
+- `secchain set` and `secchain delete` keep the current directory's `.secchain` in sync, as long as neither is given `--repository` or `--scope`; comments and ordering you wrote by hand survive. With `--repository`, the command acts on a different repository's secrets, so the local `.secchain` is not the right file to update and is left alone. With `--scope`, the name goes into that scope of `~/.secchain` instead.
+- The file is optional. Without it, `run` uses every secret of the scopes the repository gets. With it, `run` refuses to start while a name it declares has no stored value there, and names it in the error, together with the `secchain scope allow` to run when a scope not allowed for the repository has it.
+
+## `~/.secchain`
+
+Your own file, outside every repository, decides what no repository can decide for itself: which shared scopes a repository gets, and which repository a directory is. Keep it with your dotfiles; it belongs to one Mac and is not synchronized through iCloud (a symbolic link into a dotfiles repository stays a link when `secchain` edits it). It has the line format of `.secchain`:
+
+```text
+# user scope
+OPENAI_API_KEY
+ANTHROPIC_API_KEY
+@allow github.com/bannzai/*
+
+@scope youtube
+YOUTUBE_API_KEY
+@allow github.com/bannzai/youtuber
+@allow github.com/bannzai/shorts-*
+
+@alias github.com/bannzai/some-fork github.com/upstream/some-repo
+@path /Users/bannzai/notes local/notes
+```
+
+- The lines before the first `@scope` are the user scope; `@scope <name>` starts a custom scope that lasts until the next one. The names of a scope are the ones it is meant to hold, and `secchain list --long --scope <name>` reports those without a value.
+- `@allow <pattern>` passes the scope to the repositories the pattern names. A scope without one is passed to no repository.
+- `@alias <fork> <upstream>` makes a fork use its upstream's secrets. `@path <absolute directory> <identifier>` gives a directory without a Git remote, and everything below it, an identifier. Both belong to no scope and apply wherever they are written.
+- `secchain set --scope`, `secchain delete --scope`, `secchain scope allow`, and `secchain scope deny` edit the file for you and keep your comments and ordering. Like `.secchain`, it never holds a value.
 
 ### Repository identity
 
-Without a `.secchain` declaration, the repository identity comes from the `origin` remote, normalized to `host/owner/repo` (case, credentials, port, scheme, and a trailing `.git` are dropped), so `git@github.com:Owner/Repo.git` and `https://github.com/owner/repo` are the same repository and the same Keychain items — including from a linked worktree or a sub-directory. A directory that is not a Git repository, has no `origin`, or has an `origin` that is a local path needs an explicit `@repository` line; SecChain never falls back to the checkout path, because the same repository must resolve to the same secrets from every checkout on every Mac.
+The repository identity comes from the `origin` remote, normalized to `host/owner/repo` (case, credentials, port, scheme, and a trailing `.git` are dropped), so `git@github.com:Owner/Repo.git` and `https://github.com/owner/repo` are the same repository and the same Keychain items — including from a linked worktree or a sub-directory. `@alias` in `~/.secchain` then turns a fork into its upstream. A directory that is not a Git repository, has no `origin`, or has an `origin` that is a local path needs an `@path` in `~/.secchain`; SecChain never falls back to the checkout path, because the same repository must resolve to the same secrets from every checkout on every Mac.
 
 `--repository <identifier>` on any command acts on a repository other than the current directory's, without touching that repository's `.secchain` file.
 
@@ -225,11 +269,11 @@ Tests are split by what they need to run, so that most of them run anywhere whil
 
 | Layer | Command | Runs where | Covers |
 | --- | --- | --- | --- |
-| Unit tests | `make test` | Anywhere, including CI on pull requests from forks | Everything that can be decided without the system Keychain: repository identity, the `.secchain` file, the rules of `SecretStore` (protection levels, authentication, synchronization), the environment `run` builds, the error translation, and the assertions that a value never appears in a description or a log. They run against an in-memory Keychain double (`InMemorySecretKeychain`) and an authenticator double, so no prompt appears |
-| Signed integration tests | `make test-integration` | A Mac with the team's signing identity (not CI, because a runner has none) | The real data protection keychain, exercised by the signed binaries themselves: the app and the embedded tool read and write each other's items, a device-bound item is refused without user interaction, an unsigned `swift build` product fails with `errSecMissingEntitlement`, the command-line tool end to end (`scripts/test/cli.sh`), and both binaries reaching SecChain's CloudKit container (the Mac must be signed in to iCloud) |
+| Unit tests | `make test` | Anywhere, including CI on pull requests from forks | Everything that can be decided without the system Keychain: repository identity, the `.secchain` and `~/.secchain` files, which scopes a repository gets and the order a name is taken in, the rules of `SecretStore` (protection levels, authentication, synchronization), the environment `run` builds, the error translation, and the assertions that a value never appears in a description or a log. They run against an in-memory Keychain double (`InMemorySecretKeychain`) and an authenticator double, so no prompt appears |
+| Signed integration tests | `make test-integration` | A Mac with the team's signing identity (not CI, because a runner has none) | The real data protection keychain, exercised by the signed binaries themselves: the app and the embedded tool read and write each other's items, a repository scope and a custom scope go through the same round trip, a device-bound item is refused without user interaction and a scope keeps its device-bound values apart from a repository of the same name, an unsigned `swift build` product fails with `errSecMissingEntitlement`, the command-line tool end to end including scopes (`scripts/test/cli.sh`), and both binaries reaching SecChain's CloudKit container (the Mac must be signed in to iCloud) |
 | Manual checks | — | Two Macs and an iPhone on one Apple Account | What no automated run can reach: actual iCloud Keychain propagation between devices, and answering a Touch ID / Face ID prompt. Tracked in the pre-release checklist issue |
 
-`make test-integration` builds the app first, then runs `scripts/test/integration.sh` with the embedded tool of that build. It stores only its own throwaway values (`dummy-value-for-…`) under a throwaway repository identifier and deletes them again, so it does not touch secrets you keep.
+`make test-integration` builds the app first, then runs `scripts/test/integration.sh` with the embedded tool of that build. It stores only its own throwaway values (`dummy-value-for-…`) under a throwaway repository identifier, a throwaway custom scope, and one throwaway name in the user scope, uses a throwaway `~/.secchain`, and deletes them again, so it does not touch secrets you keep.
 
 Where each requirement of the project is covered is listed in [`documents/test-coverage.md`](documents/test-coverage.md).
 
