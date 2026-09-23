@@ -124,6 +124,20 @@ allowed Bash command "secchain run -- ruby -E UTF-8 scripts/deploy.rb"
 allowed Bash command "env NODE_ENV=production secchain run -- npm run dev"
 allowed Bash command "secchain list"
 allowed Bash command "secchain set OPENAI_API_KEY"
+
+echo "== the scope subcommands and options pass"
+allowed Bash command "secchain set OPENAI_API_KEY --scope user"
+allowed Bash command "secchain set YOUTUBE_API_KEY --scope youtube"
+allowed Bash command "secchain list --scope youtube"
+allowed Bash command "secchain list --scopes"
+allowed Bash command "secchain list --long"
+allowed Bash command "secchain delete YOUTUBE_API_KEY --scope youtube"
+allowed Bash command "secchain scope allow youtube github.com/bannzai/youtuber"
+allowed Bash command "secchain scope allow user 'github.com/bannzai/*'"
+allowed Bash command "secchain scope deny youtube github.com/bannzai/youtuber"
+# ~/.secchain holds names and patterns only, like a repository's .secchain.
+allowed Read file_path "/Users/someone/.secchain"
+allowed Bash command "cat ~/.secchain"
 # Outside a run an inline script has no secret in its environment.
 allowed Bash command "python3 -c 'print(1 + 1)'"
 

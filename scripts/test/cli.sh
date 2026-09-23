@@ -1,6 +1,9 @@
 #!/bin/bash
 # End-to-end checks of the command-line tool against the real Keychain. Needs the signed embedded
-# tool. Uses a throwaway repository identifier and a dummy value, and deletes what it stored.
+# tool. Uses a throwaway repository, a throwaway custom scope, a throwaway ~/.secchain, and dummy
+# values, and deletes what it stored. The user scope is the real one, because the Keychain is not
+# kept per $HOME: the checks store one throwaway name there, run with '--only' that name while the
+# user scope is allowed, so that no other secret of the user scope is read, and delete it.
 #
 # The value is never echoed by this script: assertions about it run inside the child process or
 # search the captured output for it.
@@ -12,12 +15,26 @@ set -euo pipefail
 # Absolute, because the checks run from a throwaway working directory.
 SECCHAIN="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 DUMMY_VALUE="dummy-value-for-cli-test"
+OTHER_DUMMY_VALUE="other-dummy-value-for-cli-test"
 WORK_DIRECTORY="$(mktemp -d)"
 CAPTURED_OUTPUT="${WORK_DIRECTORY}/captured-output.log"
-REPOSITORY="secchain-cli-test-$$"
+# secchain reads ~/.secchain from $HOME, so the user's own file is never read or changed here.
+export HOME="${WORK_DIRECTORY}/home"
+USER_DEFINITION="${HOME}/.secchain"
+REPOSITORY_DIRECTORY="${WORK_DIRECTORY}/repository"
+REPOSITORY="github.com/secchain-cli-test/repository-$$"
+SCOPE="secchain-cli-test-$$"
+USER_SCOPE_KEY="CLI_TEST_USER_KEY_$$"
 
 cleanup() {
-  (cd "${WORK_DIRECTORY}" && "${SECCHAIN}" delete CLI_TEST_KEY > /dev/null 2>&1 || true)
+  (
+    cd "${REPOSITORY_DIRECTORY}" || exit 0
+    "${SECCHAIN}" delete CLI_TEST_KEY
+    "${SECCHAIN}" delete CLI_TEST_SHARED_KEY
+    "${SECCHAIN}" delete CLI_TEST_SCOPE_KEY --scope "${SCOPE}"
+    "${SECCHAIN}" delete CLI_TEST_SHARED_KEY --scope "${SCOPE}"
+    "${SECCHAIN}" delete "${USER_SCOPE_KEY}" --scope user
+  ) > /dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -35,8 +52,19 @@ capture() {
   set -e
 }
 
-cd "${WORK_DIRECTORY}"
-printf '@repository %s\n' "${REPOSITORY}" > .secchain
+# Runs a command and keeps what it prints in LAST_OUTPUT (and in the captured output).
+capture_output() {
+  set +e
+  LAST_OUTPUT="$("$@" 2>&1)"
+  LAST_STATUS=$?
+  set -e
+  printf '%s\n' "${LAST_OUTPUT}" >> "${CAPTURED_OUTPUT}"
+}
+
+mkdir -p "${HOME}" "${REPOSITORY_DIRECTORY}"
+cd "${REPOSITORY_DIRECTORY}"
+git init --quiet
+git remote add origin "https://github.com/secchain-cli-test/repository-$$.git"
 
 echo "== set reads the value from standard input"
 capture sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_KEY"
@@ -88,6 +116,106 @@ capture "${SECCHAIN}" run --only CLI_TEST_KEY -- sh -c 'test -n "${CLI_TEST_KEY}
 echo "== a missing secret is reported by name"
 capture "${SECCHAIN}" run --only CLI_TEST_MISSING_KEY -- true
 [ "${LAST_STATUS}" -ne 0 ] || fail "run --only succeeded for a secret without a value"
+sed -i '' '/^CLI_TEST_MISSING_KEY$/d' .secchain
+
+echo "== .secchain cannot name the repository any more"
+cp .secchain "${WORK_DIRECTORY}/secchain.backup"
+printf '@repository github.com/secchain-cli-test/anything\n' >> .secchain
+capture_output "${SECCHAIN}" list
+[ "${LAST_STATUS}" -ne 0 ] || fail "a .secchain with @repository was accepted"
+printf '%s' "${LAST_OUTPUT}" | grep -q "@alias" || fail "the error does not say where @repository went"
+cp "${WORK_DIRECTORY}/secchain.backup" .secchain
+
+echo "== set --scope stores in a custom scope and declares the name in ~/.secchain only"
+capture sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_SCOPE_KEY --scope '${SCOPE}' --no-sync"
+[ "${LAST_STATUS}" -eq 0 ] || fail "set --scope exited with ${LAST_STATUS}"
+grep -qx "@scope ${SCOPE}" "${USER_DEFINITION}" || fail "set --scope did not create the scope in ~/.secchain"
+grep -qx "CLI_TEST_SCOPE_KEY" "${USER_DEFINITION}" || fail "set --scope did not declare the name in ~/.secchain"
+! grep -qx "CLI_TEST_SCOPE_KEY" .secchain || fail "set --scope declared the name in the repository's .secchain"
+"${SECCHAIN}" list --scope "${SCOPE}" | grep -qx "CLI_TEST_SCOPE_KEY" || fail "list --scope did not print the name"
+
+echo "== a scope without @allow is passed to no repository"
+capture "${SECCHAIN}" run -- sh -c 'test -z "${CLI_TEST_SCOPE_KEY:-}"'
+[ "${LAST_STATUS}" -eq 0 ] || fail "run passed the secret of a scope that allows no repository"
+! "${SECCHAIN}" list | grep -qx "CLI_TEST_SCOPE_KEY" || fail "list printed the secret of a scope that is not passed"
+
+echo "== a declared name that only a scope not allowed holds names the scope to allow"
+printf 'CLI_TEST_SCOPE_KEY\n' >> .secchain
+capture_output "${SECCHAIN}" run -- true
+[ "${LAST_STATUS}" -ne 0 ] || fail "run started although CLI_TEST_SCOPE_KEY is in a scope that is not allowed"
+printf '%s' "${LAST_OUTPUT}" | grep -qF "secchain scope allow ${SCOPE} ${REPOSITORY}" || fail "the error does not say which scope to allow"
+sed -i '' '/^CLI_TEST_SCOPE_KEY$/d' .secchain
+
+echo "== scope allow passes the scope to the repository"
+capture "${SECCHAIN}" scope allow "${SCOPE}" "${REPOSITORY}"
+[ "${LAST_STATUS}" -eq 0 ] || fail "scope allow exited with ${LAST_STATUS}"
+grep -qx "@allow ${REPOSITORY}" "${USER_DEFINITION}" || fail "scope allow did not add the @allow line"
+EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run -- sh -c 'test "${CLI_TEST_SCOPE_KEY}" = "${EXPECTED_VALUE}"'
+[ "${LAST_STATUS}" -eq 0 ] || fail "run did not pass the secret of an allowed scope (status ${LAST_STATUS})"
+"${SECCHAIN}" list | grep -qx "CLI_TEST_SCOPE_KEY" || fail "list did not print the secret of an allowed scope"
+"${SECCHAIN}" list --long | grep -q "^CLI_TEST_SCOPE_KEY.*${SCOPE}" || fail "list --long did not name the scope the secret comes from"
+! "${SECCHAIN}" list --scope repository | grep -qx "CLI_TEST_SCOPE_KEY" || fail "list --scope repository printed a secret of another scope"
+"${SECCHAIN}" list --scopes | grep -qx "${SCOPE}"$'\t'"${REPOSITORY}" || fail "list --scopes did not print the scope with its pattern"
+capture "${SECCHAIN}" scope allow "${SCOPE}" "${REPOSITORY}"
+[ "$(grep -cx "@allow ${REPOSITORY}" "${USER_DEFINITION}")" -eq 1 ] || fail "allowing twice added a second @allow line"
+
+echo "== the repository's own secret wins over a scope's secret of the same name"
+capture sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_SHARED_KEY"
+capture sh -c "printf '%s\n' '${OTHER_DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_SHARED_KEY --scope '${SCOPE}' --no-sync"
+EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run -- sh -c 'test "${CLI_TEST_SHARED_KEY}" = "${EXPECTED_VALUE}"'
+[ "${LAST_STATUS}" -eq 0 ] || fail "run did not take the repository's own value (status ${LAST_STATUS})"
+"${SECCHAIN}" list --long | grep -q "^CLI_TEST_SHARED_KEY.*repository.*(also in ${SCOPE})" || fail "list --long did not say the name is also in the scope"
+
+echo "== the user scope is passed through a wildcard pattern"
+capture sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set '${USER_SCOPE_KEY}' --scope user --no-sync"
+[ "${LAST_STATUS}" -eq 0 ] || fail "set --scope user exited with ${LAST_STATUS}"
+capture_output "${SECCHAIN}" run --only "${USER_SCOPE_KEY}" -- true
+[ "${LAST_STATUS}" -ne 0 ] || fail "run passed the user scope before it was allowed"
+printf '%s' "${LAST_OUTPUT}" | grep -q "No value is stored for ${USER_SCOPE_KEY}" || fail "run did not report the secret of the user scope as missing"
+capture "${SECCHAIN}" scope allow user 'github.com/secchain-cli-test/*'
+EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run --only "${USER_SCOPE_KEY}" -- sh -c "test \"\${${USER_SCOPE_KEY}}\" = \"\${EXPECTED_VALUE}\""
+[ "${LAST_STATUS}" -eq 0 ] || fail "run did not pass the user scope through the wildcard (status ${LAST_STATUS})"
+capture "${SECCHAIN}" scope deny user 'github.com/secchain-cli-test/*'
+capture "${SECCHAIN}" run --only "${USER_SCOPE_KEY}" -- true
+[ "${LAST_STATUS}" -ne 0 ] || fail "run still passed the user scope after scope deny"
+
+echo "== invalid scope arguments are usage errors"
+capture "${SECCHAIN}" list --scope user --repository "${REPOSITORY}"
+[ "${LAST_STATUS}" -ne 0 ] || fail "--scope user was accepted together with --repository"
+capture "${SECCHAIN}" scope allow repository "${REPOSITORY}"
+[ "${LAST_STATUS}" -ne 0 ] || fail "scope allow accepted the repository scope"
+capture "${SECCHAIN}" scope allow Not_A_Scope "${REPOSITORY}"
+[ "${LAST_STATUS}" -ne 0 ] || fail "scope allow accepted an invalid scope name"
+capture "${SECCHAIN}" scope allow "${SCOPE}" 'github.com/*/repository'
+[ "${LAST_STATUS}" -ne 0 ] || fail "scope allow accepted a pattern with a '*' in the middle"
+
+echo "== @alias makes a fork use its upstream's secrets, @path identifies a directory without a remote"
+FORK_DIRECTORY="${WORK_DIRECTORY}/fork"
+NOTES_DIRECTORY="${WORK_DIRECTORY}/notes"
+mkdir -p "${FORK_DIRECTORY}" "${NOTES_DIRECTORY}/drafts"
+(cd "${FORK_DIRECTORY}" && git init --quiet && git remote add origin "git@github.com:secchain-cli-test/fork-$$.git")
+printf '@alias github.com/secchain-cli-test/fork-%s %s\n@path %s secchain-cli-test-notes-%s\n' "$$" "${REPOSITORY}" "${NOTES_DIRECTORY}" "$$" >> "${USER_DEFINITION}"
+(cd "${FORK_DIRECTORY}" && "${SECCHAIN}" list) | grep -qx "CLI_TEST_KEY" || fail "the fork did not get its upstream's secret"
+(cd "${NOTES_DIRECTORY}/drafts" && "${SECCHAIN}" list --long) | grep -qx "# secchain-cli-test-notes-$$ (repository)" || fail "@path did not identify the directory below it"
+
+echo "== scope deny stops passing the scope"
+capture "${SECCHAIN}" scope deny "${SCOPE}" "${REPOSITORY}"
+[ "${LAST_STATUS}" -eq 0 ] || fail "scope deny exited with ${LAST_STATUS}"
+! grep -qx "@allow ${REPOSITORY}" "${USER_DEFINITION}" || fail "scope deny left the @allow line"
+capture "${SECCHAIN}" run -- sh -c 'test -z "${CLI_TEST_SCOPE_KEY:-}"'
+[ "${LAST_STATUS}" -eq 0 ] || fail "run still passed the scope after scope deny"
+capture "${SECCHAIN}" scope deny "${SCOPE}" "${REPOSITORY}"
+[ "${LAST_STATUS}" -eq 0 ] || fail "denying again is not idempotent (status ${LAST_STATUS})"
+
+echo "== delete --scope removes the secret and its declaration in ~/.secchain"
+capture "${SECCHAIN}" delete CLI_TEST_SCOPE_KEY --scope "${SCOPE}"
+[ "${LAST_STATUS}" -eq 0 ] || fail "delete --scope exited with ${LAST_STATUS}"
+[ -z "$("${SECCHAIN}" list --scope "${SCOPE}" | grep -x "CLI_TEST_SCOPE_KEY")" ] || fail "list --scope still prints the secret after delete"
+! grep -qx "CLI_TEST_SCOPE_KEY" "${USER_DEFINITION}" || fail "delete --scope left the name in ~/.secchain"
+capture "${SECCHAIN}" delete CLI_TEST_SHARED_KEY --scope "${SCOPE}"
+capture "${SECCHAIN}" delete CLI_TEST_SHARED_KEY
+capture "${SECCHAIN}" delete "${USER_SCOPE_KEY}" --scope user
+[ "${LAST_STATUS}" -eq 0 ] || fail "delete --scope user exited with ${LAST_STATUS}"
 
 echo "== delete removes the secret and its declaration"
 capture "${SECCHAIN}" delete CLI_TEST_KEY
@@ -97,7 +225,7 @@ capture "${SECCHAIN}" delete CLI_TEST_KEY
 capture "${SECCHAIN}" delete CLI_TEST_KEY
 [ "${LAST_STATUS}" -eq 0 ] || fail "deleting again is not idempotent (status ${LAST_STATUS})"
 
-echo "== the value appears in no output and in no file of the working directory"
-! grep -rq "${DUMMY_VALUE}" "${WORK_DIRECTORY}" || fail "the value leaked into the captured output or a file"
+echo "== the values appear in no output and in no file of the working directory or ~/.secchain"
+! grep -rqF -e "${DUMMY_VALUE}" -e "${OTHER_DUMMY_VALUE}" "${WORK_DIRECTORY}" || fail "a value leaked into the captured output or a file"
 
 echo "PASS (cli)"
