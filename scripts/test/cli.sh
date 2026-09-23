@@ -188,6 +188,18 @@ capture "${SECCHAIN}" scope allow Not_A_Scope "${REPOSITORY}"
 [ "${LAST_STATUS}" -ne 0 ] || fail "scope allow accepted an invalid scope name"
 capture "${SECCHAIN}" scope allow "${SCOPE}" 'github.com/*/repository'
 [ "${LAST_STATUS}" -ne 0 ] || fail "scope allow accepted a pattern with a '*' in the middle"
+capture "${SECCHAIN}" scope allow "${SCOPE}" 'local/app=v2'
+[ "${LAST_STATUS}" -ne 0 ] || fail "scope allow accepted a pattern with '=', which would make ~/.secchain unreadable"
+"${SECCHAIN}" list --scopes > /dev/null || fail "a refused pattern left ~/.secchain unreadable"
+
+echo "== a repository cannot be named like a shared scope's Keychain service"
+capture_output sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_KEY --repository com.bannzai.SecChain.scope.user"
+[ "${LAST_STATUS}" -ne 0 ] || fail "set stored a secret for a repository named like the user scope's service"
+printf '%s' "${LAST_OUTPUT}" | grep -q "cannot be a repository identifier" || fail "the error does not say why the identifier is refused"
+
+echo "== in the home directory, ~/.secchain is not read as a repository's .secchain"
+(cd "${HOME}" && "${SECCHAIN}" run --repository "${REPOSITORY}" -- true) >> "${CAPTURED_OUTPUT}" 2>&1 \
+  || fail "run in the home directory read ~/.secchain as the repository's .secchain"
 
 echo "== @alias makes a fork use its upstream's secrets, @path identifies a directory without a remote"
 FORK_DIRECTORY="${WORK_DIRECTORY}/fork"

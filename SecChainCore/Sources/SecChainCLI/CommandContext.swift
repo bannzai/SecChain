@@ -9,7 +9,9 @@ struct CommandContext {
     let repositoryIdentity: RepositoryIdentity
     /// Directory that holds (or will hold) `.secchain`: the directory of the `@path` that names the
     /// repository, otherwise the working tree root inside Git, otherwise the current directory.
-    let definitionDirectory: URL
+    /// `nil` when the `.secchain` there is `~/.secchain` itself
+    /// (`UserDefinitionFile.isUserDefinitionFile`), which is read and written as no repository's.
+    let definitionDirectory: URL?
     /// Text of `.secchain`, `nil` when the file does not exist.
     let definitionText: String?
     /// Parsed `definitionText`.
@@ -23,10 +25,14 @@ struct CommandContext {
     static func resolve(repositoryOption: String?) throws -> CommandContext {
         let currentDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
         let userDefinition = try readUserDefinition().definition
-        let definitionDirectory = try userDefinition.pathRepository(directory: currentDirectory)?.directory
+        let repositoryDirectory = try userDefinition.pathRepository(directory: currentDirectory)?.directory
             ?? RepositoryIdentityResolver.workingTreeRoot(directory: currentDirectory)
             ?? currentDirectory
-        let definitionText = try SecretDefinitionFile.readText(workingTreeRoot: definitionDirectory)
+        let definitionDirectory = UserDefinitionFile.isUserDefinitionFile(
+            url: SecretDefinitionFile.url(workingTreeRoot: repositoryDirectory),
+            homeDirectory: UserDefinitionFile.homeDirectory
+        ) ? nil : repositoryDirectory
+        let definitionText = try definitionDirectory.flatMap { try SecretDefinitionFile.readText(workingTreeRoot: $0) }
         return CommandContext(
             repositoryIdentity: try RepositoryIdentityResolver.resolve(
                 directory: currentDirectory,
@@ -45,6 +51,16 @@ struct CommandContext {
 func readUserDefinition() throws -> (text: String?, definition: UserDefinition) {
     let text = try UserDefinitionFile.readText(homeDirectory: UserDefinitionFile.homeDirectory)
     return (text, try UserDefinitionText.parse(text: text ?? ""))
+}
+
+/// Applies `edit` to `~/.secchain` as it is now, `nil` when the file does not exist, and writes what
+/// `edit` returns, nothing when that is `nil`. Reading right before writing keeps a change that
+/// another command made to the file while this one waited for a value or an authentication, such as
+/// a `scope deny` in another terminal.
+func editUserDefinition(edit: (String?) throws -> String?) throws {
+    if let editedText = try edit(try readUserDefinition().text) {
+        try UserDefinitionFile.write(text: editedText, homeDirectory: UserDefinitionFile.homeDirectory)
+    }
 }
 
 /// Options shared by the commands that act on one repository.

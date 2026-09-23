@@ -28,7 +28,7 @@ struct ScopePatternArguments: ParsableArguments {
     /// The scope and the pattern after validation, so that a mistyped one is a usage error.
     func validated() throws -> (sharedScope: SharedScope, pattern: String) {
         guard isValidRepositoryPattern(pattern: pattern) else {
-            throw ValidationError("'\(pattern)' is not a pattern. Give a repository identifier, or the start of one followed by a single '*' at the end.")
+            throw ValidationError("'\(pattern)' is not a pattern. Give a repository identifier, or the start of one followed by a single '*' at the end, without spaces or '='.")
         }
         return (try validatedSharedScope(rawName: scope), pattern)
     }
@@ -46,10 +46,9 @@ struct ScopeAllowCommand: ParsableCommand {
 
     func run() throws {
         let (sharedScope, pattern) = try arguments.validated()
-        try UserDefinitionFile.write(
-            text: try UserDefinitionText.adding(allowPattern: pattern, scope: sharedScope, text: try readUserDefinition().text),
-            homeDirectory: UserDefinitionFile.homeDirectory
-        )
+        try editUserDefinition { text in
+            try UserDefinitionText.adding(allowPattern: pattern, scope: sharedScope, text: text)
+        }
         print("Scope \(sharedScope.name) is passed to \(pattern).")
     }
 }
@@ -74,11 +73,10 @@ struct ScopeDenyCommand: ParsableCommand {
         }
         let editedText = try UserDefinitionText.removing(allowPattern: pattern, scope: sharedScope, text: userDefinitionText)
         try UserDefinitionFile.write(text: editedText, homeDirectory: UserDefinitionFile.homeDirectory)
-        // A pattern without `*` is one repository's identifier, which another pattern may still name.
-        let remainingPatterns = pattern.hasSuffix("*")
-            ? []
-            : (try UserDefinitionText.parse(text: editedText).scopeDefinition(scope: sharedScope)?.allowPatterns ?? [])
-                .filter { repositoryPatternMatches(pattern: $0, repositoryIdentity: RepositoryIdentity(value: pattern)) }
+        // Another line of the scope may still name what the removed one named: the same identifier
+        // spelled in another letter case, or a wider wildcard.
+        let remainingPatterns = (try UserDefinitionText.parse(text: editedText).scopeDefinition(scope: sharedScope)?.allowPatterns ?? [])
+            .filter { repositoryPatternCovers(pattern: $0, coveredPattern: pattern) }
         guard remainingPatterns.isEmpty else {
             print("Removed '@allow \(pattern)' from scope \(sharedScope.name), but '@allow \(remainingPatterns.joined(separator: "', '@allow "))' still passes it to \(pattern).")
             return

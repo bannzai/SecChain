@@ -104,10 +104,25 @@ public func repositoryPatternMatches(pattern: String, repositoryIdentity: Reposi
     return repositoryIdentity.value.lowercased().hasPrefix(String(lowercasedPattern.dropLast()))
 }
 
+/// Whether `pattern` names every repository that `coveredPattern` names: a pattern that names the
+/// identifier, when `coveredPattern` is one, or a wildcard whose start begins the start of
+/// `coveredPattern`, when that is a wildcard, ignoring letter case as `repositoryPatternMatches`
+/// does. `scope deny` uses it to tell that a scope still reaches what the removed line named.
+public func repositoryPatternCovers(pattern: String, coveredPattern: String) -> Bool {
+    guard coveredPattern.hasSuffix("*") else {
+        return repositoryPatternMatches(pattern: pattern, repositoryIdentity: RepositoryIdentity(value: coveredPattern))
+    }
+    return pattern.hasSuffix("*") && coveredPattern.dropLast().lowercased().hasPrefix(pattern.dropLast().lowercased())
+}
+
 /// An `@allow` pattern: a whole identifier, or the start of one followed by a single `*`. A `*`
-/// anywhere else would read as a glob, which the comparison does not implement.
+/// anywhere else would read as a glob, which the comparison does not implement, and a `=` would
+/// make the line one that `UserDefinitionText.parse` refuses as a value.
 public func isValidRepositoryPattern(pattern: String) -> Bool {
-    !pattern.isEmpty && !pattern.dropLast().contains("*") && !pattern.contains(where: \.isWhitespace)
+    !pattern.isEmpty
+        && !pattern.dropLast().contains("*")
+        && !pattern.contains("=")
+        && !pattern.contains(where: \.isWhitespace)
 }
 
 /// Why `~/.secchain` was rejected. Messages never echo the rest of an offending line, for the same
@@ -249,7 +264,8 @@ public enum UserDefinitionText {
     }
 
     // Every edit parses the text first, so that nothing is changed in a file that already says
-    // something this version cannot read.
+    // something this version cannot read, and parses what it adds, so that no edit leaves a file
+    // this version cannot read.
 
     /// Text with `secretName` declared in the section of `scope`. `text == nil` means the file does
     /// not exist yet. A custom scope without a section gets one, so that `secchain set --scope`
@@ -259,7 +275,7 @@ public enum UserDefinitionText {
         if let text, try parse(text: text).scopeDefinition(scope: scope)?.secretNames.contains(secretName) == true {
             return text
         }
-        return inserting(line: secretName.value, scope: scope, text: text)
+        return try parsed(text: inserting(line: secretName.value, scope: scope, text: text))
     }
 
     /// Text without the declaration of `secretName` in the section of `scope`. The same name in
@@ -273,14 +289,14 @@ public enum UserDefinitionText {
     }
 
     /// Text with `@allow <pattern>` in the section of `scope`, creating the section of a custom
-    /// scope and the file when needed. `allowPattern` is a valid pattern
-    /// (`isValidRepositoryPattern`). Allowing a pattern the section already has returns the text
-    /// unchanged (idempotent).
+    /// scope and the file when needed. A pattern that is not valid (`isValidRepositoryPattern`) is
+    /// refused like the line it would make. Allowing a pattern the section already has returns the
+    /// text unchanged (idempotent).
     public static func adding(allowPattern: String, scope: SharedScope, text: String?) throws -> String {
         if let text, try parse(text: text).scopeDefinition(scope: scope)?.allowPatterns.contains(allowPattern) == true {
             return text
         }
-        return inserting(line: "\(allowDirective) \(allowPattern)", scope: scope, text: text)
+        return try parsed(text: inserting(line: "\(allowDirective) \(allowPattern)", scope: scope, text: text))
     }
 
     /// Text without `@allow <pattern>` in the section of `scope`. Other patterns that still name the
@@ -294,6 +310,12 @@ public enum UserDefinitionText {
     }
 
     // MARK: - Sections
+
+    /// `text` after checking that it parses: the text an edit is about to hand back.
+    static func parsed(text: String) throws -> String {
+        _ = try parse(text: text)
+        return text
+    }
 
     /// Words of one line, as `parse` splits it.
     static func words(line: String) -> [String] {
@@ -371,6 +393,14 @@ public enum UserDefinitionFile {
 
     public static func url(homeDirectory: URL) -> URL {
         homeDirectory.appendingPathComponent(UserDefinitionText.fileName, isDirectory: false)
+    }
+
+    /// Whether `url` is `~/.secchain` itself, through any symbolic link. The file has the name of a
+    /// repository's definition file, so the `.secchain` of the home directory, or of a dotfiles
+    /// repository that `~/.secchain` links into, is this one: the user's, and no repository's.
+    public static func isUserDefinitionFile(url: URL, homeDirectory: URL) -> Bool {
+        url.resolvingSymlinksInPath().standardizedFileURL.path
+            == self.url(homeDirectory: homeDirectory).resolvingSymlinksInPath().standardizedFileURL.path
     }
 
     /// `nil` when the file does not exist, which is a valid state: no shared scope is passed to any

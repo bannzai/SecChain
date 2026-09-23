@@ -46,28 +46,32 @@ struct SetCommand: AsyncParsableCommand {
         let secretName = try validatedSecretName(rawName: name)
         let scope: SecretScope
         // The definition file that declares the name: the scope's section of `~/.secchain` for a
-        // shared scope, the repository's `.secchain` otherwise. The new text is computed before the
-        // value is read, so that a file this version cannot parse stops the command first.
+        // shared scope, the repository's `.secchain` otherwise. It is parsed before the value is
+        // read, so that a file this version cannot read stops the command first, and edited as it
+        // is once the value is stored, so that a change made to it meanwhile is kept.
         let writeDefinition: () throws -> Void
         if let sharedScope = try scopeOptions.sharedScope(repositoryOption: repositoryOptions.repository) {
             scope = .shared(sharedScope)
-            let userDefinitionText = try UserDefinitionText.adding(
-                secretName: secretName,
-                scope: sharedScope,
-                text: try readUserDefinition().text
-            )
+            _ = try readUserDefinition()
             writeDefinition = {
-                try UserDefinitionFile.write(text: userDefinitionText, homeDirectory: UserDefinitionFile.homeDirectory)
+                try editUserDefinition { text in
+                    try UserDefinitionText.adding(secretName: secretName, scope: sharedScope, text: text)
+                }
             }
         } else {
             let context = try CommandContext.resolve(repositoryOption: repositoryOptions.repository)
             scope = .repository(context.repositoryIdentity)
-            let definitionText = try SecretDefinitionText.adding(secretName: secretName, text: context.definitionText)
             writeDefinition = {
                 // With --repository the current directory is not that repository's checkout, so its
                 // definition file is left alone.
-                if repositoryOptions.repository == nil {
-                    try SecretDefinitionFile.write(text: definitionText, workingTreeRoot: context.definitionDirectory)
+                if repositoryOptions.repository == nil, let definitionDirectory = context.definitionDirectory {
+                    try SecretDefinitionFile.write(
+                        text: try SecretDefinitionText.adding(
+                            secretName: secretName,
+                            text: try SecretDefinitionFile.readText(workingTreeRoot: definitionDirectory)
+                        ),
+                        workingTreeRoot: definitionDirectory
+                    )
                 }
             }
         }

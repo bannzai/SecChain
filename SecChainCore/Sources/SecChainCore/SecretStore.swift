@@ -103,6 +103,11 @@ public struct SecretStore: Sendable {
     /// `isSynchronized` keeps the existing setting; a new secret defaults to `standard` and
     /// synchronized. Updating a secret that is not `standard` authenticates first, which also
     /// covers every way of lowering a level.
+    ///
+    /// Nothing is stored for a repository named like a shared scope's service
+    /// (`SecretScope.isRepositoryNamedLikeASharedScope`). Every item of a scope comes from here, so
+    /// such a repository never has a secret that a later write or delete could use to replace or
+    /// remove the scope's device-bound value without the authentication its level asks for.
     @discardableResult
     public func set(
         name: SecretName,
@@ -113,6 +118,9 @@ public struct SecretStore: Sendable {
     ) async throws -> StoredSecret {
         guard !value.isEmpty else {
             throw SecretStoreError.emptyValue
+        }
+        guard !scope.isRepositoryNamedLikeASharedScope else {
+            throw SecretStoreError.reservedRepositoryIdentifier(repository: scope.description)
         }
         let variants = try keychain.storedSecrets(scope: scope).filter { $0.name == name }
         let existing = Self.effectiveSecrets(storedSecrets: variants).first

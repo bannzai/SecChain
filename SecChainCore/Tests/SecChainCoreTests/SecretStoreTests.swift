@@ -261,6 +261,21 @@ struct SecretStoreTests {
         #expect(authenticator.reasons == ["run"])
     }
 
+    /// A repository named like a scope's service would keep its device-bound values in the scope's
+    /// item, so a standard secret stored there and deleted again would take the scope's value with
+    /// it, without the authentication a device-bound secret asks for. Nothing is stored for it.
+    @Test
+    func nothingIsStoredForARepositoryNamedLikeAScopesService() async throws {
+        try await store.set(name: try name("A"), value: dummyValue, scope: .shared(.user), protectionLevel: .deviceBound, isSynchronized: nil)
+        for identifier in ["com.bannzai.SecChain.scope.user", "com.bannzai.secchain.scope.youtube"] {
+            await #expect(throws: SecretStoreError.reservedRepositoryIdentifier(repository: identifier)) {
+                try await store.set(name: try name("A"), value: otherDummyValue, scope: .repository(RepositoryIdentity(value: identifier)), protectionLevel: nil, isSynchronized: nil)
+            }
+        }
+        #expect(try store.repositoryIdentities().isEmpty)
+        #expect(try await store.values(names: nil, scopes: [.shared(.user)], authenticationReason: "run")[try name("A")] == dummyValue)
+    }
+
     @Test
     func scopesListEveryScopeAndRepositoriesOnlyTheRepositories() async throws {
         try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), protectionLevel: nil, isSynchronized: nil)

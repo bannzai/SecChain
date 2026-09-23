@@ -26,17 +26,16 @@ struct DeleteCommand: AsyncParsableCommand {
         let secretName = try validatedSecretName(rawName: name)
         let scope: SecretScope
         // The definition file that declares the name: the scope's section of `~/.secchain` for a
-        // shared scope, the repository's `.secchain` otherwise. The new text is computed before the
-        // Keychain is touched, so that a file this version cannot parse stops the command first.
+        // shared scope, the repository's `.secchain` otherwise. It is parsed before the Keychain is
+        // touched, so that a file this version cannot read stops the command first, and edited as
+        // it is once the secret is deleted, so that a change made to it meanwhile is kept.
         let writeDefinition: () throws -> Void
         if let sharedScope = try scopeOptions.sharedScope(repositoryOption: repositoryOptions.repository) {
             scope = .shared(sharedScope)
-            let userDefinitionText = try readUserDefinition().text.map { text in
-                try UserDefinitionText.removing(secretName: secretName, scope: sharedScope, text: text)
-            }
+            _ = try readUserDefinition()
             writeDefinition = {
-                if let userDefinitionText {
-                    try UserDefinitionFile.write(text: userDefinitionText, homeDirectory: UserDefinitionFile.homeDirectory)
+                try editUserDefinition { text in
+                    try text.map { try UserDefinitionText.removing(secretName: secretName, scope: sharedScope, text: $0) }
                 }
             }
         } else {
@@ -45,10 +44,13 @@ struct DeleteCommand: AsyncParsableCommand {
             writeDefinition = {
                 // With --repository the current directory is not that repository's checkout, so its
                 // definition file is left alone.
-                if repositoryOptions.repository == nil, let definitionText = context.definitionText {
+                if repositoryOptions.repository == nil,
+                    let definitionDirectory = context.definitionDirectory,
+                    let definitionText = try SecretDefinitionFile.readText(workingTreeRoot: definitionDirectory)
+                {
                     try SecretDefinitionFile.write(
                         text: SecretDefinitionText.removing(secretName: secretName, text: definitionText),
-                        workingTreeRoot: context.definitionDirectory
+                        workingTreeRoot: definitionDirectory
                     )
                 }
             }

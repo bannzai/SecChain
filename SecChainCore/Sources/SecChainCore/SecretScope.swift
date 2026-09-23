@@ -77,7 +77,9 @@ public enum SecretScope: Hashable, Sendable, CustomStringConvertible {
     /// `kSecAttrServer` of the internet password that holds a device-bound value
     /// (`SystemSecretKeychain`). A repository keeps its identifier there, as every earlier version
     /// wrote it. A shared scope uses its whole service instead of its name, so that a repository
-    /// whose identifier happens to be a scope's name never shares that item with the scope.
+    /// whose identifier happens to be a scope's name never shares that item with the scope. The
+    /// one repository identifier that could still name it, one that starts like a scope's service,
+    /// is refused (`isRepositoryNamedLikeASharedScope`).
     var protectedValueServer: String {
         switch self {
         case .repository(let repositoryIdentity):
@@ -85,6 +87,21 @@ public enum SecretScope: Hashable, Sendable, CustomStringConvertible {
         case .shared:
             keychainService
         }
+    }
+
+    /// Whether this is a repository whose identifier is the service of a shared scope, so that its
+    /// device-bound values would be kept under that scope's `protectedValueServer`. Only an
+    /// identifier given by hand (`--repository`, `@path`, `@alias`, or typed in an app) can be one:
+    /// a Git remote's identifier always contains a slash, which no scope's service does. Letter case
+    /// is ignored, so that the answer does not depend on how the Keychain compares servers.
+    var isRepositoryNamedLikeASharedScope: Bool {
+        guard
+            let lowercasedIdentifier = repositoryIdentity?.value.lowercased(),
+            lowercasedIdentifier.hasPrefix(SecChainSharedConfig.scopeKeychainServicePrefix.lowercased())
+        else {
+            return false
+        }
+        return SharedScope(name: String(lowercasedIdentifier.dropFirst(SecChainSharedConfig.scopeKeychainServicePrefix.count))) != nil
     }
 }
 

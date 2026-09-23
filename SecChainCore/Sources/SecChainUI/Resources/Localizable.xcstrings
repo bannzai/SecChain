@@ -12,6 +12,17 @@
         }
       }
     },
+    "%@ cannot be a repository identifier: it is the name SecChain gives the Keychain items of a shared scope." : {
+      "comment" : "Error message when a secret is stored. %@ is the repository identifier",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ はリポジトリの識別子に使えません。SecChain が共有 scope の Keychain アイテムに付ける名前です。"
+          }
+        }
+      }
+    },
     "%@ is not inside a Git repository. Run secchain inside a repository, or give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain." : {
       "comment" : "Error message after a folder was chosen. %@ is the folder path",
       "localizations" : {

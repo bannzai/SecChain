@@ -54,6 +54,19 @@ struct SecretScopeTests {
         #expect(SecretScope.repository(RepositoryIdentity(value: "user")).protectedValueServer != SecretScope.shared(.user).protectedValueServer)
     }
 
+    /// Only an identifier that is a scope's service, in any letter case, is one; a Git remote's
+    /// identifier, a scope name, or a longer identifier is not.
+    @Test
+    func aRepositoryIsNamedLikeASharedScopeOnlyWhenItsIdentifierIsAScopesService() {
+        for identifier in ["com.bannzai.SecChain.scope.user", "com.bannzai.SecChain.scope.youtube", "COM.BANNZAI.SECCHAIN.SCOPE.USER"] {
+            #expect(SecretScope.repository(RepositoryIdentity(value: identifier)).isRepositoryNamedLikeASharedScope)
+        }
+        for identifier in ["github.com/bannzai/secchain", "user", "com.bannzai.SecChain.scope.", "com.bannzai.SecChain.scope.user/x", "com.bannzai.SecChain.scope.You_Tube", "com.bannzai.SecChain.repository.user"] {
+            #expect(!SecretScope.repository(RepositoryIdentity(value: identifier)).isRepositoryNamedLikeASharedScope)
+        }
+        #expect(!SecretScope.shared(.user).isRepositoryNamedLikeASharedScope)
+    }
+
     @Test
     func namesAndDescriptionsSayWhichScopeItIs() throws {
         let repositoryScope = SecretScope.repository(RepositoryIdentity(value: "github.com/example/a"))

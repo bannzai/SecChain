@@ -87,7 +87,7 @@ A secret belongs to one scope:
 - `user` and the custom scopes are *shared scopes*. They hold what several repositories use, such as an `OPENAI_API_KEY` that is the same everywhere or a `YOUTUBE_API_KEY` of a few repositories, so that one value is stored once instead of once per repository.
 - A custom scope name consists of lowercase ASCII letters, digits, and hyphens, and starts with a letter or a digit, because it becomes part of a Keychain service, of a line of `~/.secchain`, and of a command-line argument. `user` names the built-in scope and `repository` is reserved: neither can name a custom scope.
 - `kSecAttrAccount` is the secret name in every scope. Protection levels and synchronization work the same way in every scope.
-- A device-bound value is kept in an internet password item (see "Measured behavior"). A repository scope uses its identifier as `kSecAttrServer`; a shared scope uses its whole service, `com.bannzai.SecChain.scope.<name>`, so that a repository whose identifier happens to be a scope name never shares that item with the scope.
+- A device-bound value is kept in an internet password item (see "Measured behavior"). A repository scope uses its identifier as `kSecAttrServer`; a shared scope uses its whole service, `com.bannzai.SecChain.scope.<name>`, so that a repository whose identifier happens to be a scope name never shares that item with the scope. Nothing is stored for a repository whose identifier is itself such a service, in any letter case: only an identifier given by hand (`--repository`, `@path`, `@alias`, or typed in an app) can be one, and a secret stored there would let a later write or delete replace or remove the scope's device-bound value without the authentication its level asks for.
 - `secchain run` passes the repository scope and every shared scope that an `@allow` of `~/.secchain` passes to the repository. A name held by several of them comes from the repository scope first, then from the custom scopes in the order `~/.secchain` lists them, then from the user scope.
 
 ### Secret definition file
@@ -134,8 +134,9 @@ YOUTUBE_API_KEY
 - `@allow <pattern>` names repositories the scope is passed to: a repository identifier, or the start of one followed by `*` (a `*` anywhere else is an error). Letter case is ignored, because the identifier of a Git remote is lowercase. `github.com/bannzai/*` names every repository of `bannzai` and none of `bannzai-other`. A scope without `@allow` is passed to no repository.
 - The identifier `@allow` is compared with is the one of "Repository scoping": the Git remote, `--repository`, or `@path`, after `@alias`. Nothing in the repository can change it.
 - `@alias <fork> <upstream>` and `@path <absolute directory> <identifier>` say which repository a directory is. That belongs to no scope, so they apply wherever they are written. A second `@scope`, `@alias`, or `@path` for the same scope, fork, or directory is an error.
-- The file holds secret names, scope names, repository identifiers, patterns, and paths, never a value; a line containing `=` is rejected as in `.secchain`.
-- `secchain set --scope`, `secchain delete --scope`, `secchain scope allow`, and `secchain scope deny` edit the text in place: comments and ordering written by hand survive, and a symbolic link into a dotfiles repository stays a link.
+- The file holds secret names, scope names, repository identifiers, patterns, and paths, never a value; a line containing `=` is rejected as in `.secchain`, and so is a pattern that contains one.
+- `secchain set --scope`, `secchain delete --scope`, `secchain scope allow`, and `secchain scope deny` edit the text in place: comments and ordering written by hand survive, and a symbolic link into a dotfiles repository stays a link. An edit is applied to the file as it is when the command writes it, so that a change made while the command waited for a value or an authentication is kept.
+- The `.secchain` of the home directory is this file, and so is the `.secchain` of a dotfiles repository that `~/.secchain` links into. No command reads or writes it as a repository's definition file.
 
 ### Command-line tool
 

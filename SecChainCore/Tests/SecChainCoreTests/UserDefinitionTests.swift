@@ -84,6 +84,18 @@ struct UserDefinitionTests {
         }
     }
 
+    /// A `=` would make the `@allow` line one that the parser refuses as a value, and the file would
+    /// then refuse every command, `scope deny` included.
+    @Test
+    func aPatternThatWouldMakeTheFileUnreadableIsRefusedBeforeItIsWritten() {
+        #expect(!isValidRepositoryPattern(pattern: "local/app=v2"))
+        #expect(!isValidRepositoryPattern(pattern: "github.com/a b"))
+        #expect(isValidRepositoryPattern(pattern: "github.com/bannzai/*"))
+        #expect(throws: UserDefinitionError.self) {
+            try UserDefinitionText.adding(allowPattern: "local/app=v2", scope: .user, text: "OPENAI_API_KEY\n")
+        }
+    }
+
     @Test
     func aliasesAndPathsBelongToNoScopeWhereverTheyAreWritten() throws {
         let userDefinition = try UserDefinitionText.parse(text: exampleText)
@@ -153,6 +165,18 @@ struct UserDefinitionTests {
         #expect(!repositoryPatternMatches(pattern: "github.com/bannzai/*", repositoryIdentity: RepositoryIdentity(value: "github.com/bannzai")))
         #expect(!repositoryPatternMatches(pattern: "github.com/bannzai/x", repositoryIdentity: RepositoryIdentity(value: "github.com/bannzai/x2")))
         #expect(repositoryPatternMatches(pattern: "*", repositoryIdentity: RepositoryIdentity(value: "local/notes")))
+    }
+
+    /// What `scope deny` checks before it says a scope no longer reaches what the removed line named.
+    @Test
+    func aPatternCoversWhatANarrowerPatternOrAnIdentifierNames() {
+        #expect(repositoryPatternCovers(pattern: "github.com/*", coveredPattern: "github.com/bannzai/*"))
+        #expect(repositoryPatternCovers(pattern: "GitHub.com/bannzai/*", coveredPattern: "github.com/bannzai/*"))
+        #expect(repositoryPatternCovers(pattern: "github.com/bannzai/*", coveredPattern: "github.com/bannzai/youtuber"))
+        #expect(repositoryPatternCovers(pattern: "github.com/Bannzai/YouTuber", coveredPattern: "github.com/bannzai/youtuber"))
+        #expect(!repositoryPatternCovers(pattern: "github.com/bannzai/youtuber", coveredPattern: "github.com/bannzai/*"))
+        #expect(!repositoryPatternCovers(pattern: "github.com/bannzai/*", coveredPattern: "github.com/*"))
+        #expect(!repositoryPatternCovers(pattern: "github.com/bannzai/*", coveredPattern: "github.com/bannzai-other/*"))
     }
 
     @Test
@@ -338,6 +362,23 @@ struct UserDefinitionTests {
         #expect(try FileManager.default.destinationOfSymbolicLink(atPath: UserDefinitionFile.url(homeDirectory: homeDirectory).path) == dotfilesSecChain.path)
         #expect(try String(contentsOf: dotfilesSecChain, encoding: .utf8) == "OPENAI_API_KEY\n@allow github.com/bannzai/*\n")
         #expect(try UserDefinitionFile.readText(homeDirectory: homeDirectory) == "OPENAI_API_KEY\n@allow github.com/bannzai/*\n")
+    }
+
+    /// The `.secchain` of the home directory, and of a dotfiles repository that `~/.secchain` links
+    /// into, is the user's file, which a command must not read or write as a repository's.
+    @Test
+    func theDefinitionFileOfTheHomeDirectoryOrOfTheLinkedDotfilesIsTheUsersFile() throws {
+        let homeDirectory = try makeTemporaryDirectory()
+        let dotfiles = try makeTemporaryDirectory()
+        let repository = try makeTemporaryDirectory()
+        try "OPENAI_API_KEY\n".write(to: dotfiles.appendingPathComponent(".secchain"), atomically: true, encoding: .utf8)
+        try FileManager.default.createSymbolicLink(
+            at: UserDefinitionFile.url(homeDirectory: homeDirectory),
+            withDestinationURL: dotfiles.appendingPathComponent(".secchain")
+        )
+        #expect(UserDefinitionFile.isUserDefinitionFile(url: SecretDefinitionFile.url(workingTreeRoot: homeDirectory), homeDirectory: homeDirectory))
+        #expect(UserDefinitionFile.isUserDefinitionFile(url: SecretDefinitionFile.url(workingTreeRoot: dotfiles), homeDirectory: homeDirectory))
+        #expect(!UserDefinitionFile.isUserDefinitionFile(url: SecretDefinitionFile.url(workingTreeRoot: repository), homeDirectory: homeDirectory))
     }
     #endif
 
