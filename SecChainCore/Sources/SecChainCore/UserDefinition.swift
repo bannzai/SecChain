@@ -11,7 +11,10 @@ import Foundation
 /// File format, one entry per line. The names and `@allow` lines before the first `@scope` belong
 /// to the user scope, and each `@scope` line starts a custom scope that lasts until the next one.
 /// `@alias` and `@path` say which repository a directory is, which belongs to no scope, so they
-/// apply wherever they are written:
+/// apply wherever they are written. The identifiers they give are folded to lowercase, as the one
+/// of a Git remote is (`RepositoryRemoteURL`): the Keychain compares services case-sensitively, and
+/// an upstream spelled the way the hosting service shows it has to reach the items of the upstream's
+/// own checkout:
 ///
 ///     # user scope
 ///     OPENAI_API_KEY
@@ -28,11 +31,11 @@ public struct UserDefinition: Equatable, Sendable {
     public let userScope: ScopeDefinition
     /// One entry per `@scope`, in file order, which is also their order of precedence in `run`.
     public let customScopes: [ScopeDefinition]
-    /// `@alias <fork> <upstream>`, keyed by the fork's identifier in lowercase: the fork is treated
-    /// as its upstream, so that both get the upstream's secrets.
+    /// `@alias <fork> <upstream>`, the upstream in lowercase, keyed by the fork's identifier in
+    /// lowercase: the fork is treated as its upstream, so that both get the upstream's secrets.
     public let upstreamRepositoryIdentities: [String: RepositoryIdentity]
-    /// `@path <directory> <identifier>`, keyed by the directory as written: the directory and
-    /// everything below it is that repository.
+    /// `@path <directory> <identifier>`, the identifier in lowercase, keyed by the directory as
+    /// written: the directory and everything below it is that repository.
     public let pathRepositoryIdentities: [String: RepositoryIdentity]
 
     /// The scopes `run` passes to a repository, in order of precedence: the repository's own scope,
@@ -233,7 +236,7 @@ public enum UserDefinitionText {
                 guard upstreamRepositoryIdentities[words[1].lowercased()] == nil else {
                     throw UserDefinitionError.duplicateDeclaration(lineNumber: lineNumber)
                 }
-                upstreamRepositoryIdentities[words[1].lowercased()] = RepositoryIdentity(value: words[2])
+                upstreamRepositoryIdentities[words[1].lowercased()] = RepositoryIdentity(value: words[2].lowercased())
             case pathDirective:
                 // The identifier is the last word and the directory is everything before it, so
                 // that a directory whose name contains a space needs no quoting.
@@ -248,7 +251,7 @@ public enum UserDefinitionText {
                 guard pathRepositoryIdentities[path] == nil else {
                     throw UserDefinitionError.duplicateDeclaration(lineNumber: lineNumber)
                 }
-                pathRepositoryIdentities[path] = RepositoryIdentity(value: String(arguments[arguments.index(after: lastSeparator)...]))
+                pathRepositoryIdentities[path] = RepositoryIdentity(value: arguments[arguments.index(after: lastSeparator)...].lowercased())
             case let word where word.hasPrefix("@"):
                 throw UserDefinitionError.invalidDirective(lineNumber: lineNumber)
             default:

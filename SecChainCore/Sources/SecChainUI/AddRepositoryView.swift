@@ -105,8 +105,9 @@ struct AddRepositoryView: View {
 }
 
 /// A pasted remote URL, or a `host/owner/repository` typed by hand, becomes the same identifier
-/// the command-line tool derives from the Git remote. Anything else is taken literally, exactly
-/// like the identifier of `@path` in `~/.secchain`.
+/// the command-line tool derives from the Git remote. Anything else is taken as written, like
+/// `--repository` of the command-line tool; the identifier of `@path` in `~/.secchain` is folded to
+/// lowercase instead.
 func repositoryIdentity(enteredText: String) -> RepositoryIdentity {
     let trimmedText = enteredText.trimmingCharacters(in: .whitespacesAndNewlines)
     if trimmedText.contains("://") || trimmedText.contains("@") {

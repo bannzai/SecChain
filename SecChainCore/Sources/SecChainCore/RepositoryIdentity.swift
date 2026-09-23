@@ -5,7 +5,9 @@ import Foundation
 public struct RepositoryIdentity: Hashable, Sendable, CustomStringConvertible {
     /// Normalized identifier, for example `github.com/owner/repo`, or the identifier the user gave
     /// explicitly (`--repository`, or `@path` in `~/.secchain`) for a directory without a usable
-    /// Git remote.
+    /// Git remote. One from a Git remote, `@path`, or `@alias` is lowercase, and so is a remote URL
+    /// or a `host/owner/repo` typed in an app; `--repository`, and any other text typed in an app,
+    /// is kept as written.
     public let value: String
 
     public init(value: String) {

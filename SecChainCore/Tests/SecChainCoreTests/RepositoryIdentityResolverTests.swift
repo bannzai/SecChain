@@ -144,6 +144,29 @@ struct RepositoryIdentityResolverTests {
         )
     }
 
+    /// An upstream written the way the hosting service shows it, as `@alias` of a fork or as `@path`
+    /// of a directory without a remote, is the repository of the upstream's own checkout: the same
+    /// repository scope, and so the same Keychain items.
+    @Test
+    func anUpstreamSpelledInAnotherLetterCaseIsTheRepositoryOfItsCheckout() throws {
+        let upstream = try makeRepository(originRemoteURL: "https://github.com/Upstream/Some-Repo.git")
+        let fork = try makeRepository(originRemoteURL: "git@github.com:bannzai/some-fork.git")
+        let copy = try makeTemporaryDirectory()
+        let userDefinition = try UserDefinitionText.parse(
+            text: "@alias github.com/bannzai/some-fork github.com/Upstream/Some-Repo\n@path \(copy.path) GitHub.com/Upstream/Some-Repo\n"
+        )
+        let upstreamScope = SecretScope.repository(
+            try RepositoryIdentityResolver.resolve(directory: upstream, explicitIdentifier: nil, userDefinition: userDefinition)
+        )
+        for directory in [fork, copy] {
+            #expect(
+                SecretScope.repository(try RepositoryIdentityResolver.resolve(directory: directory, explicitIdentifier: nil, userDefinition: userDefinition))
+                    == upstreamScope
+            )
+        }
+        #expect(upstreamScope == .repository(RepositoryIdentity(value: "github.com/upstream/some-repo")))
+    }
+
     @Test
     func workingTreeRootIsFoundFromASubdirectory() throws {
         let repository = try makeRepository(originRemoteURL: nil)

@@ -201,12 +201,14 @@ echo "== in the home directory, ~/.secchain is not read as a repository's .secch
 (cd "${HOME}" && "${SECCHAIN}" run --repository "${REPOSITORY}" -- true) >> "${CAPTURED_OUTPUT}" 2>&1 \
   || fail "run in the home directory read ~/.secchain as the repository's .secchain"
 
-echo "== @alias makes a fork use its upstream's secrets, @path identifies a directory without a remote"
+echo "== @alias makes a fork use its upstream's secrets, @path identifies a directory without a remote, both in any letter case"
 FORK_DIRECTORY="${WORK_DIRECTORY}/fork"
 NOTES_DIRECTORY="${WORK_DIRECTORY}/notes"
 mkdir -p "${FORK_DIRECTORY}" "${NOTES_DIRECTORY}/drafts"
 (cd "${FORK_DIRECTORY}" && git init --quiet && git remote add origin "git@github.com:secchain-cli-test/fork-$$.git")
-printf '@alias github.com/secchain-cli-test/fork-%s %s\n@path %s secchain-cli-test-notes-%s\n' "$$" "${REPOSITORY}" "${NOTES_DIRECTORY}" "$$" >> "${USER_DEFINITION}"
+# The upstream is spelled the way a hosting service shows it, and the repository's secret was
+# stored under the lowercase identifier its remote gives it.
+printf '@alias github.com/secchain-cli-test/fork-%s GitHub.com/SecChain-CLI-Test/Repository-%s\n@path %s SecChain-CLI-Test-Notes-%s\n' "$$" "$$" "${NOTES_DIRECTORY}" "$$" >> "${USER_DEFINITION}"
 (cd "${FORK_DIRECTORY}" && "${SECCHAIN}" list) | grep -qx "CLI_TEST_KEY" || fail "the fork did not get its upstream's secret"
 (cd "${NOTES_DIRECTORY}/drafts" && "${SECCHAIN}" list --long) | grep -qx "# secchain-cli-test-notes-$$ (repository)" || fail "@path did not identify the directory below it"
 

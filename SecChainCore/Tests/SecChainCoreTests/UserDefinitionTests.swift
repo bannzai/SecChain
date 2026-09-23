@@ -232,6 +232,18 @@ struct UserDefinitionTests {
         )
     }
 
+    /// The identifier of a Git remote is lowercase and the Keychain compares services
+    /// case-sensitively, so an upstream or an identifier spelled the way a hosting service shows it
+    /// is folded too. The directory of `@path` is a path, which keeps its letter case.
+    @Test
+    func theUpstreamOfAnAliasAndTheIdentifierOfAPathAreFoldedToLowercase() throws {
+        let userDefinition = try UserDefinitionText.parse(
+            text: "@alias GitHub.com/bannzai/Some-Fork github.com/Upstream/Some-Repo\n@path /Users/someone/Notes Local/Notes\n"
+        )
+        #expect(userDefinition.upstreamRepositoryIdentities == ["github.com/bannzai/some-fork": RepositoryIdentity(value: "github.com/upstream/some-repo")])
+        #expect(userDefinition.pathRepositoryIdentities == ["/Users/someone/Notes": RepositoryIdentity(value: "local/notes")])
+    }
+
     @Test
     func aPathNamesItsDirectoryAndEverythingBelowItButNotASiblingWithTheSamePrefix() throws {
         let root = try makeTemporaryDirectory()

@@ -74,6 +74,8 @@ Identification rules (implemented in `RepositoryIdentity.swift`, `RepositoryIden
 
 Whichever rule answers, an `@alias <fork> <upstream>` of `~/.secchain` then replaces a fork's identifier by its upstream's, which is how a fork shares the upstream's secrets on purpose. Nothing in the working tree takes part (design decision 6).
 
+The identifier of `@path` and the upstream of `@alias` are folded to lowercase, for the reason rule 3 drops letter case: the Keychain compares services case-sensitively, so `@alias github.com/me/fork github.com/Upstream/Repo`, written the way the hosting service shows the upstream, would otherwise give the fork other items than a checkout of the upstream, whose remote makes it `github.com/upstream/repo`, and the secrets meant to be shared would silently split. `--repository` is taken as written.
+
 ### Secret scopes
 
 A secret belongs to one scope:

@@ -214,7 +214,7 @@ YOUTUBE_API_KEY
 
 - The lines before the first `@scope` are the user scope; `@scope <name>` starts a custom scope that lasts until the next one. The names of a scope are the ones it is meant to hold, and `secchain list --long --scope <name>` reports those without a value.
 - `@allow <pattern>` passes the scope to the repositories the pattern names. A scope without one is passed to no repository.
-- `@alias <fork> <upstream>` makes a fork use its upstream's secrets. `@path <absolute directory> <identifier>` gives a directory without a Git remote, and everything below it, an identifier. Both belong to no scope and apply wherever they are written.
+- `@alias <fork> <upstream>` makes a fork use its upstream's secrets. `@path <absolute directory> <identifier>` gives a directory without a Git remote, and everything below it, an identifier. Both belong to no scope and apply wherever they are written. Like a remote, the upstream and the identifier are folded to lowercase, so `github.com/Upstream/Repo` is the upstream's own checkout.
 - `secchain set --scope`, `secchain delete --scope`, `secchain scope allow`, and `secchain scope deny` edit the file for you and keep your comments and ordering. Like `.secchain`, it never holds a value.
 
 ### Repository identity
