@@ -1,20 +1,21 @@
 import Foundation
 
 /// What a repository's secret definition file (`.secchain`) declares: the names of the secrets
-/// the repository needs, and optionally an explicit repository identifier.
+/// the repository needs.
 ///
 /// There is deliberately no field that could hold a secret value, and the parser rejects lines
 /// that look like `NAME=value`, so that a pasted `.env` file is refused instead of committed.
 ///
+/// There is no directive either. Whatever a repository's files say is chosen by whoever wrote the
+/// repository, so nothing in them can change which repository it is or which scopes `run` passes
+/// to it (documents/PROJECT.md, design decision 6); that is decided in `~/.secchain`.
+///
 /// File format, one entry per line:
 ///
 ///     # comment
-///     @repository my-notes
 ///     OPENAI_API_KEY
 ///     CLOUDFLARE_API_TOKEN
 public struct SecretDefinition: Equatable, Sendable {
-    /// Identifier declared with `@repository`, used instead of the Git remote.
-    public let declaredRepositoryIdentifier: String?
     /// Declared secret names in file order, without duplicates.
     public let secretNames: [SecretName]
 }
@@ -24,9 +25,13 @@ public struct SecretDefinition: Equatable, Sendable {
 public enum SecretDefinitionError: Error, Equatable, CustomStringConvertible {
     /// The line contains `=`, which suggests a value. Values belong in the Keychain only.
     case valueNotAllowed(lineNumber: Int)
-    /// The line is neither a comment, a directive, nor a valid secret name.
+    /// The line is neither a comment nor a valid secret name.
     case invalidSecretName(lineNumber: Int)
-    /// `@repository` appears without an identifier, or an unknown `@` directive was used.
+    /// The line is `@repository`, which earlier versions read as the repository's identifier.
+    /// It is refused rather than ignored, so that a fork or a directory that relied on it gets
+    /// told where its identity is declared now instead of silently becoming another repository.
+    case repositoryDirectiveRemoved(lineNumber: Int)
+    /// The line is another `@` directive. The definition file has none.
     case invalidDirective(lineNumber: Int)
 
     /// The message in English, as the command-line tool prints it: no SecChain binary has
@@ -44,8 +49,10 @@ public enum SecretDefinitionError: Error, Equatable, CustomStringConvertible {
             String(localized: ".secchain line \(lineNumber): contains '='. The definition file lists secret names only; store the value with 'secchain set <NAME>'.", bundle: bundle)
         case .invalidSecretName(let lineNumber):
             String(localized: ".secchain line \(lineNumber): not a valid secret name. Use letters, digits and underscores, not starting with a digit.", bundle: bundle)
+        case .repositoryDirectiveRemoved(let lineNumber):
+            String(localized: ".secchain line \(lineNumber): '@repository' is no longer read. Share an upstream's secrets with '@alias <fork> <upstream>', or give a directory without a Git remote an identifier with '@path <directory> <identifier>', in ~/.secchain.", bundle: bundle)
         case .invalidDirective(let lineNumber):
-            String(localized: ".secchain line \(lineNumber): unknown or incomplete directive. The only directive is '@repository <identifier>'.", bundle: bundle)
+            String(localized: ".secchain line \(lineNumber): unknown directive. The definition file lists secret names only; scopes and identifiers are set in ~/.secchain.", bundle: bundle)
         }
     }
 }
@@ -64,7 +71,6 @@ public enum SecretDefinitionText {
         """
 
     public static func parse(text: String) throws -> SecretDefinition {
-        var declaredRepositoryIdentifier: String?
         var secretNames: [SecretName] = []
         for (index, rawLine) in text.components(separatedBy: .newlines).enumerated() {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
@@ -72,12 +78,9 @@ public enum SecretDefinitionText {
                 continue
             }
             if line.hasPrefix("@") {
-                let parts = line.split(separator: " ", omittingEmptySubsequences: true)
-                guard parts.count == 2, parts[0] == repositoryDirective else {
-                    throw SecretDefinitionError.invalidDirective(lineNumber: index + 1)
-                }
-                declaredRepositoryIdentifier = String(parts[1])
-                continue
+                throw line.split(whereSeparator: \.isWhitespace).first == Substring(repositoryDirective)
+                    ? SecretDefinitionError.repositoryDirectiveRemoved(lineNumber: index + 1)
+                    : SecretDefinitionError.invalidDirective(lineNumber: index + 1)
             }
             guard !line.contains("=") else {
                 throw SecretDefinitionError.valueNotAllowed(lineNumber: index + 1)
@@ -89,7 +92,7 @@ public enum SecretDefinitionText {
                 secretNames.append(secretName)
             }
         }
-        return SecretDefinition(declaredRepositoryIdentifier: declaredRepositoryIdentifier, secretNames: secretNames)
+        return SecretDefinition(secretNames: secretNames)
     }
 
     /// Text with `secretName` declared. `text == nil` means the file does not exist yet.

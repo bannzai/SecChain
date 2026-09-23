@@ -13,15 +13,26 @@ struct GitCommandResult {
 /// Only available on macOS: the iOS app never resolves a working directory, it lists the
 /// repositories already present in the Keychain.
 public enum RepositoryIdentityResolver {
-    /// Resolution order: the identifier declared in the secret definition file (if any), then the
-    /// normalized `origin` remote. Anything else is an error rather than a guess.
+    /// Resolution order: `explicitIdentifier` (`--repository`), then the `@path` of `~/.secchain`
+    /// that contains the directory, then the normalized `origin` remote. Whichever answers goes
+    /// through `@alias`. Anything else is an error rather than a guess.
+    ///
+    /// Nothing inside the repository takes part (documents/PROJECT.md, design decision 6): the
+    /// identity decides which repository's secrets and which shared scopes a command gets, and a
+    /// repository's files are written by whoever wrote the repository.
+    public static func resolve(directory: URL, explicitIdentifier: String?, userDefinition: UserDefinition) throws -> RepositoryIdentity {
+        userDefinition.aliasedRepositoryIdentity(
+            repositoryIdentity: try explicitIdentifier.flatMap { $0.isEmpty ? nil : RepositoryIdentity(value: $0) }
+                ?? userDefinition.pathRepository(directory: directory)?.repositoryIdentity
+                ?? originRemoteIdentity(directory: directory)
+        )
+    }
+
+    /// The identity the normalized `origin` remote gives the repository that contains `directory`.
     ///
     /// `git config` is asked instead of reading `.git/config`, because it answers correctly from
     /// sub-directories and from linked worktrees, whose `.git` is a file.
-    public static func resolve(directory: URL, declaredIdentifier: String?) throws -> RepositoryIdentity {
-        if let declaredIdentifier, !declaredIdentifier.isEmpty {
-            return RepositoryIdentity(value: declaredIdentifier)
-        }
+    static func originRemoteIdentity(directory: URL) throws -> RepositoryIdentity {
         guard try runGit(arguments: ["rev-parse", "--is-inside-work-tree"], directory: directory).exitCode == 0 else {
             throw RepositoryIdentityError.notAGitRepository(directory: directory.path)
         }

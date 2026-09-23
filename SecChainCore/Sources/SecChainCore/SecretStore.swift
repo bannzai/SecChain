@@ -1,9 +1,10 @@
 import Foundation
 
-/// The rules shared by every front end: which variant of a secret is the effective one, when the
-/// device owner must authenticate, and how protection level and synchronization change
-/// (documents/PROJECT.md, "Protection levels"). The Keychain and the authenticator are injected so
-/// that these rules are unit-tested without a signed build and without a prompt.
+/// The rules shared by every front end: which variant of a secret is the effective one, which scope
+/// a name is taken from when several scopes are passed, when the device owner must authenticate,
+/// and how protection level and synchronization change (documents/PROJECT.md, "Protection levels"
+/// and "Secret scopes"). The Keychain and the authenticator are injected so that these rules are
+/// unit-tested without a signed build and without a prompt.
 public struct SecretStore: Sendable {
     let keychain: any SecretKeychain
     let ownerAuthenticator: any OwnerAuthenticating
@@ -26,30 +27,52 @@ public struct SecretStore: Sendable {
 
     // MARK: - Listing (never prompts)
 
-    /// The effective secrets of one repository, sorted by name.
-    public func storedSecrets(repositoryIdentity: RepositoryIdentity) throws -> [StoredSecret] {
-        Self.effectiveSecrets(storedSecrets: try keychain.storedSecrets(repositoryIdentity: repositoryIdentity))
+    /// The effective secrets of one scope, sorted by name.
+    public func storedSecrets(scope: SecretScope) throws -> [StoredSecret] {
+        Self.effectiveSecrets(storedSecrets: try keychain.storedSecrets(scope: scope))
+    }
+
+    /// The secrets a command gets when `scopes` are passed to it, one per name, sorted by name.
+    /// `scopes` is in order of precedence: a name that several of them hold is taken from the first.
+    public func storedSecrets(scopes: [SecretScope]) throws -> [StoredSecret] {
+        var takenNames = Set<SecretName>()
+        return try scopes
+            .flatMap { try storedSecrets(scope: $0) }
+            .filter { takenNames.insert($0.name).inserted }
+            .sorted { $0.name < $1.name }
+    }
+
+    /// Every scope that has at least one secret on this device, repositories and shared scopes,
+    /// sorted by Keychain service.
+    public func scopes() throws -> [SecretScope] {
+        Set(try keychain.storedSecrets(scope: nil).map(\.scope))
+            .sorted { $0.keychainService < $1.keychainService }
     }
 
     /// Every repository that has at least one secret on this device, sorted.
     public func repositoryIdentities() throws -> [RepositoryIdentity] {
-        Set(try keychain.storedSecrets(repositoryIdentity: nil).map(\.repositoryIdentity))
+        try scopes()
+            .compactMap(\.repositoryIdentity)
             .sorted { $0.value < $1.value }
     }
 
     // MARK: - Reading
 
-    /// Values for `secchain run`. `names == nil` means every secret of the repository. One
-    /// authentication covers all requested secrets that are not `standard`.
+    /// Values for `secchain run`. `names == nil` means every secret of `scopes`, and a name is
+    /// taken from the first scope that holds it (`storedSecrets(scopes:)`). One authentication
+    /// covers all requested secrets that are not `standard`.
     public func values(
         names: [SecretName]?,
-        repositoryIdentity: RepositoryIdentity,
+        scopes: [SecretScope],
         authenticationReason: String
     ) async throws -> [SecretName: SecretValue] {
-        let effectiveSecrets = try storedSecrets(repositoryIdentity: repositoryIdentity)
+        let effectiveSecrets = try storedSecrets(scopes: scopes)
         let requestedSecrets = try (names ?? effectiveSecrets.map(\.name)).map { name in
             guard let storedSecret = effectiveSecrets.first(where: { $0.name == name }) else {
-                throw SecretStoreError.secretNotFound(name: name.value, repository: repositoryIdentity.value)
+                throw SecretStoreError.secretNotFound(
+                    name: name.value,
+                    repository: scopes.map(\.description).joined(separator: ", ")
+                )
             }
             return storedSecret
         }
@@ -65,9 +88,9 @@ public struct SecretStore: Sendable {
 
     /// The value for an explicit reveal in an app. Always authenticates, whatever the level,
     /// because putting a value on screen is the most exposed thing SecChain does.
-    public func revealedValue(name: SecretName, repositoryIdentity: RepositoryIdentity) async throws -> SecretValue {
+    public func revealedValue(name: SecretName, scope: SecretScope) async throws -> SecretValue {
         try keychain.value(
-            storedSecret: try existingSecret(name: name, repositoryIdentity: repositoryIdentity),
+            storedSecret: try existingSecret(name: name, scope: scope),
             ownerAuthentication: try await ownerAuthenticator.authenticate(
                 reason: String(localized: "reveal \(name.value)", bundle: authenticationReasonBundle)
             )
@@ -84,14 +107,14 @@ public struct SecretStore: Sendable {
     public func set(
         name: SecretName,
         value: SecretValue,
-        repositoryIdentity: RepositoryIdentity,
+        scope: SecretScope,
         protectionLevel: ProtectionLevel?,
         isSynchronized: Bool?
     ) async throws -> StoredSecret {
         guard !value.isEmpty else {
             throw SecretStoreError.emptyValue
         }
-        let variants = try keychain.storedSecrets(repositoryIdentity: repositoryIdentity).filter { $0.name == name }
+        let variants = try keychain.storedSecrets(scope: scope).filter { $0.name == name }
         let existing = Self.effectiveSecrets(storedSecrets: variants).first
         // `standard`: a secret asks for authentication only when the user opted in.
         let targetProtectionLevel = protectionLevel ?? existing?.protectionLevel ?? .standard
@@ -99,7 +122,7 @@ public struct SecretStore: Sendable {
             throw SecretStoreError.deviceBoundCannotSynchronize
         }
         let target = StoredSecret(
-            repositoryIdentity: repositoryIdentity,
+            scope: scope,
             name: name,
             protectionLevel: targetProtectionLevel,
             // Synchronized by default: following the user across their Macs is the point of
@@ -124,11 +147,11 @@ public struct SecretStore: Sendable {
     @discardableResult
     public func changeProtection(
         name: SecretName,
-        repositoryIdentity: RepositoryIdentity,
+        scope: SecretScope,
         protectionLevel: ProtectionLevel,
         isSynchronized: Bool
     ) async throws -> StoredSecret {
-        let existing = try existingSecret(name: name, repositoryIdentity: repositoryIdentity)
+        let existing = try existingSecret(name: name, scope: scope)
         guard !(protectionLevel == .deviceBound && isSynchronized) else {
             throw SecretStoreError.deviceBoundCannotSynchronize
         }
@@ -138,7 +161,7 @@ public struct SecretStore: Sendable {
             )
             : nil
         let target = StoredSecret(
-            repositoryIdentity: repositoryIdentity,
+            scope: scope,
             name: name,
             protectionLevel: protectionLevel,
             isSynchronized: isSynchronized,
@@ -146,7 +169,7 @@ public struct SecretStore: Sendable {
         )
         let value = try keychain.value(storedSecret: existing, ownerAuthentication: ownerAuthentication)
         // Same reason as in `set`: a non-effective variant must not collide with the target.
-        for variant in try keychain.storedSecrets(repositoryIdentity: repositoryIdentity)
+        for variant in try keychain.storedSecrets(scope: scope)
         where variant.name == name && variant.id != existing.id {
             try keychain.delete(storedSecret: variant)
         }
@@ -161,8 +184,8 @@ public struct SecretStore: Sendable {
 
     /// Deletes every variant of the name. Authenticates first when the secret is not `standard`.
     /// Deleting a name that does not exist succeeds (idempotent).
-    public func delete(name: SecretName, repositoryIdentity: RepositoryIdentity) async throws {
-        let variants = try keychain.storedSecrets(repositoryIdentity: repositoryIdentity).filter { $0.name == name }
+    public func delete(name: SecretName, scope: SecretScope) async throws {
+        let variants = try keychain.storedSecrets(scope: scope).filter { $0.name == name }
         if variants.contains(where: { $0.protectionLevel != .standard }) {
             _ = try await ownerAuthenticator.authenticate(reason: String(localized: "delete \(name.value)", bundle: authenticationReasonBundle))
         }
@@ -177,17 +200,19 @@ public struct SecretStore: Sendable {
     /// one wins: it was created on this device on purpose, while the synchronized one may have
     /// arrived from another Mac.
     static func effectiveSecrets(storedSecrets: [StoredSecret]) -> [StoredSecret] {
-        Dictionary(grouping: storedSecrets, by: { "\($0.repositoryIdentity.value)\u{0}\($0.name.value)" })
+        Dictionary(grouping: storedSecrets, by: { "\($0.scope.keychainService)\u{0}\($0.name.value)" })
             .values
             .compactMap { variants in
                 variants.first(where: { !$0.isSynchronized }) ?? variants.first
             }
-            .sorted { ($0.repositoryIdentity.value, $0.name) < ($1.repositoryIdentity.value, $1.name) }
+            .sorted { ($0.scope.keychainService, $0.name) < ($1.scope.keychainService, $1.name) }
     }
 
-    func existingSecret(name: SecretName, repositoryIdentity: RepositoryIdentity) throws -> StoredSecret {
-        guard let existing = try storedSecrets(repositoryIdentity: repositoryIdentity).first(where: { $0.name == name }) else {
-            throw SecretStoreError.secretNotFound(name: name.value, repository: repositoryIdentity.value)
+    /// The effective secret of the name in the scope. A name the scope does not hold is
+    /// `secretNotFound`, because every caller is about to read or change that secret.
+    func existingSecret(name: SecretName, scope: SecretScope) throws -> StoredSecret {
+        guard let existing = try storedSecrets(scope: scope).first(where: { $0.name == name }) else {
+            throw SecretStoreError.secretNotFound(name: name.value, repository: scope.description)
         }
         return existing
     }

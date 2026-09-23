@@ -72,19 +72,21 @@ struct AddRepositoryView: View {
                     return
                 }
                 do {
-                    let definitionText = try SecretDefinitionFile.readText(
-                        workingTreeRoot: try RepositoryIdentityResolver.workingTreeRoot(directory: folder) ?? folder
-                    )
+                    // The same `@path` and `@alias` of ~/.secchain as secchain, so that the app and
+                    // the tool agree on which repository a folder is.
                     finish(
                         repositoryIdentity: try RepositoryIdentityResolver.resolve(
                             directory: folder,
-                            declaredIdentifier: try definitionText.map(SecretDefinitionText.parse(text:))?.declaredRepositoryIdentifier
+                            explicitIdentifier: nil,
+                            userDefinition: try UserDefinitionText.parse(
+                                text: try UserDefinitionFile.readText(homeDirectory: UserDefinitionFile.homeDirectory) ?? ""
+                            )
                         )
                     )
                 } catch let repositoryIdentityError as RepositoryIdentityError {
                     folderErrorDescription = repositoryIdentityError.message(bundle: .module)
-                } catch let secretDefinitionError as SecretDefinitionError {
-                    folderErrorDescription = secretDefinitionError.message(bundle: .module)
+                } catch let userDefinitionError as UserDefinitionError {
+                    folderErrorDescription = userDefinitionError.message(bundle: .module)
                 } catch {
                     folderErrorDescription = "\(error)"
                 }
@@ -104,7 +106,7 @@ struct AddRepositoryView: View {
 
 /// A pasted remote URL, or a `host/owner/repository` typed by hand, becomes the same identifier
 /// the command-line tool derives from the Git remote. Anything else is taken literally, exactly
-/// like `@repository` in a definition file.
+/// like the identifier of `@path` in `~/.secchain`.
 func repositoryIdentity(enteredText: String) -> RepositoryIdentity {
     let trimmedText = enteredText.trimmingCharacters(in: .whitespacesAndNewlines)
     if trimmedText.contains("://") || trimmedText.contains("@") {

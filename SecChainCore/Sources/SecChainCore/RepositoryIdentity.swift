@@ -3,8 +3,9 @@ import Foundation
 /// Identifies a repository independently of where it is checked out, so that the same repository
 /// maps to the same Keychain items on every Mac (and in every worktree of one Mac).
 public struct RepositoryIdentity: Hashable, Sendable, CustomStringConvertible {
-    /// Normalized identifier, for example `github.com/owner/repo`, or the identifier the user
-    /// declared explicitly for a directory without a usable Git remote.
+    /// Normalized identifier, for example `github.com/owner/repo`, or the identifier the user gave
+    /// explicitly (`--repository`, or `@path` in `~/.secchain`) for a directory without a usable
+    /// Git remote.
     public let value: String
 
     public init(value: String) {
@@ -18,25 +19,25 @@ public struct RepositoryIdentity: Hashable, Sendable, CustomStringConvertible {
     /// `kSecAttrService` of every secret of this repository. One service per repository lets a
     /// single query enumerate the repository's secrets; the secret name is `kSecAttrAccount`.
     public var keychainService: String {
-        SecChainSharedConfig.keychainServicePrefix + value
+        SecChainSharedConfig.repositoryKeychainServicePrefix + value
     }
 
     /// Inverse of `keychainService`, used when enumerating every repository known to the
     /// Keychain. Returns `nil` for services that do not belong to a repository.
     public init?(keychainService: String) {
-        guard keychainService.hasPrefix(SecChainSharedConfig.keychainServicePrefix) else {
+        guard keychainService.hasPrefix(SecChainSharedConfig.repositoryKeychainServicePrefix) else {
             return nil
         }
-        self.value = String(keychainService.dropFirst(SecChainSharedConfig.keychainServicePrefix.count))
+        self.value = String(keychainService.dropFirst(SecChainSharedConfig.repositoryKeychainServicePrefix.count))
     }
 }
 
 /// Why a directory could not be mapped to a repository identity. SecChain refuses to guess in
 /// these cases, because a guessed identity would silently split or merge secrets.
 public enum RepositoryIdentityError: Error, Equatable, CustomStringConvertible {
-    /// The directory is not inside a Git repository and declares no explicit identifier.
+    /// The directory is not inside a Git repository, and no explicit identifier names it.
     case notAGitRepository(directory: String)
-    /// The Git repository has no `origin` remote and declares no explicit identifier.
+    /// The Git repository has no `origin` remote, and no explicit identifier names it.
     case noOriginRemote(directory: String)
     /// The `origin` remote points to something that is not stable across Macs (a local path).
     /// The URL is reported without credentials.
@@ -56,11 +57,11 @@ public enum RepositoryIdentityError: Error, Equatable, CustomStringConvertible {
     public func message(bundle: Bundle) -> String {
         switch self {
         case .notAGitRepository(let directory):
-            String(localized: "\(directory) is not inside a Git repository. Run secchain inside a repository, or declare an identifier in the secret definition file.", bundle: bundle)
+            String(localized: "\(directory) is not inside a Git repository. Run secchain inside a repository, or give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain.", bundle: bundle)
         case .noOriginRemote(let directory):
-            String(localized: "The Git repository at \(directory) has no 'origin' remote, so it cannot be identified on other Macs. Add the remote, or declare an identifier in the secret definition file.", bundle: bundle)
+            String(localized: "The Git repository at \(directory) has no 'origin' remote, so it cannot be identified on other Macs. Add the remote, or give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain.", bundle: bundle)
         case .unstableRemote(let sanitizedRemoteURL):
-            String(localized: "The 'origin' remote (\(sanitizedRemoteURL)) is a local path, which differs between Macs. Declare an identifier in the secret definition file.", bundle: bundle)
+            String(localized: "The 'origin' remote (\(sanitizedRemoteURL)) is a local path, which differs between Macs. Give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain.", bundle: bundle)
         case .gitUnavailable(let reason):
             String(localized: "git could not be run: \(reason)", bundle: bundle)
         }

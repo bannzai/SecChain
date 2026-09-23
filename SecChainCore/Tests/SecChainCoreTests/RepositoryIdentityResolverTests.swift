@@ -8,11 +8,20 @@ import Testing
 /// is exactly how `git` answers from sub-directories, worktrees, and non-repositories.
 @Suite
 struct RepositoryIdentityResolverTests {
+    /// What an absent `~/.secchain` declares.
+    let emptyUserDefinition: UserDefinition
+
+    // Parsing can throw, so the property is set by a throwing initializer, which Swift Testing
+    // allows for a suite.
+    init() throws {
+        emptyUserDefinition = try UserDefinitionText.parse(text: "")
+    }
+
     @Test
     func originRemoteIdentifiesTheRepository() throws {
         let repository = try makeRepository(originRemoteURL: "git@github.com:bannzai/SecChain.git")
         #expect(
-            try RepositoryIdentityResolver.resolve(directory: repository, declaredIdentifier: nil).value
+            try RepositoryIdentityResolver.resolve(directory: repository, explicitIdentifier: nil, userDefinition: emptyUserDefinition).value
                 == "github.com/bannzai/secchain"
         )
     }
@@ -23,7 +32,7 @@ struct RepositoryIdentityResolverTests {
         let subdirectory = repository.appendingPathComponent("Sources/Deep", isDirectory: true)
         try FileManager.default.createDirectory(at: subdirectory, withIntermediateDirectories: true)
         #expect(
-            try RepositoryIdentityResolver.resolve(directory: subdirectory, declaredIdentifier: nil).value
+            try RepositoryIdentityResolver.resolve(directory: subdirectory, explicitIdentifier: nil, userDefinition: emptyUserDefinition).value
                 == "github.com/bannzai/secchain"
         )
     }
@@ -36,7 +45,7 @@ struct RepositoryIdentityResolverTests {
             .appendingPathComponent("worktree-\(UUID().uuidString)", isDirectory: true)
         try git(arguments: ["worktree", "add", worktree.path], directory: repository)
         #expect(
-            try RepositoryIdentityResolver.resolve(directory: worktree, declaredIdentifier: nil).value
+            try RepositoryIdentityResolver.resolve(directory: worktree, explicitIdentifier: nil, userDefinition: emptyUserDefinition).value
                 == "github.com/bannzai/secchain"
         )
     }
@@ -45,7 +54,7 @@ struct RepositoryIdentityResolverTests {
     func repositoryWithoutOriginIsAnError() throws {
         let repository = try makeRepository(originRemoteURL: nil)
         #expect(throws: RepositoryIdentityError.noOriginRemote(directory: repository.path)) {
-            try RepositoryIdentityResolver.resolve(directory: repository, declaredIdentifier: nil)
+            try RepositoryIdentityResolver.resolve(directory: repository, explicitIdentifier: nil, userDefinition: emptyUserDefinition)
         }
     }
 
@@ -53,7 +62,7 @@ struct RepositoryIdentityResolverTests {
     func localPathRemoteIsAnError() throws {
         let repository = try makeRepository(originRemoteURL: "/Users/someone/src/example.git")
         #expect(throws: RepositoryIdentityError.unstableRemote(sanitizedRemoteURL: "/Users/someone/src/example.git")) {
-            try RepositoryIdentityResolver.resolve(directory: repository, declaredIdentifier: nil)
+            try RepositoryIdentityResolver.resolve(directory: repository, explicitIdentifier: nil, userDefinition: emptyUserDefinition)
         }
     }
 
@@ -61,17 +70,77 @@ struct RepositoryIdentityResolverTests {
     func directoryOutsideGitIsAnError() throws {
         let directory = try makeTemporaryDirectory()
         #expect(throws: RepositoryIdentityError.notAGitRepository(directory: directory.path)) {
-            try RepositoryIdentityResolver.resolve(directory: directory, declaredIdentifier: nil)
+            try RepositoryIdentityResolver.resolve(directory: directory, explicitIdentifier: nil, userDefinition: emptyUserDefinition)
         }
     }
 
     @Test
-    func declaredIdentifierWinsAndWorksOutsideGit() throws {
+    func explicitIdentifierWinsAndWorksOutsideGit() throws {
         #expect(
             try RepositoryIdentityResolver.resolve(
                 directory: try makeTemporaryDirectory(),
-                declaredIdentifier: "my-notes"
+                explicitIdentifier: "my-notes",
+                userDefinition: emptyUserDefinition
             ).value == "my-notes"
+        )
+    }
+
+    /// The hole `@repository` left open: a clone of an unknown repository could name itself after
+    /// one of the user's and receive every scope an `@allow` wildcard passes to the user's
+    /// repositories. The identity comes from what `git clone` recorded and from `~/.secchain`,
+    /// never from a file of the working tree.
+    @Test
+    func aFileInTheRepositoryCannotChangeItsIdentity() throws {
+        let repository = try makeRepository(originRemoteURL: "https://github.com/stranger/cloned.git")
+        try "@repository github.com/bannzai/anything\n".write(
+            to: SecretDefinitionFile.url(workingTreeRoot: repository),
+            atomically: true,
+            encoding: .utf8
+        )
+        let userDefinition = try UserDefinitionText.parse(text: "OPENAI_API_KEY\n@allow github.com/bannzai/*\n")
+        let repositoryIdentity = try RepositoryIdentityResolver.resolve(directory: repository, explicitIdentifier: nil, userDefinition: userDefinition)
+        #expect(repositoryIdentity.value == "github.com/stranger/cloned")
+        #expect(userDefinition.passedScopes(repositoryIdentity: repositoryIdentity) == [.repository(repositoryIdentity)])
+    }
+
+    @Test
+    func aPathOfTheUserDefinitionIdentifiesADirectoryWithoutARemoteAndEverythingBelowIt() throws {
+        let directory = try makeTemporaryDirectory()
+        let subdirectory = directory.appendingPathComponent("drafts/2026", isDirectory: true)
+        try FileManager.default.createDirectory(at: subdirectory, withIntermediateDirectories: true)
+        let userDefinition = try UserDefinitionText.parse(text: "@path \(directory.path) local/notes\n")
+        for resolvedDirectory in [directory, subdirectory] {
+            #expect(
+                try RepositoryIdentityResolver.resolve(directory: resolvedDirectory, explicitIdentifier: nil, userDefinition: userDefinition).value
+                    == "local/notes"
+            )
+        }
+    }
+
+    @Test
+    func aPathWinsOverTheOriginRemoteOfARepositoryInsideIt() throws {
+        let repository = try makeRepository(originRemoteURL: "https://github.com/bannzai/SecChain.git")
+        let userDefinition = try UserDefinitionText.parse(text: "@path \(repository.path) local/notes\n")
+        #expect(
+            try RepositoryIdentityResolver.resolve(directory: repository, explicitIdentifier: nil, userDefinition: userDefinition).value
+                == "local/notes"
+        )
+    }
+
+    @Test
+    func anAliasMakesAForkItsUpstreamAndAppliesToAnExplicitIdentifierToo() throws {
+        let fork = try makeRepository(originRemoteURL: "git@github.com:bannzai/some-fork.git")
+        let userDefinition = try UserDefinitionText.parse(text: "@alias github.com/bannzai/some-fork github.com/upstream/some-repo\n")
+        #expect(
+            try RepositoryIdentityResolver.resolve(directory: fork, explicitIdentifier: nil, userDefinition: userDefinition).value
+                == "github.com/upstream/some-repo"
+        )
+        #expect(
+            try RepositoryIdentityResolver.resolve(
+                directory: try makeTemporaryDirectory(),
+                explicitIdentifier: "github.com/bannzai/some-fork",
+                userDefinition: userDefinition
+            ).value == "github.com/upstream/some-repo"
         )
     }
 

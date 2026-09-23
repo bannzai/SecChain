@@ -9,6 +9,11 @@ struct RunCommand: AsyncParsableCommand {
         abstract: "Run a command with this repository's secrets as environment variables.",
         discussion: """
             Example: secchain run -- npm run dev
+            The command gets the repository's own secrets and those of every shared scope that an \
+            '@allow' of ~/.secchain passes to the repository. A name in several of them comes from \
+            the repository first, then from the custom scopes in the order of ~/.secchain, then from \
+            the user scope.
+
             Secrets that are not 'standard' ask for Touch ID or your password first; one prompt \
             covers all of them.
 
@@ -37,23 +42,34 @@ struct RunCommand: AsyncParsableCommand {
             throw ValidationError("No command given. Usage: secchain run -- <command> [arguments...]")
         }
         let context = try CommandContext.resolve(repositoryOption: repositoryOptions.repository)
-        let storedSecrets = try SecretStore.system.storedSecrets(repositoryIdentity: context.repositoryIdentity)
+        let passedScopes = context.userDefinition.passedScopes(repositoryIdentity: context.repositoryIdentity)
+        let storedSecrets = try SecretStore.system.storedSecrets(scopes: passedScopes)
         let secretNames = try RunPlan.secretNames(
             storedSecretNames: storedSecrets.map(\.name),
             definition: context.definition,
-            onlyNames: try only.map(validatedSecretName(rawName:))
-        )
-        let setup = try secretStore(
+            onlyNames: try only.map(validatedSecretName(rawName:)),
             repositoryIdentity: context.repositoryIdentity,
-            requestedSecrets: storedSecrets.filter { secretNames.contains($0.name) },
+            secretNamesOfScopesNotPassed: {
+                try secretNamesOfSharedScopes(userDefinition: context.userDefinition).filter { !passedScopes.contains(.shared($0.key)) }
+            }
+        )
+        let requestedSecrets = storedSecrets.filter { secretNames.contains($0.name) }
+        let setup = try secretStore(
+            scope: .repository(context.repositoryIdentity),
+            requestedSecrets: requestedSecrets,
             commandArguments: command,
             approveRemotely: remoteApprovalOptions.approveRemotely
         )
         let values = try await withInterruptCancellingWhileWaiting(waitsForARemoteApproval: setup.waitsForARemoteApproval) {
             try await setup.store.values(
                 names: secretNames,
-                repositoryIdentity: context.repositoryIdentity,
-                authenticationReason: "run \(executable) with secrets of \(context.repositoryIdentity.value)"
+                scopes: passedScopes,
+                authenticationReason: RunPlan.authenticationReason(
+                    executable: executable,
+                    repositoryIdentity: context.repositoryIdentity,
+                    passedScopes: passedScopes,
+                    requestedSecrets: requestedSecrets
+                )
             )
         }
         try replaceProcess(
@@ -105,4 +121,17 @@ struct RunCommand: AsyncParsableCommand {
         // 127: the conventional shell status for "command not found".
         throw ExitCode(127)
     }
+}
+
+/// The names each shared scope holds in the Keychain or declares in `~/.secchain`: where a declared
+/// secret that `run` cannot pass is to be found. A scope created on another Mac may exist only in
+/// the Keychain, and one whose value was never stored on this Mac only in the file.
+func secretNamesOfSharedScopes(userDefinition: UserDefinition) throws -> [SharedScope: Set<SecretName>] {
+    Dictionary(
+        ([userDefinition.userScope] + userDefinition.customScopes).map { ($0.scope, Set($0.secretNames)) }
+            + (try SecretStore.system.scopes().compactMap(\.sharedScope).map { sharedScope in
+                (sharedScope, Set(try SecretStore.system.storedSecrets(scope: .shared(sharedScope)).map(\.name)))
+            }),
+        uniquingKeysWith: { $0.union($1) }
+    )
 }

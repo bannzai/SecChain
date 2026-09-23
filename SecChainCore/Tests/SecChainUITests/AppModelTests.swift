@@ -40,7 +40,7 @@ struct AppModelTests {
     func savingAndDeletingRefreshTheLists() async throws {
         let model = makeModel(authenticationFailure: nil)
         let name = try #require(SecretName(rawName: "API_KEY"))
-        #expect(await model.save(name: name, value: dummyValue, repositoryIdentity: repositoryIdentity, protectionLevel: .confirm, isSynchronized: true))
+        #expect(await model.save(name: name, value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: .confirm, isSynchronized: true))
         let storedSecret = try #require(model.storedSecretsByRepository[repositoryIdentity]?.first)
         #expect(storedSecret.protectionLevel == .confirm)
         #expect(await model.delete(storedSecret: storedSecret))
@@ -54,7 +54,7 @@ struct AppModelTests {
         #expect(model.repositoryIdentities.isEmpty)
         // What the command-line tool does: write through its own SecretStore.
         try await SecretStore(keychain: keychain, ownerAuthenticator: FixedOwnerAuthenticator(failure: nil))
-            .set(name: try #require(SecretName(rawName: "FROM_CLI")), value: dummyValue, repositoryIdentity: repositoryIdentity, protectionLevel: nil, isSynchronized: nil)
+            .set(name: try #require(SecretName(rawName: "FROM_CLI")), value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: nil, isSynchronized: nil)
         model.reload()
         #expect(model.storedSecretsByRepository[repositoryIdentity]?.map(\.name.value) == ["FROM_CLI"])
     }
@@ -62,7 +62,7 @@ struct AppModelTests {
     @Test
     func aDeviceBoundSecretIsSavedWithoutSynchronization() async throws {
         let model = makeModel(authenticationFailure: nil)
-        #expect(await model.save(name: try #require(SecretName(rawName: "A")), value: dummyValue, repositoryIdentity: repositoryIdentity, protectionLevel: .deviceBound, isSynchronized: true))
+        #expect(await model.save(name: try #require(SecretName(rawName: "A")), value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: .deviceBound, isSynchronized: true))
         #expect(model.storedSecretsByRepository[repositoryIdentity]?.first?.isSynchronized == false)
         #expect(model.presentedError == nil)
     }
@@ -70,7 +70,7 @@ struct AppModelTests {
     @Test
     func aCancelledPromptIsNotShownAsAnError() async throws {
         let name = try #require(SecretName(rawName: "A"))
-        #expect(await makeModel(authenticationFailure: nil).save(name: name, value: dummyValue, repositoryIdentity: repositoryIdentity, protectionLevel: .standard, isSynchronized: true))
+        #expect(await makeModel(authenticationFailure: nil).save(name: name, value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: .standard, isSynchronized: true))
         let model = makeModel(authenticationFailure: .authenticationCancelled)
         model.reload()
         let storedSecret = try #require(model.storedSecretsByRepository[repositoryIdentity]?.first)
@@ -81,7 +81,7 @@ struct AppModelTests {
     @Test
     func aFailedAuthenticationIsShownAndRevealsNothing() async throws {
         let name = try #require(SecretName(rawName: "A"))
-        #expect(await makeModel(authenticationFailure: nil).save(name: name, value: dummyValue, repositoryIdentity: repositoryIdentity, protectionLevel: .standard, isSynchronized: true))
+        #expect(await makeModel(authenticationFailure: nil).save(name: name, value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: .standard, isSynchronized: true))
         let model = makeModel(authenticationFailure: .authenticationFailed)
         model.reload()
         let storedSecret = try #require(model.storedSecretsByRepository[repositoryIdentity]?.first)
@@ -105,7 +105,7 @@ struct AppModelTests {
     func revealingAValueLeavesNothingInTheModel() async throws {
         let model = makeModel(authenticationFailure: nil)
         let name = try #require(SecretName(rawName: "API_KEY"))
-        #expect(await model.save(name: name, value: dummyValue, repositoryIdentity: repositoryIdentity, protectionLevel: .standard, isSynchronized: true))
+        #expect(await model.save(name: name, value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: .standard, isSynchronized: true))
         let storedSecret = try #require(model.storedSecretsByRepository[repositoryIdentity]?.first)
         #expect(await model.revealedValue(storedSecret: storedSecret) == dummyValue)
         // The revealed value belongs to the view that asked for it; the model that outlives every

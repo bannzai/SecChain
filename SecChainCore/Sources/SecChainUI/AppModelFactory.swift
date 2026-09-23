@@ -65,7 +65,7 @@ public enum AppModelFactory {
             }
             try? keychain.write(
                 storedSecret: StoredSecret(
-                    repositoryIdentity: RepositoryIdentity(value: demoSecret.repository),
+                    scope: .repository(RepositoryIdentity(value: demoSecret.repository)),
                     name: name,
                     protectionLevel: demoSecret.protectionLevel,
                     isSynchronized: demoSecret.isSynchronized,

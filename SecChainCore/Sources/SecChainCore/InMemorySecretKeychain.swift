@@ -22,12 +22,12 @@ public final class InMemorySecretKeychain: SecretKeychain, @unchecked Sendable {
         }
     }
 
-    public func storedSecrets(repositoryIdentity: RepositoryIdentity?) throws -> [StoredSecret] {
+    public func storedSecrets(scope: SecretScope?) throws -> [StoredSecret] {
         try lock.withLock {
             try throwFailureIfSet()
             return items.values
                 .map(\.storedSecret)
-                .filter { repositoryIdentity == nil || $0.repositoryIdentity == repositoryIdentity }
+                .filter { scope == nil || $0.scope == scope }
         }
     }
 
@@ -37,7 +37,7 @@ public final class InMemorySecretKeychain: SecretKeychain, @unchecked Sendable {
             guard let item = items[storedSecret.id] else {
                 throw SecretStoreError.secretNotFound(
                     name: storedSecret.name.value,
-                    repository: storedSecret.repositoryIdentity.value
+                    repository: storedSecret.scope.description
                 )
             }
             guard item.storedSecret.protectionLevel != .deviceBound || ownerAuthentication != nil else {
@@ -58,7 +58,7 @@ public final class InMemorySecretKeychain: SecretKeychain, @unchecked Sendable {
             guard replacing != nil || items[storedSecret.id] == nil else {
                 throw SecretStoreError.duplicateSecret(
                     name: storedSecret.name.value,
-                    repository: storedSecret.repositoryIdentity.value
+                    repository: storedSecret.scope.description
                 )
             }
             if let replacing {
@@ -66,7 +66,7 @@ public final class InMemorySecretKeychain: SecretKeychain, @unchecked Sendable {
             }
             items[storedSecret.id] = (
                 storedSecret: StoredSecret(
-                    repositoryIdentity: storedSecret.repositoryIdentity,
+                    scope: storedSecret.scope,
                     name: storedSecret.name,
                     protectionLevel: storedSecret.protectionLevel,
                     isSynchronized: storedSecret.isSynchronized,

@@ -12,13 +12,23 @@
         }
       }
     },
-    "%@ is not inside a Git repository. Run secchain inside a repository, or declare an identifier in the secret definition file." : {
+    "%@ is not inside a Git repository. Run secchain inside a repository, or give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain." : {
       "comment" : "Error message after a folder was chosen. %@ is the folder path",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ は Git リポジトリ内にありません。リポジトリ内で secchain を実行するか、Secret 定義ファイルで識別子を宣言してください。"
+            "value" : "%@ は Git リポジトリ内にありません。リポジトリ内で secchain を実行するか、~/.secchain の「@path <directory> <identifier>」でディレクトリに識別子を付けてください。"
+          }
+        }
+      }
+    },
+    ".secchain line %lld: '@repository' is no longer read. Share an upstream's secrets with '@alias <fork> <upstream>', or give a directory without a Git remote an identifier with '@path <directory> <identifier>', in ~/.secchain." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ".secchain の %lld 行目：「@repository」は読み込まれなくなりました。上流リポジトリの Secret を共有するには「@alias <fork> <upstream>」を、Git リモートのないディレクトリに識別子を付けるには「@path <directory> <identifier>」を ~/.secchain に書いてください。"
           }
         }
       }
@@ -43,12 +53,12 @@
         }
       }
     },
-    ".secchain line %lld: unknown or incomplete directive. The only directive is '@repository <identifier>'." : {
+    ".secchain line %lld: unknown directive. The definition file lists secret names only; scopes and identifiers are set in ~/.secchain." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : ".secchain の %lld 行目：不明または不完全なディレクティブです。使用できるディレクティブは、リポジトリの識別子を宣言する「@repository <identifier>」だけです。"
+            "value" : ".secchain の %lld 行目：不明なディレクティブです。定義ファイルには Secret の名前だけを書きます。scope と識別子は ~/.secchain で設定します。"
           }
         }
       }
@@ -819,24 +829,24 @@
         }
       }
     },
-    "The 'origin' remote (%@) is a local path, which differs between Macs. Declare an identifier in the secret definition file." : {
+    "The 'origin' remote (%@) is a local path, which differs between Macs. Give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain." : {
       "comment" : "Error message after a folder was chosen. %@ is the remote URL",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "「origin」リモート（%@）はローカルのパスで、Mac ごとに異なります。Secret 定義ファイルで識別子を宣言してください。"
+            "value" : "「origin」リモート（%@）はローカルのパスで、Mac ごとに異なります。~/.secchain の「@path <directory> <identifier>」でディレクトリに識別子を付けてください。"
           }
         }
       }
     },
-    "The Git repository at %@ has no 'origin' remote, so it cannot be identified on other Macs. Add the remote, or declare an identifier in the secret definition file." : {
+    "The Git repository at %@ has no 'origin' remote, so it cannot be identified on other Macs. Add the remote, or give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain." : {
       "comment" : "Error message after a folder was chosen. %@ is the folder path",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ の Git リポジトリには「origin」リモートがないため、ほかの Mac で識別できません。リモートを追加するか、Secret 定義ファイルで識別子を宣言してください。"
+            "value" : "%@ の Git リポジトリには「origin」リモートがないため、ほかの Mac で識別できません。リモートを追加するか、~/.secchain の「@path <directory> <identifier>」でディレクトリに識別子を付けてください。"
           }
         }
       }
@@ -1281,6 +1291,72 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ を更新"
+          }
+        }
+      }
+    },
+    "~/.secchain line %lld: '@allow' takes one pattern, a repository identifier or the start of one followed by '*'." : {
+      "comment" : "Error message about the user's definition file ~/.secchain, shown after a folder was chosen. %lld is the line number",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/.secchain の %lld 行目：「@allow」にはパターンを 1 つだけ書きます。リポジトリの識別子か、識別子の先頭に「*」を続けたものです。"
+          }
+        }
+      }
+    },
+    "~/.secchain line %lld: contains '='. The file lists secret names only; store the value with 'secchain set <NAME> --scope <scope>'." : {
+      "comment" : "Error message about the user's definition file ~/.secchain, shown after a folder was chosen. %lld is the line number",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/.secchain の %lld 行目：「=」が含まれています。このファイルには Secret の名前だけを書きます。値は「secchain set <NAME> --scope <scope>」で保存してください。"
+          }
+        }
+      }
+    },
+    "~/.secchain line %lld: not a custom scope name. Use lowercase letters, digits and hyphens, starting with a letter or a digit; 'user' and 'repository' are built in." : {
+      "comment" : "Error message about the user's definition file ~/.secchain, shown after a folder was chosen. %lld is the line number",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/.secchain の %lld 行目：カスタム scope の名前ではありません。英小文字、数字、ハイフンを使い、英小文字か数字で始めてください。「user」と「repository」は組み込みの scope です。"
+          }
+        }
+      }
+    },
+    "~/.secchain line %lld: not a valid secret name. Use letters, digits and underscores, not starting with a digit." : {
+      "comment" : "Error message about the user's definition file ~/.secchain, shown after a folder was chosen. %lld is the line number",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/.secchain の %lld 行目：有効な Secret 名ではありません。英字、数字、アンダースコアを使い、数字で始めないでください。"
+          }
+        }
+      }
+    },
+    "~/.secchain line %lld: repeats a scope, an '@alias' fork or an '@path' directory of an earlier line." : {
+      "comment" : "Error message about the user's definition file ~/.secchain, shown after a folder was chosen. %lld is the line number",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/.secchain の %lld 行目：前の行と同じ scope、「@alias」の fork、または「@path」のディレクトリが繰り返されています。"
+          }
+        }
+      }
+    },
+    "~/.secchain line %lld: unknown or incomplete directive. The directives are '@scope <name>', '@allow <pattern>', '@alias <fork> <upstream>' and '@path <absolute directory> <identifier>'." : {
+      "comment" : "Error message about the user's definition file ~/.secchain, shown after a folder was chosen. %lld is the line number",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "~/.secchain の %lld 行目：不明または不完全なディレクティブです。使用できるのは「@scope <name>」「@allow <pattern>」「@alias <fork> <upstream>」「@path <absolute directory> <identifier>」です。"
           }
         }
       }

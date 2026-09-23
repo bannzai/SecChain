@@ -37,7 +37,7 @@ public final class AppModel {
             repositoryIdentities = (storedRepositoryIdentities + repositoryIdentitiesWithoutSecrets)
                 .sorted { $0.value < $1.value }
             storedSecretsByRepository = try Dictionary(
-                uniqueKeysWithValues: repositoryIdentities.map { ($0, try store.storedSecrets(repositoryIdentity: $0)) }
+                uniqueKeysWithValues: repositoryIdentities.map { ($0, try store.storedSecrets(scope: .repository($0))) }
             )
             isKeychainUnreachable = false
             if let selectedRepositoryIdentity, !repositoryIdentities.contains(selectedRepositoryIdentity) {
@@ -73,7 +73,7 @@ public final class AppModel {
     public func save(
         name: SecretName,
         value: SecretValue,
-        repositoryIdentity: RepositoryIdentity,
+        scope: SecretScope,
         protectionLevel: ProtectionLevel,
         isSynchronized: Bool
     ) async -> Bool {
@@ -81,7 +81,7 @@ public final class AppModel {
             _ = try await self.store.set(
                 name: name,
                 value: value,
-                repositoryIdentity: repositoryIdentity,
+                scope: scope,
                 protectionLevel: protectionLevel,
                 isSynchronized: protectionLevel == .deviceBound ? nil : isSynchronized
             )
@@ -92,7 +92,7 @@ public final class AppModel {
         await perform {
             _ = try await self.store.changeProtection(
                 name: storedSecret.name,
-                repositoryIdentity: storedSecret.repositoryIdentity,
+                scope: storedSecret.scope,
                 protectionLevel: protectionLevel,
                 isSynchronized: protectionLevel == .deviceBound ? false : isSynchronized
             )
@@ -101,7 +101,7 @@ public final class AppModel {
 
     public func delete(storedSecret: StoredSecret) async -> Bool {
         await perform {
-            try await self.store.delete(name: storedSecret.name, repositoryIdentity: storedSecret.repositoryIdentity)
+            try await self.store.delete(name: storedSecret.name, scope: storedSecret.scope)
         }
     }
 
@@ -109,7 +109,7 @@ public final class AppModel {
     /// A cancelled prompt is not an error worth an alert.
     public func revealedValue(storedSecret: StoredSecret) async -> SecretValue? {
         do {
-            return try await store.revealedValue(name: storedSecret.name, repositoryIdentity: storedSecret.repositoryIdentity)
+            return try await store.revealedValue(name: storedSecret.name, scope: storedSecret.scope)
         } catch SecretStoreError.authenticationCancelled {
             return nil
         } catch {

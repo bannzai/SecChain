@@ -173,7 +173,7 @@ struct RemoteApprovalOwnerAuthenticatorTests {
             .set(
                 name: secretName,
                 value: SecretValue(exposingString: "dummy-value-for-test"),
-                repositoryIdentity: repositoryIdentity,
+                scope: .repository(repositoryIdentity),
                 protectionLevel: .confirm,
                 isSynchronized: true
             )
@@ -191,7 +191,7 @@ struct RemoteApprovalOwnerAuthenticatorTests {
         )
         await #expect(throws: RemoteApprovalError.unverifiableApproval(.signatureMismatch)) {
             try await SecretStore(keychain: keychain, ownerAuthenticator: makeAuthenticator(store: forgedStore, request: request))
-                .values(names: [secretName], repositoryIdentity: repositoryIdentity, authenticationReason: "run true")
+                .values(names: [secretName], scopes: [.repository(repositoryIdentity)], authenticationReason: "run true")
         }
 
         let approvedStore = InMemoryRemoteApprovalStore()
@@ -204,7 +204,7 @@ struct RemoteApprovalOwnerAuthenticatorTests {
         )
         #expect(
             try await SecretStore(keychain: keychain, ownerAuthenticator: makeAuthenticator(store: approvedStore, request: request))
-                .values(names: [secretName], repositoryIdentity: repositoryIdentity, authenticationReason: "run true")[secretName]?
+                .values(names: [secretName], scopes: [.repository(repositoryIdentity)], authenticationReason: "run true")[secretName]?
                 .exposedString == "dummy-value-for-test"
         )
     }
