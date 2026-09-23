@@ -179,6 +179,48 @@ struct RepositoryIdentityResolverTests {
         #expect(try RepositoryIdentityResolver.workingTreeRoot(directory: try makeTemporaryDirectory()) == nil)
     }
 
+    /// The `.secchain` that the command-line tool and the macOS app both read for a directory: the
+    /// one of the `@path` that contains it, of its working tree root, or of the directory itself,
+    /// and none when that file is `~/.secchain`.
+    @Test
+    func theDefinitionFileOfADirectoryIsTheOneOfItsPathItsWorkingTreeOrItself() throws {
+        let repository = try makeRepository(originRemoteURL: "https://github.com/bannzai/SecChain.git")
+        let notes = try makeTemporaryDirectory()
+        let plain = try makeTemporaryDirectory()
+        let home = try makeTemporaryDirectory()
+        let subdirectories = [repository.appendingPathComponent("Sources", isDirectory: true), notes.appendingPathComponent("drafts", isDirectory: true)]
+        for subdirectory in subdirectories {
+            try FileManager.default.createDirectory(at: subdirectory, withIntermediateDirectories: true)
+        }
+        let userDefinition = try UserDefinitionText.parse(text: "@path \(notes.path) local/notes\n")
+        for (directory, definitionDirectory) in [(subdirectories[0], repository), (subdirectories[1], notes), (plain, plain)] {
+            #expect(
+                try RepositoryIdentityResolver.definitionDirectory(directory: directory, userDefinition: userDefinition, homeDirectory: home)?
+                    .resolvingSymlinksInPath().path == definitionDirectory.resolvingSymlinksInPath().path
+            )
+        }
+        #expect(try RepositoryIdentityResolver.definitionDirectory(directory: home, userDefinition: userDefinition, homeDirectory: home) == nil)
+    }
+
+    /// A folder chosen in the macOS app whose `.secchain` still has the `@repository` of an earlier
+    /// build is refused, as every `secchain` command refuses it, instead of becoming the fork's own
+    /// repository without a word.
+    @Test
+    func theDefinitionOfAFolderWithTheRemovedDirectiveIsRefused() throws {
+        let fork = try makeRepository(originRemoteURL: "git@github.com:bannzai/some-fork.git")
+        let subdirectory = fork.appendingPathComponent("Sources", isDirectory: true)
+        try FileManager.default.createDirectory(at: subdirectory, withIntermediateDirectories: true)
+        #expect(try RepositoryIdentityResolver.definition(directory: subdirectory, userDefinition: emptyUserDefinition, homeDirectory: try makeTemporaryDirectory()) == nil)
+        try "@repository github.com/upstream/some-repo\n".write(
+            to: SecretDefinitionFile.url(workingTreeRoot: fork),
+            atomically: true,
+            encoding: .utf8
+        )
+        #expect(throws: SecretDefinitionError.repositoryDirectiveRemoved(lineNumber: 1)) {
+            try RepositoryIdentityResolver.definition(directory: subdirectory, userDefinition: emptyUserDefinition, homeDirectory: try makeTemporaryDirectory())
+        }
+    }
+
     // MARK: - Fixtures
 
     func makeTemporaryDirectory() throws -> URL {

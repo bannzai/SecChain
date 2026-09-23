@@ -58,6 +58,31 @@ public enum RepositoryIdentityResolver {
         return URL(fileURLWithPath: topLevel.standardOutput, isDirectory: true)
     }
 
+    /// Directory whose `.secchain` is the definition file of `directory`: the directory of the
+    /// `@path` that contains it, otherwise the working tree root inside Git, otherwise `directory`
+    /// itself. `nil` when that `.secchain` is the `~/.secchain` of `homeDirectory`
+    /// (`UserDefinitionFile.isUserDefinitionFile`), which is no repository's. The command-line tool
+    /// and the macOS app both ask here, so that they read the same file for one directory.
+    public static func definitionDirectory(directory: URL, userDefinition: UserDefinition, homeDirectory: URL) throws -> URL? {
+        let repositoryDirectory = try userDefinition.pathRepository(directory: directory)?.directory
+            ?? workingTreeRoot(directory: directory)
+            ?? directory
+        guard !UserDefinitionFile.isUserDefinitionFile(url: SecretDefinitionFile.url(workingTreeRoot: repositoryDirectory), homeDirectory: homeDirectory) else {
+            return nil
+        }
+        return repositoryDirectory
+    }
+
+    /// The parsed definition file of `directory` (`definitionDirectory`), `nil` when there is none.
+    /// The macOS app parses it when a folder is chosen, so that a file every `secchain` command
+    /// refuses, such as one with the `@repository` of an earlier build, is refused there too instead
+    /// of the folder silently becoming another repository.
+    public static func definition(directory: URL, userDefinition: UserDefinition, homeDirectory: URL) throws -> SecretDefinition? {
+        try definitionDirectory(directory: directory, userDefinition: userDefinition, homeDirectory: homeDirectory)
+            .flatMap { try SecretDefinitionFile.readText(workingTreeRoot: $0) }
+            .map(SecretDefinitionText.parse(text:))
+    }
+
     static func runGit(arguments: [String], directory: URL) throws -> GitCommandResult {
         let process = Process()
         // `env` resolves git through PATH, so that the user's own git (Homebrew, Xcode) is used.

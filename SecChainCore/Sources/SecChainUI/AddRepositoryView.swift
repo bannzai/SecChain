@@ -72,21 +72,31 @@ struct AddRepositoryView: View {
                     return
                 }
                 do {
+                    let userDefinition = try UserDefinitionText.parse(
+                        text: try UserDefinitionFile.readText(homeDirectory: UserDefinitionFile.homeDirectory) ?? ""
+                    )
+                    // Only whether the folder's `.secchain` parses matters here: a folder that every
+                    // secchain command refuses is not added either.
+                    _ = try RepositoryIdentityResolver.definition(
+                        directory: folder,
+                        userDefinition: userDefinition,
+                        homeDirectory: UserDefinitionFile.homeDirectory
+                    )
                     // The same `@path` and `@alias` of ~/.secchain as secchain, so that the app and
                     // the tool agree on which repository a folder is.
                     finish(
                         repositoryIdentity: try RepositoryIdentityResolver.resolve(
                             directory: folder,
                             explicitIdentifier: nil,
-                            userDefinition: try UserDefinitionText.parse(
-                                text: try UserDefinitionFile.readText(homeDirectory: UserDefinitionFile.homeDirectory) ?? ""
-                            )
+                            userDefinition: userDefinition
                         )
                     )
                 } catch let repositoryIdentityError as RepositoryIdentityError {
                     folderErrorDescription = repositoryIdentityError.message(bundle: .module)
                 } catch let userDefinitionError as UserDefinitionError {
                     folderErrorDescription = userDefinitionError.message(bundle: .module)
+                } catch let secretDefinitionError as SecretDefinitionError {
+                    folderErrorDescription = secretDefinitionError.message(bundle: .module)
                 } catch {
                     folderErrorDescription = "\(error)"
                 }

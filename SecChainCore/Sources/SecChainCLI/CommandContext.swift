@@ -7,10 +7,9 @@ import SecChainCore
 struct CommandContext {
     /// Repository whose secrets the command acts on.
     let repositoryIdentity: RepositoryIdentity
-    /// Directory that holds (or will hold) `.secchain`: the directory of the `@path` that names the
-    /// repository, otherwise the working tree root inside Git, otherwise the current directory.
-    /// `nil` when the `.secchain` there is `~/.secchain` itself
-    /// (`UserDefinitionFile.isUserDefinitionFile`), which is read and written as no repository's.
+    /// Directory that holds (or will hold) `.secchain`, as `RepositoryIdentityResolver.definitionDirectory`
+    /// finds it from the current directory. `nil` when the `.secchain` there is `~/.secchain` itself,
+    /// which is read and written as no repository's.
     let definitionDirectory: URL?
     /// Text of `.secchain`, `nil` when the file does not exist.
     let definitionText: String?
@@ -25,13 +24,11 @@ struct CommandContext {
     static func resolve(repositoryOption: String?) throws -> CommandContext {
         let currentDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
         let userDefinition = try readUserDefinition().definition
-        let repositoryDirectory = try userDefinition.pathRepository(directory: currentDirectory)?.directory
-            ?? RepositoryIdentityResolver.workingTreeRoot(directory: currentDirectory)
-            ?? currentDirectory
-        let definitionDirectory = UserDefinitionFile.isUserDefinitionFile(
-            url: SecretDefinitionFile.url(workingTreeRoot: repositoryDirectory),
+        let definitionDirectory = try RepositoryIdentityResolver.definitionDirectory(
+            directory: currentDirectory,
+            userDefinition: userDefinition,
             homeDirectory: UserDefinitionFile.homeDirectory
-        ) ? nil : repositoryDirectory
+        )
         let definitionText = try definitionDirectory.flatMap { try SecretDefinitionFile.readText(workingTreeRoot: $0) }
         return CommandContext(
             repositoryIdentity: try RepositoryIdentityResolver.resolve(
