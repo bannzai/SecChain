@@ -73,12 +73,12 @@ struct ScopeDenyCommand: ParsableCommand {
         }
         let editedText = try UserDefinitionText.removing(allowPattern: pattern, scope: sharedScope, text: userDefinitionText)
         try UserDefinitionFile.write(text: editedText, homeDirectory: UserDefinitionFile.homeDirectory)
-        // Another line of the scope may still name what the removed one named: the same identifier
-        // spelled in another letter case, or a wider wildcard.
+        // Another line of the scope may still name some of what the removed one named: the same
+        // identifier spelled in another letter case, a wider wildcard, or a narrower pattern.
         let remainingPatterns = (try UserDefinitionText.parse(text: editedText).scopeDefinition(scope: sharedScope)?.allowPatterns ?? [])
-            .filter { repositoryPatternCovers(pattern: $0, coveredPattern: pattern) }
+            .filter { repositoryPatternsOverlap(pattern: $0, otherPattern: pattern) }
         guard remainingPatterns.isEmpty else {
-            print("Removed '@allow \(pattern)' from scope \(sharedScope.name), but '@allow \(remainingPatterns.joined(separator: "', '@allow "))' still passes it to \(pattern).")
+            print("Removed '@allow \(pattern)' from scope \(sharedScope.name), but '@allow \(remainingPatterns.joined(separator: "', '@allow "))' still passes it to repositories that \(pattern) names.")
             return
         }
         print("Scope \(sharedScope.name) is not passed to \(pattern).")

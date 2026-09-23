@@ -104,15 +104,21 @@ public func repositoryPatternMatches(pattern: String, repositoryIdentity: Reposi
     return repositoryIdentity.value.lowercased().hasPrefix(String(lowercasedPattern.dropLast()))
 }
 
-/// Whether `pattern` names every repository that `coveredPattern` names: a pattern that names the
-/// identifier, when `coveredPattern` is one, or a wildcard whose start begins the start of
-/// `coveredPattern`, when that is a wildcard, ignoring letter case as `repositoryPatternMatches`
-/// does. `scope deny` uses it to tell that a scope still reaches what the removed line named.
-public func repositoryPatternCovers(pattern: String, coveredPattern: String) -> Bool {
-    guard coveredPattern.hasSuffix("*") else {
-        return repositoryPatternMatches(pattern: pattern, repositoryIdentity: RepositoryIdentity(value: coveredPattern))
+/// Whether a repository can be named by both patterns: two spellings of one identifier, a wildcard
+/// and an identifier it names, or two wildcards one of whose starts begins the other, ignoring
+/// letter case as `repositoryPatternMatches` does. `scope deny` uses it to tell that a scope still
+/// reaches some of what the removed line named, through a wider pattern or a narrower one.
+public func repositoryPatternsOverlap(pattern: String, otherPattern: String) -> Bool {
+    switch (pattern.hasSuffix("*"), otherPattern.hasSuffix("*")) {
+    case (false, _):
+        return repositoryPatternMatches(pattern: otherPattern, repositoryIdentity: RepositoryIdentity(value: pattern))
+    case (true, false):
+        return repositoryPatternMatches(pattern: pattern, repositoryIdentity: RepositoryIdentity(value: otherPattern))
+    case (true, true):
+        let patternStart = pattern.dropLast().lowercased()
+        let otherPatternStart = otherPattern.dropLast().lowercased()
+        return patternStart.hasPrefix(otherPatternStart) || otherPatternStart.hasPrefix(patternStart)
     }
-    return pattern.hasSuffix("*") && coveredPattern.dropLast().lowercased().hasPrefix(pattern.dropLast().lowercased())
 }
 
 /// An `@allow` pattern: a whole identifier, or the start of one followed by a single `*`. A `*`

@@ -167,16 +167,28 @@ struct UserDefinitionTests {
         #expect(repositoryPatternMatches(pattern: "*", repositoryIdentity: RepositoryIdentity(value: "local/notes")))
     }
 
-    /// What `scope deny` checks before it says a scope no longer reaches what the removed line named.
+    /// What `scope deny` checks before it says a scope no longer reaches what the removed line named:
+    /// a remaining pattern that names some of it, wider or narrower, in any letter case.
     @Test
-    func aPatternCoversWhatANarrowerPatternOrAnIdentifierNames() {
-        #expect(repositoryPatternCovers(pattern: "github.com/*", coveredPattern: "github.com/bannzai/*"))
-        #expect(repositoryPatternCovers(pattern: "GitHub.com/bannzai/*", coveredPattern: "github.com/bannzai/*"))
-        #expect(repositoryPatternCovers(pattern: "github.com/bannzai/*", coveredPattern: "github.com/bannzai/youtuber"))
-        #expect(repositoryPatternCovers(pattern: "github.com/Bannzai/YouTuber", coveredPattern: "github.com/bannzai/youtuber"))
-        #expect(!repositoryPatternCovers(pattern: "github.com/bannzai/youtuber", coveredPattern: "github.com/bannzai/*"))
-        #expect(!repositoryPatternCovers(pattern: "github.com/bannzai/*", coveredPattern: "github.com/*"))
-        #expect(!repositoryPatternCovers(pattern: "github.com/bannzai/*", coveredPattern: "github.com/bannzai-other/*"))
+    func patternsOverlapWhenARepositoryCanBeNamedByBoth() {
+        for (pattern, otherPattern) in [
+            ("github.com/*", "github.com/bannzai/*"),
+            ("GitHub.com/bannzai/*", "github.com/bannzai/*"),
+            ("github.com/bannzai/*", "github.com/bannzai/youtuber"),
+            ("github.com/Bannzai/YouTuber", "github.com/bannzai/youtuber"),
+            ("*", "local/notes"),
+        ] {
+            #expect(repositoryPatternsOverlap(pattern: pattern, otherPattern: otherPattern))
+            #expect(repositoryPatternsOverlap(pattern: otherPattern, otherPattern: pattern))
+        }
+        for (pattern, otherPattern) in [
+            ("github.com/bannzai/*", "github.com/bannzai-other/*"),
+            ("github.com/bannzai/*", "github.com/bannzai-other/youtuber"),
+            ("github.com/bannzai/youtuber", "github.com/bannzai/tutorials"),
+        ] {
+            #expect(!repositoryPatternsOverlap(pattern: pattern, otherPattern: otherPattern))
+            #expect(!repositoryPatternsOverlap(pattern: otherPattern, otherPattern: pattern))
+        }
     }
 
     @Test
