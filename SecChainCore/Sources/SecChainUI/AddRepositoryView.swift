@@ -98,16 +98,17 @@ struct AddRepositoryView: View {
 }
 
 /// A pasted remote URL, or a `host/owner/repository` typed by hand, becomes the same identifier
-/// the command-line tool derives from the Git remote. Anything else is folded to lowercase, like
-/// `--repository` of the command-line tool (`RepositoryIdentity.value`).
+/// the command-line tool derives from the Git remote. Anything else, a text that only looks like
+/// a remote included, is folded to lowercase, like `--repository` of the command-line tool
+/// (`RepositoryIdentity.value`).
 func repositoryIdentity(enteredText: String) -> RepositoryIdentity {
     let trimmedText = enteredText.trimmingCharacters(in: .whitespacesAndNewlines)
     if trimmedText.contains("://") || trimmedText.contains("@") {
-        return RepositoryIdentity(value: RepositoryRemoteURL.normalizedIdentifier(remoteURL: trimmedText) ?? trimmedText)
+        return RepositoryIdentity(value: RepositoryRemoteURL.normalizedIdentifier(remoteURL: trimmedText) ?? trimmedText.lowercased())
     }
     // `github.com/owner/repo`: a first path component with a dot is a host name.
     if let host = trimmedText.split(separator: "/").first, host.contains("."), trimmedText.contains("/") {
-        return RepositoryIdentity(value: RepositoryRemoteURL.normalizedIdentifier(remoteURL: "https://" + trimmedText) ?? trimmedText)
+        return RepositoryIdentity(value: RepositoryRemoteURL.normalizedIdentifier(remoteURL: "https://" + trimmedText) ?? trimmedText.lowercased())
     }
     return RepositoryIdentity(value: trimmedText.lowercased())
 }

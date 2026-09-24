@@ -169,7 +169,7 @@ Security framework `OSStatus` values are translated into errors a user can act o
 
 - Secret values are never written to stdout, stderr, application logs, debug logs, analytics, crash metadata, or shell history.
 - Secret values are never persisted outside the Keychain: not in `.env`, JSON, plist, SQLite, `UserDefaults`, or any Git-tracked file.
-- Repository-side files contain only secret names. `~/.secchain` contains only secret names, scope names, repository identifiers, patterns, and paths.
+- Repository-side files contain only secret names. `~/.secchain` contains only secret names, scope names, and patterns (a repository identifier, or the start of one followed by `*`).
 
 ### Tests
 
