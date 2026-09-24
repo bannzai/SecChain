@@ -40,9 +40,8 @@ struct SecretDefinitionTests {
             try SecretDefinitionText.parse(text: "@repository")
         }
         let message = SecretDefinitionError.repositoryDirectiveRemoved(lineNumber: 2).description
-        #expect(message.contains("~/.secchain"))
-        #expect(message.contains("@alias"))
-        #expect(message.contains("@path"))
+        #expect(message.contains("--repository"))
+        #expect(message.contains("shared scope of ~/.secchain"))
     }
 
     @Test

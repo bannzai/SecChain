@@ -15,31 +15,24 @@ struct CommandContext {
     let definitionText: String?
     /// Parsed `definitionText`.
     let definition: SecretDefinition?
-    /// Parsed `~/.secchain`: the shared scopes, which of them the repository gets, and the
-    /// `@alias` / `@path` its identity went through.
+    /// Parsed `~/.secchain`: the shared scopes and which of them the repository gets.
     let userDefinition: UserDefinition
 
-    /// `repositoryOption` is the `--repository` flag: it overrides `@path` and the Git remote, for
-    /// acting on a repository from outside its checkout.
+    /// `repositoryOption` is the `--repository` flag: it overrides the Git remote, for acting on a
+    /// repository from outside its checkout or on a directory without a usable remote.
     static func resolve(repositoryOption: String?) throws -> CommandContext {
         let currentDirectory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
-        let userDefinition = try readUserDefinition().definition
         let definitionDirectory = try RepositoryIdentityResolver.definitionDirectory(
             directory: currentDirectory,
-            userDefinition: userDefinition,
             homeDirectory: UserDefinitionFile.homeDirectory
         )
         let definitionText = try definitionDirectory.flatMap { try SecretDefinitionFile.readText(workingTreeRoot: $0) }
         return CommandContext(
-            repositoryIdentity: try RepositoryIdentityResolver.resolve(
-                directory: currentDirectory,
-                explicitIdentifier: repositoryOption,
-                userDefinition: userDefinition
-            ),
+            repositoryIdentity: try RepositoryIdentityResolver.resolve(directory: currentDirectory, explicitIdentifier: repositoryOption),
             definitionDirectory: definitionDirectory,
             definitionText: definitionText,
             definition: try definitionText.map(SecretDefinitionText.parse(text:)),
-            userDefinition: userDefinition
+            userDefinition: try readUserDefinition().definition
         )
     }
 }

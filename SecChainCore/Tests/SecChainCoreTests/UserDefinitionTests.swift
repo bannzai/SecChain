@@ -21,9 +21,6 @@ struct UserDefinitionTests {
         @scope video
         YOUTUBE_API_KEY
         @allow github.com/bannzai/youtuber
-
-        @alias github.com/bannzai/some-fork github.com/upstream/some-repo
-        @path /Users/bannzai/notes local/notes
         """
 
     func name(_ rawName: String) throws -> SecretName {
@@ -96,18 +93,18 @@ struct UserDefinitionTests {
         }
     }
 
-    @Test
-    func aliasesAndPathsBelongToNoScopeWhereverTheyAreWritten() throws {
-        let userDefinition = try UserDefinitionText.parse(text: exampleText)
-        #expect(userDefinition.upstreamRepositoryIdentities == ["github.com/bannzai/some-fork": RepositoryIdentity(value: "github.com/upstream/some-repo")])
-        #expect(userDefinition.pathRepositoryIdentities == ["/Users/bannzai/notes": RepositoryIdentity(value: "local/notes")])
-        #expect(userDefinition.scopeDefinition(scope: try customScope("video"))?.secretNames.map(\.value) == ["YOUTUBE_API_KEY"])
-        #expect(userDefinition.scopeDefinition(scope: try customScope("video"))?.allowPatterns == ["github.com/bannzai/youtuber"])
-    }
-
+    /// `@alias` and `@path`, which development builds of https://github.com/bannzai/SecChain/issues/56
+    /// read, are no directives any more: `--repository` and the shared scopes took over their uses.
     @Test
     func unknownOrIncompleteDirectivesAreRejected() {
-        for text in ["@repository github.com/bannzai/anything", "@unknown value", "@alias github.com/a/fork", "@path /Users/someone/notes", "@path notes local/notes", "@scope", "@scope a b"] {
+        for text in [
+            "@repository github.com/bannzai/anything",
+            "@unknown value",
+            "@alias github.com/bannzai/some-fork github.com/upstream/some-repo",
+            "@path /Users/someone/notes local/notes",
+            "@scope",
+            "@scope a b",
+        ] {
             #expect(throws: UserDefinitionError.invalidDirective(lineNumber: 1)) {
                 try UserDefinitionText.parse(text: text)
             }
@@ -115,15 +112,9 @@ struct UserDefinitionTests {
     }
 
     @Test
-    func aSecondDeclarationOfOneScopeForkOrDirectoryIsRejected() {
+    func aSecondDeclarationOfOneScopeIsRejected() {
         #expect(throws: UserDefinitionError.duplicateDeclaration(lineNumber: 3)) {
             try UserDefinitionText.parse(text: "@scope youtube\nA\n@scope youtube\n")
-        }
-        #expect(throws: UserDefinitionError.duplicateDeclaration(lineNumber: 2)) {
-            try UserDefinitionText.parse(text: "@alias github.com/a/fork github.com/b/one\n@alias github.com/A/Fork github.com/b/two\n")
-        }
-        #expect(throws: UserDefinitionError.duplicateDeclaration(lineNumber: 2)) {
-            try UserDefinitionText.parse(text: "@path /Users/someone/notes one\n@path /Users/someone/notes two\n")
         }
     }
 
@@ -215,65 +206,6 @@ struct UserDefinitionTests {
         )
     }
 
-    // MARK: - Identity
-
-    @Test
-    func anAliasTurnsAForkIntoItsUpstreamOnce() throws {
-        let userDefinition = try UserDefinitionText.parse(
-            text: "@alias github.com/bannzai/some-fork github.com/upstream/some-repo\n@alias github.com/upstream/some-repo github.com/elsewhere/repo\n"
-        )
-        #expect(
-            userDefinition.aliasedRepositoryIdentity(repositoryIdentity: RepositoryIdentity(value: "github.com/bannzai/some-fork"))
-                == RepositoryIdentity(value: "github.com/upstream/some-repo")
-        )
-        #expect(
-            userDefinition.aliasedRepositoryIdentity(repositoryIdentity: RepositoryIdentity(value: "github.com/bannzai/other"))
-                == RepositoryIdentity(value: "github.com/bannzai/other")
-        )
-    }
-
-    /// The identifier of a Git remote is lowercase and the Keychain compares services
-    /// case-sensitively, so an upstream or an identifier spelled the way a hosting service shows it
-    /// is folded too. The directory of `@path` is a path, which keeps its letter case.
-    @Test
-    func theUpstreamOfAnAliasAndTheIdentifierOfAPathAreFoldedToLowercase() throws {
-        let userDefinition = try UserDefinitionText.parse(
-            text: "@alias GitHub.com/bannzai/Some-Fork github.com/Upstream/Some-Repo\n@path /Users/someone/Notes Local/Notes\n"
-        )
-        #expect(userDefinition.upstreamRepositoryIdentities == ["github.com/bannzai/some-fork": RepositoryIdentity(value: "github.com/upstream/some-repo")])
-        #expect(userDefinition.pathRepositoryIdentities == ["/Users/someone/Notes": RepositoryIdentity(value: "local/notes")])
-    }
-
-    @Test
-    func aPathNamesItsDirectoryAndEverythingBelowItButNotASiblingWithTheSamePrefix() throws {
-        let root = try makeTemporaryDirectory()
-        let notes = root.appendingPathComponent("notes", isDirectory: true)
-        let drafts = notes.appendingPathComponent("drafts", isDirectory: true)
-        let sibling = root.appendingPathComponent("notes-old", isDirectory: true)
-        for directory in [drafts, sibling] {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        }
-        let userDefinition = try UserDefinitionText.parse(text: "@path \(notes.path) local/notes\n@path \(drafts.path) local/drafts\n")
-        #expect(userDefinition.pathRepository(directory: notes)?.repositoryIdentity == RepositoryIdentity(value: "local/notes"))
-        // The most specific path wins.
-        #expect(userDefinition.pathRepository(directory: drafts)?.repositoryIdentity == RepositoryIdentity(value: "local/drafts"))
-        #expect(userDefinition.pathRepository(directory: sibling) == nil)
-        #expect(userDefinition.pathRepository(directory: root) == nil)
-    }
-
-    @Test
-    func aPathWithASpaceNeedsNoQuotingAndALinkLeadsToItsDirectory() throws {
-        let root = try makeTemporaryDirectory()
-        let notes = root.appendingPathComponent("My Notes", isDirectory: true)
-        try FileManager.default.createDirectory(at: notes, withIntermediateDirectories: true)
-        let link = root.appendingPathComponent("link-to-notes", isDirectory: true)
-        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: notes)
-        let userDefinition = try UserDefinitionText.parse(text: "@path \(link.path) local/notes\n")
-        #expect(userDefinition.pathRepositoryIdentities == [link.path: RepositoryIdentity(value: "local/notes")])
-        #expect(userDefinition.pathRepository(directory: notes)?.repositoryIdentity == RepositoryIdentity(value: "local/notes"))
-        #expect(try UserDefinitionText.parse(text: "@path \(notes.path)   local/notes").pathRepositoryIdentities == [notes.path: RepositoryIdentity(value: "local/notes")])
-    }
-
     // MARK: - Editing
 
     @Test
@@ -336,11 +268,13 @@ struct UserDefinitionTests {
     }
 
     @Test
-    func anAllowGoesWithTheLinesOfItsScopeRatherThanAfterAnAliasThatFollowsThem() throws {
+    func anAllowGoesWithTheLinesOfItsScopeRatherThanAfterACommentThatFollowsThem() throws {
         #expect(
-            try UserDefinitionText.adding(allowPattern: "github.com/bannzai/tutorials", scope: try customScope("video"), text: exampleText).hasSuffix(
-                "@scope video\nYOUTUBE_API_KEY\n@allow github.com/bannzai/youtuber\n@allow github.com/bannzai/tutorials\n\n@alias github.com/bannzai/some-fork github.com/upstream/some-repo\n@path /Users/bannzai/notes local/notes\n"
-            )
+            try UserDefinitionText.adding(
+                allowPattern: "github.com/bannzai/tutorials",
+                scope: try customScope("video"),
+                text: "@scope video\nYOUTUBE_API_KEY\n@allow github.com/bannzai/youtuber\n\n# notes for later\n"
+            ) == "@scope video\nYOUTUBE_API_KEY\n@allow github.com/bannzai/youtuber\n@allow github.com/bannzai/tutorials\n\n# notes for later\n"
         )
     }
 

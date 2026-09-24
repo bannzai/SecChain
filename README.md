@@ -120,7 +120,7 @@ secchain doctor --authenticate   # also asks for Touch ID / your password once
 
 `doctor` passing does not mean every secret you expect is visible. A binary signed by a different Apple Developer Team (a fork built and signed with your own team, for example) passes `doctor` — it can use its own access group just fine — but that access group is not the official app's, so a secret stored by the official app is genuinely absent from it, and you get a real "not found" for a secret you know exists elsewhere. When that happens, check, in order:
 
-1. Is this the same repository? `secchain list --repositories` shows the identifiers this Mac has secrets for; a different Git remote, `--repository`, or an `@alias` / `@path` of `~/.secchain` means a different identifier.
+1. Is this the same repository? `secchain list --repositories` shows the identifiers this Mac has secrets for; a different Git remote or `--repository` means a different identifier.
 2. Is the secret in a shared scope? `secchain list --scopes` shows each scope with the repositories it is passed to; a scope without an `@allow` for this repository is not passed to it.
 3. Is this the official, team-signed build? A build signed with a different team reads and writes a separate Keychain vault (see "Building from source").
 4. If the secret was set on another Mac, does it meet the sync conditions in "Initial setup"?
@@ -189,13 +189,13 @@ CLOUDFLARE_API_TOKEN
 ```
 
 - A secret name is a POSIX environment variable name (letters, digits, underscores, not starting with a digit) — `secchain run` exports it under that name.
-- Names are all the file holds. Which repository it is and which shared scopes it gets are yours to decide in `~/.secchain`, not the repository's; an `@repository` line of an earlier development build is refused with the error saying what replaces it.
+- Names are all the file holds. Which repository it is comes from its Git remote (or `--repository`), and which shared scopes it gets is yours to decide in `~/.secchain`, not the repository's; an `@repository` line of an earlier development build is refused with the error saying what replaces it.
 - `secchain set` and `secchain delete` keep the current directory's `.secchain` in sync, as long as neither is given `--repository` or `--scope`; comments and ordering you wrote by hand survive. With `--repository`, the command acts on a different repository's secrets, so the local `.secchain` is not the right file to update and is left alone. With `--scope`, the name goes into that scope of `~/.secchain` instead.
 - The file is optional. Without it, `run` uses every secret of the scopes the repository gets. With it, `run` refuses to start while a name it declares has no stored value there, and names it in the error, together with the `secchain scope allow` to run when a scope not allowed for the repository has it.
 
 ## `~/.secchain`
 
-Your own file, outside every repository, decides what no repository can decide for itself: which shared scopes a repository gets, and which repository a directory is. Keep it with your dotfiles; it belongs to one Mac and is not synchronized through iCloud (a symbolic link into a dotfiles repository stays a link when `secchain` edits it). It has the line format of `.secchain`:
+Your own file, outside every repository, decides what no repository can decide for itself: which shared scopes a repository gets. Keep it with your dotfiles; it belongs to one Mac and is not synchronized through iCloud (a symbolic link into a dotfiles repository stays a link when `secchain` edits it). It has the line format of `.secchain`:
 
 ```text
 # user scope
@@ -207,19 +207,15 @@ ANTHROPIC_API_KEY
 YOUTUBE_API_KEY
 @allow github.com/bannzai/youtuber
 @allow github.com/bannzai/shorts-*
-
-@alias github.com/bannzai/some-fork github.com/upstream/some-repo
-@path /Users/bannzai/notes local/notes
 ```
 
 - The lines before the first `@scope` are the user scope; `@scope <name>` starts a custom scope that lasts until the next one. The names of a scope are the ones it is meant to hold, and `secchain list --long --scope <name>` reports those without a value.
-- `@allow <pattern>` passes the scope to the repositories the pattern names. A scope without one is passed to no repository.
-- `@alias <fork> <upstream>` makes a fork use its upstream's secrets. `@path <absolute directory> <identifier>` gives a directory without a Git remote, and everything below it, an identifier. Both belong to no scope and apply wherever they are written. Like a remote, the upstream and the identifier are folded to lowercase, so `github.com/Upstream/Repo` is the upstream's own checkout.
+- `@allow <pattern>` passes the scope to the repositories the pattern names. A scope without one is passed to no repository. A fork and its upstream are two repositories: to give the fork the upstream's secrets, keep them in a scope that allows both.
 - `secchain set --scope`, `secchain delete --scope`, `secchain scope allow`, and `secchain scope deny` edit the file for you and keep your comments and ordering. Like `.secchain`, it never holds a value.
 
 ### Repository identity
 
-The repository identity comes from the `origin` remote, normalized to `host/owner/repo` (case, credentials, port, scheme, and a trailing `.git` are dropped), so `git@github.com:Owner/Repo.git` and `https://github.com/owner/repo` are the same repository and the same Keychain items — including from a linked worktree or a sub-directory. `@alias` in `~/.secchain` then turns a fork into its upstream. A directory that is not a Git repository, has no `origin`, or has an `origin` that is a local path needs an `@path` in `~/.secchain`; SecChain never falls back to the checkout path, because the same repository must resolve to the same secrets from every checkout on every Mac.
+The repository identity comes from the `origin` remote, normalized to `host/owner/repo` (case, credentials, port, scheme, and a trailing `.git` are dropped), so `git@github.com:Owner/Repo.git` and `https://github.com/owner/repo` are the same repository and the same Keychain items — including from a linked worktree or a sub-directory. A directory that is not a Git repository, has no `origin`, or has an `origin` that is a local path needs `--repository <identifier>`; SecChain never falls back to the checkout path, because the same repository must resolve to the same secrets from every checkout on every Mac.
 
 `--repository <identifier>` on any command acts on a repository other than the current directory's, without touching that repository's `.secchain` file.
 

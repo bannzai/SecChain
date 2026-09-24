@@ -23,23 +23,23 @@
         }
       }
     },
-    "%@ is not inside a Git repository. Run secchain inside a repository, or give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain." : {
+    "%@ is not inside a Git repository. Run secchain inside a repository, or give the repository's identifier with '--repository <identifier>' (in the app, type it as the identifier)." : {
       "comment" : "Error message after a folder was chosen. %@ is the folder path",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ は Git リポジトリ内にありません。リポジトリ内で secchain を実行するか、~/.secchain の「@path <directory> <identifier>」でディレクトリに識別子を付けてください。"
+            "value" : "%@ は Git リポジトリ内にありません。リポジトリ内で secchain を実行するか、「--repository <identifier>」でリポジトリの識別子を指定してください（アプリでは識別子の欄に入力します）。"
           }
         }
       }
     },
-    ".secchain line %lld: '@repository' is no longer read. Share an upstream's secrets with '@alias <fork> <upstream>', or give a directory without a Git remote an identifier with '@path <directory> <identifier>', in ~/.secchain." : {
+    ".secchain line %lld: '@repository' is no longer read. The repository is identified by its Git remote: give a directory without one its identifier with '--repository <identifier>', and share secrets with another repository through a shared scope of ~/.secchain." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : ".secchain の %lld 行目：「@repository」は読み込まれなくなりました。上流リポジトリの Secret を共有するには「@alias <fork> <upstream>」を、Git リモートのないディレクトリに識別子を付けるには「@path <directory> <identifier>」を ~/.secchain に書いてください。"
+            "value" : ".secchain の %lld 行目：「@repository」は読み込まれなくなりました。リポジトリは Git リモートで識別します。Git リモートのないディレクトリには「--repository <identifier>」で識別子を指定し、ほかのリポジトリと Secret を共有するには ~/.secchain の共有 scope を使ってください。"
           }
         }
       }
@@ -64,12 +64,12 @@
         }
       }
     },
-    ".secchain line %lld: unknown directive. The definition file lists secret names only; scopes and identifiers are set in ~/.secchain." : {
+    ".secchain line %lld: unknown directive. The definition file lists secret names only; shared scopes are set in ~/.secchain." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : ".secchain の %lld 行目：不明なディレクティブです。定義ファイルには Secret の名前だけを書きます。scope と識別子は ~/.secchain で設定します。"
+            "value" : ".secchain の %lld 行目：不明なディレクティブです。定義ファイルには Secret の名前だけを書きます。共有 scope は ~/.secchain で設定します。"
           }
         }
       }
@@ -840,24 +840,24 @@
         }
       }
     },
-    "The 'origin' remote (%@) is a local path, which differs between Macs. Give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain." : {
+    "The 'origin' remote (%@) is a local path, which differs between Macs. Give the repository's identifier with '--repository <identifier>' (in the app, type it as the identifier)." : {
       "comment" : "Error message after a folder was chosen. %@ is the remote URL",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "「origin」リモート（%@）はローカルのパスで、Mac ごとに異なります。~/.secchain の「@path <directory> <identifier>」でディレクトリに識別子を付けてください。"
+            "value" : "「origin」リモート（%@）はローカルのパスで、Mac ごとに異なります。「--repository <identifier>」でリポジトリの識別子を指定してください（アプリでは識別子の欄に入力します）。"
           }
         }
       }
     },
-    "The Git repository at %@ has no 'origin' remote, so it cannot be identified on other Macs. Add the remote, or give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain." : {
+    "The Git repository at %@ has no 'origin' remote, so it cannot be identified on other Macs. Add the remote, or give the repository's identifier with '--repository <identifier>' (in the app, type it as the identifier)." : {
       "comment" : "Error message after a folder was chosen. %@ is the folder path",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ の Git リポジトリには「origin」リモートがないため、ほかの Mac で識別できません。リモートを追加するか、~/.secchain の「@path <directory> <identifier>」でディレクトリに識別子を付けてください。"
+            "value" : "%@ の Git リポジトリには「origin」リモートがないため、ほかの Mac で識別できません。リモートを追加するか、「--repository <identifier>」でリポジトリの識別子を指定してください（アプリでは識別子の欄に入力します）。"
           }
         }
       }
@@ -1350,24 +1350,24 @@
         }
       }
     },
-    "~/.secchain line %lld: repeats a scope, an '@alias' fork or an '@path' directory of an earlier line." : {
+    "~/.secchain line %lld: repeats the '@scope' of an earlier line." : {
       "comment" : "Error message about the user's definition file ~/.secchain, shown after a folder was chosen. %lld is the line number",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "~/.secchain の %lld 行目：前の行と同じ scope、「@alias」の fork、または「@path」のディレクトリが繰り返されています。"
+            "value" : "~/.secchain の %lld 行目：前の行と同じ「@scope」が繰り返されています。"
           }
         }
       }
     },
-    "~/.secchain line %lld: unknown or incomplete directive. The directives are '@scope <name>', '@allow <pattern>', '@alias <fork> <upstream>' and '@path <absolute directory> <identifier>'." : {
+    "~/.secchain line %lld: unknown or incomplete directive. The directives are '@scope <name>' and '@allow <pattern>'." : {
       "comment" : "Error message about the user's definition file ~/.secchain, shown after a folder was chosen. %lld is the line number",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "~/.secchain の %lld 行目：不明または不完全なディレクティブです。使用できるのは「@scope <name>」「@allow <pattern>」「@alias <fork> <upstream>」「@path <absolute directory> <identifier>」です。"
+            "value" : "~/.secchain の %lld 行目：不明または不完全なディレクティブです。使用できるのは「@scope <name>」と「@allow <pattern>」です。"
           }
         }
       }

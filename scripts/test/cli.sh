@@ -123,7 +123,7 @@ cp .secchain "${WORK_DIRECTORY}/secchain.backup"
 printf '@repository github.com/secchain-cli-test/anything\n' >> .secchain
 capture_output "${SECCHAIN}" list
 [ "${LAST_STATUS}" -ne 0 ] || fail "a .secchain with @repository was accepted"
-printf '%s' "${LAST_OUTPUT}" | grep -q "@alias" || fail "the error does not say where @repository went"
+printf '%s' "${LAST_OUTPUT}" | grep -qF -e "--repository" || fail "the error does not say what replaced @repository"
 cp "${WORK_DIRECTORY}/secchain.backup" .secchain
 
 echo "== set --scope stores in a custom scope and declares the name in ~/.secchain only"
@@ -200,17 +200,6 @@ printf '%s' "${LAST_OUTPUT}" | grep -q "cannot be a repository identifier" || fa
 echo "== in the home directory, ~/.secchain is not read as a repository's .secchain"
 (cd "${HOME}" && "${SECCHAIN}" run --repository "${REPOSITORY}" -- true) >> "${CAPTURED_OUTPUT}" 2>&1 \
   || fail "run in the home directory read ~/.secchain as the repository's .secchain"
-
-echo "== @alias makes a fork use its upstream's secrets, @path identifies a directory without a remote, both in any letter case"
-FORK_DIRECTORY="${WORK_DIRECTORY}/fork"
-NOTES_DIRECTORY="${WORK_DIRECTORY}/notes"
-mkdir -p "${FORK_DIRECTORY}" "${NOTES_DIRECTORY}/drafts"
-(cd "${FORK_DIRECTORY}" && git init --quiet && git remote add origin "git@github.com:secchain-cli-test/fork-$$.git")
-# The upstream is spelled the way a hosting service shows it, and the repository's secret was
-# stored under the lowercase identifier its remote gives it.
-printf '@alias github.com/secchain-cli-test/fork-%s GitHub.com/SecChain-CLI-Test/Repository-%s\n@path %s SecChain-CLI-Test-Notes-%s\n' "$$" "$$" "${NOTES_DIRECTORY}" "$$" >> "${USER_DEFINITION}"
-(cd "${FORK_DIRECTORY}" && "${SECCHAIN}" list) | grep -qx "CLI_TEST_KEY" || fail "the fork did not get its upstream's secret"
-(cd "${NOTES_DIRECTORY}/drafts" && "${SECCHAIN}" list --long) | grep -qx "# secchain-cli-test-notes-$$ (repository)" || fail "@path did not identify the directory below it"
 
 echo "== scope deny stops passing the scope"
 capture "${SECCHAIN}" scope deny "${SCOPE}" "${REPOSITORY}"

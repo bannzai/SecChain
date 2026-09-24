@@ -13,19 +13,15 @@ struct GitCommandResult {
 /// Only available on macOS: the iOS app never resolves a working directory, it lists the
 /// repositories already present in the Keychain.
 public enum RepositoryIdentityResolver {
-    /// Resolution order: `explicitIdentifier` (`--repository`), then the `@path` of `~/.secchain`
-    /// that contains the directory, then the normalized `origin` remote. Whichever answers goes
-    /// through `@alias`. Anything else is an error rather than a guess.
+    /// Resolution order: `explicitIdentifier` (`--repository`), then the normalized `origin` remote.
+    /// Anything else is an error rather than a guess.
     ///
     /// Nothing inside the repository takes part (documents/PROJECT.md, design decision 6): the
     /// identity decides which repository's secrets and which shared scopes a command gets, and a
     /// repository's files are written by whoever wrote the repository.
-    public static func resolve(directory: URL, explicitIdentifier: String?, userDefinition: UserDefinition) throws -> RepositoryIdentity {
-        userDefinition.aliasedRepositoryIdentity(
-            repositoryIdentity: try explicitIdentifier.flatMap { $0.isEmpty ? nil : RepositoryIdentity(value: $0) }
-                ?? userDefinition.pathRepository(directory: directory)?.repositoryIdentity
-                ?? originRemoteIdentity(directory: directory)
-        )
+    public static func resolve(directory: URL, explicitIdentifier: String?) throws -> RepositoryIdentity {
+        try explicitIdentifier.flatMap { $0.isEmpty ? nil : RepositoryIdentity(value: $0) }
+            ?? originRemoteIdentity(directory: directory)
     }
 
     /// The identity the normalized `origin` remote gives the repository that contains `directory`.
@@ -58,15 +54,13 @@ public enum RepositoryIdentityResolver {
         return URL(fileURLWithPath: topLevel.standardOutput, isDirectory: true)
     }
 
-    /// Directory whose `.secchain` is the definition file of `directory`: the directory of the
-    /// `@path` that contains it, otherwise the working tree root inside Git, otherwise `directory`
-    /// itself. `nil` when that `.secchain` is the `~/.secchain` of `homeDirectory`
-    /// (`UserDefinitionFile.isUserDefinitionFile`), which is no repository's. The command-line tool
-    /// and the macOS app both ask here, so that they read the same file for one directory.
-    public static func definitionDirectory(directory: URL, userDefinition: UserDefinition, homeDirectory: URL) throws -> URL? {
-        let repositoryDirectory = try userDefinition.pathRepository(directory: directory)?.directory
-            ?? workingTreeRoot(directory: directory)
-            ?? directory
+    /// Directory whose `.secchain` is the definition file of `directory`: the working tree root
+    /// inside Git, otherwise `directory` itself. `nil` when that `.secchain` is the `~/.secchain` of
+    /// `homeDirectory` (`UserDefinitionFile.isUserDefinitionFile`), which is no repository's. The
+    /// command-line tool and the macOS app both ask here, so that they read the same file for one
+    /// directory.
+    public static func definitionDirectory(directory: URL, homeDirectory: URL) throws -> URL? {
+        let repositoryDirectory = try workingTreeRoot(directory: directory) ?? directory
         guard !UserDefinitionFile.isUserDefinitionFile(url: SecretDefinitionFile.url(workingTreeRoot: repositoryDirectory), homeDirectory: homeDirectory) else {
             return nil
         }
@@ -77,8 +71,8 @@ public enum RepositoryIdentityResolver {
     /// The macOS app parses it when a folder is chosen, so that a file every `secchain` command
     /// refuses, such as one with the `@repository` of an earlier build, is refused there too instead
     /// of the folder silently becoming another repository.
-    public static func definition(directory: URL, userDefinition: UserDefinition, homeDirectory: URL) throws -> SecretDefinition? {
-        try definitionDirectory(directory: directory, userDefinition: userDefinition, homeDirectory: homeDirectory)
+    public static func definition(directory: URL, homeDirectory: URL) throws -> SecretDefinition? {
+        try definitionDirectory(directory: directory, homeDirectory: homeDirectory)
             .flatMap { try SecretDefinitionFile.readText(workingTreeRoot: $0) }
             .map(SecretDefinitionText.parse(text:))
     }

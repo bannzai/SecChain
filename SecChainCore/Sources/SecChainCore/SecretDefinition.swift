@@ -7,8 +7,9 @@ import Foundation
 /// that look like `NAME=value`, so that a pasted `.env` file is refused instead of committed.
 ///
 /// There is no directive either. Whatever a repository's files say is chosen by whoever wrote the
-/// repository, so nothing in them can change which repository it is or which scopes `run` passes
-/// to it (documents/PROJECT.md, design decision 6); that is decided in `~/.secchain`.
+/// repository, so nothing in them can change which repository it is, which the Git remote or
+/// `--repository` decides, or which scopes `run` passes to it, which `~/.secchain` decides
+/// (documents/PROJECT.md, design decision 6).
 ///
 /// File format, one entry per line:
 ///
@@ -29,7 +30,7 @@ public enum SecretDefinitionError: Error, Equatable, CustomStringConvertible {
     case invalidSecretName(lineNumber: Int)
     /// The line is `@repository`, which earlier versions read as the repository's identifier.
     /// It is refused rather than ignored, so that a fork or a directory that relied on it gets
-    /// told where its identity is declared now instead of silently becoming another repository.
+    /// told what replaced it instead of silently becoming another repository.
     case repositoryDirectiveRemoved(lineNumber: Int)
     /// The line is another `@` directive. The definition file has none.
     case invalidDirective(lineNumber: Int)
@@ -50,9 +51,9 @@ public enum SecretDefinitionError: Error, Equatable, CustomStringConvertible {
         case .invalidSecretName(let lineNumber):
             String(localized: ".secchain line \(lineNumber): not a valid secret name. Use letters, digits and underscores, not starting with a digit.", bundle: bundle)
         case .repositoryDirectiveRemoved(let lineNumber):
-            String(localized: ".secchain line \(lineNumber): '@repository' is no longer read. Share an upstream's secrets with '@alias <fork> <upstream>', or give a directory without a Git remote an identifier with '@path <directory> <identifier>', in ~/.secchain.", bundle: bundle)
+            String(localized: ".secchain line \(lineNumber): '@repository' is no longer read. The repository is identified by its Git remote: give a directory without one its identifier with '--repository <identifier>', and share secrets with another repository through a shared scope of ~/.secchain.", bundle: bundle)
         case .invalidDirective(let lineNumber):
-            String(localized: ".secchain line \(lineNumber): unknown directive. The definition file lists secret names only; scopes and identifiers are set in ~/.secchain.", bundle: bundle)
+            String(localized: ".secchain line \(lineNumber): unknown directive. The definition file lists secret names only; shared scopes are set in ~/.secchain.", bundle: bundle)
         }
     }
 }

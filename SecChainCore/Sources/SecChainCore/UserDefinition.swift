@@ -1,20 +1,14 @@
 import Foundation
 
-/// What the user's definition file (`~/.secchain`) declares: the shared scopes, the repositories
-/// each of them is passed to, and the identifiers of forks and of directories without a Git remote
-/// (documents/PROJECT.md, "The user's definition file").
+/// What the user's definition file (`~/.secchain`) declares: the shared scopes and the repositories
+/// each of them is passed to (documents/PROJECT.md, "The user's definition file").
 ///
 /// It lives outside every repository on purpose: a repository's own files cannot widen what
 /// `secchain run` passes (design decision 6), so everything that does is here. Like a repository's
-/// `.secchain`, it holds names and identifiers only, never a value.
+/// `.secchain`, it holds names and patterns only, never a value.
 ///
 /// File format, one entry per line. The names and `@allow` lines before the first `@scope` belong
-/// to the user scope, and each `@scope` line starts a custom scope that lasts until the next one.
-/// `@alias` and `@path` say which repository a directory is, which belongs to no scope, so they
-/// apply wherever they are written. The identifiers they give are folded to lowercase, as the one
-/// of a Git remote is (`RepositoryRemoteURL`): the Keychain compares services case-sensitively, and
-/// an upstream spelled the way the hosting service shows it has to reach the items of the upstream's
-/// own checkout:
+/// to the user scope, and each `@scope` line starts a custom scope that lasts until the next one:
 ///
 ///     # user scope
 ///     OPENAI_API_KEY
@@ -23,20 +17,11 @@ import Foundation
 ///     @scope youtube
 ///     YOUTUBE_API_KEY
 ///     @allow github.com/bannzai/youtuber
-///
-///     @alias github.com/bannzai/some-fork github.com/upstream/some-repo
-///     @path /Users/bannzai/notes local/notes
 public struct UserDefinition: Equatable, Sendable {
     /// The lines before the first `@scope`.
     public let userScope: ScopeDefinition
     /// One entry per `@scope`, in file order, which is also their order of precedence in `run`.
     public let customScopes: [ScopeDefinition]
-    /// `@alias <fork> <upstream>`, the upstream in lowercase, keyed by the fork's identifier in
-    /// lowercase: the fork is treated as its upstream, so that both get the upstream's secrets.
-    public let upstreamRepositoryIdentities: [String: RepositoryIdentity]
-    /// `@path <directory> <identifier>`, the identifier in lowercase, keyed by the directory as
-    /// written: the directory and everything below it is that repository.
-    public let pathRepositoryIdentities: [String: RepositoryIdentity]
 
     /// The scopes `run` passes to a repository, in order of precedence: the repository's own scope,
     /// then every custom scope that allows it, in file order, then the user scope when it allows it.
@@ -53,27 +38,6 @@ public struct UserDefinition: Equatable, Sendable {
     /// when a `@scope` line names it.
     public func scopeDefinition(scope: SharedScope) -> ScopeDefinition? {
         ([userScope] + customScopes).first { $0.scope == scope }
-    }
-
-    /// `repositoryIdentity` after `@alias`: a fork becomes its upstream. One step only, so that
-    /// aliases can never form a loop.
-    public func aliasedRepositoryIdentity(repositoryIdentity: RepositoryIdentity) -> RepositoryIdentity {
-        upstreamRepositoryIdentities[repositoryIdentity.value.lowercased()] ?? repositoryIdentity
-    }
-
-    /// The `@path` that contains `directory`: the directory it names and its identifier, the most
-    /// specific one when several contain `directory`. Paths are compared component by component
-    /// after resolving symbolic links, so that `/Users/me/notes` does not contain
-    /// `/Users/me/notes-old`, and a path through a link names the directory it leads to.
-    public func pathRepository(directory: URL) -> (directory: URL, repositoryIdentity: RepositoryIdentity)? {
-        let directoryComponents = directory.resolvingSymlinksInPath().pathComponents
-        return pathRepositoryIdentities
-            .map { (writtenPath: $0.key, directory: URL(fileURLWithPath: $0.key, isDirectory: true).resolvingSymlinksInPath(), repositoryIdentity: $0.value) }
-            .filter { directoryComponents.starts(with: $0.directory.pathComponents) }
-            // Two written paths can lead to the same directory. The order of their text decides
-            // between them, so that the answer does not depend on the order of a dictionary.
-            .max { ($0.directory.pathComponents.count, $0.writtenPath) < ($1.directory.pathComponents.count, $1.writtenPath) }
-            .map { (directory: $0.directory, repositoryIdentity: $0.repositoryIdentity) }
     }
 }
 
@@ -146,10 +110,10 @@ public enum UserDefinitionError: Error, Equatable, CustomStringConvertible {
     case invalidScopeName(lineNumber: Int)
     /// `@allow` has no pattern, several, or a `*` that is not the last character.
     case invalidAllowPattern(lineNumber: Int)
-    /// An unknown directive, or `@scope` / `@alias` / `@path` with the wrong arguments.
+    /// An unknown directive, or `@scope` with the wrong arguments.
     case invalidDirective(lineNumber: Int)
-    /// A second `@scope` for one scope, or a second `@alias` / `@path` for one fork or directory.
-    /// Which of the two lines counts would be a guess, and an edit would not know which to change.
+    /// A second `@scope` for one scope. Which of the two sections counts would be a guess, and an
+    /// edit would not know which to change.
     case duplicateDeclaration(lineNumber: Int)
 
     /// The message in English, as the command-line tool prints it: no SecChain binary has
@@ -158,8 +122,8 @@ public enum UserDefinitionError: Error, Equatable, CustomStringConvertible {
         message(bundle: .main)
     }
 
-    /// The message translated by the String Catalog in `bundle`, for the macOS app, which reads
-    /// `~/.secchain` when a folder is chosen. English where the catalog has no translation.
+    /// The message translated by the String Catalog in `bundle`. English where the catalog has no
+    /// translation.
     public func message(bundle: Bundle) -> String {
         switch self {
         case .valueNotAllowed(let lineNumber):
@@ -171,9 +135,9 @@ public enum UserDefinitionError: Error, Equatable, CustomStringConvertible {
         case .invalidAllowPattern(let lineNumber):
             String(localized: "~/.secchain line \(lineNumber): '@allow' takes one pattern, a repository identifier or the start of one followed by '*'.", bundle: bundle)
         case .invalidDirective(let lineNumber):
-            String(localized: "~/.secchain line \(lineNumber): unknown or incomplete directive. The directives are '@scope <name>', '@allow <pattern>', '@alias <fork> <upstream>' and '@path <absolute directory> <identifier>'.", bundle: bundle)
+            String(localized: "~/.secchain line \(lineNumber): unknown or incomplete directive. The directives are '@scope <name>' and '@allow <pattern>'.", bundle: bundle)
         case .duplicateDeclaration(let lineNumber):
-            String(localized: "~/.secchain line \(lineNumber): repeats a scope, an '@alias' fork or an '@path' directory of an earlier line.", bundle: bundle)
+            String(localized: "~/.secchain line \(lineNumber): repeats the '@scope' of an earlier line.", bundle: bundle)
         }
     }
 }
@@ -188,8 +152,6 @@ public enum UserDefinitionText {
 
     static let scopeDirective = "@scope"
     static let allowDirective = "@allow"
-    static let aliasDirective = "@alias"
-    static let pathDirective = "@path"
 
     static let headerComment = """
         # SecChain: secrets shared between repositories, and the repositories each scope is passed to.
@@ -198,8 +160,6 @@ public enum UserDefinitionText {
 
     public static func parse(text: String) throws -> UserDefinition {
         var sections: [(scope: SharedScope, secretNames: [SecretName], allowPatterns: [String])] = [(.user, [], [])]
-        var upstreamRepositoryIdentities: [String: RepositoryIdentity] = [:]
-        var pathRepositoryIdentities: [String: RepositoryIdentity] = [:]
         for (index, rawLine) in text.components(separatedBy: "\n").enumerated() {
             let lineNumber = index + 1
             let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -229,29 +189,6 @@ public enum UserDefinitionText {
                 if !sections[sections.count - 1].allowPatterns.contains(words[1]) {
                     sections[sections.count - 1].allowPatterns.append(words[1])
                 }
-            case aliasDirective:
-                guard words.count == 3 else {
-                    throw UserDefinitionError.invalidDirective(lineNumber: lineNumber)
-                }
-                guard upstreamRepositoryIdentities[words[1].lowercased()] == nil else {
-                    throw UserDefinitionError.duplicateDeclaration(lineNumber: lineNumber)
-                }
-                upstreamRepositoryIdentities[words[1].lowercased()] = RepositoryIdentity(value: words[2].lowercased())
-            case pathDirective:
-                // The identifier is the last word and the directory is everything before it, so
-                // that a directory whose name contains a space needs no quoting.
-                let arguments = line.dropFirst(pathDirective.count).trimmingCharacters(in: .whitespaces)
-                guard let lastSeparator = arguments.lastIndex(where: \.isWhitespace) else {
-                    throw UserDefinitionError.invalidDirective(lineNumber: lineNumber)
-                }
-                let path = arguments[..<lastSeparator].trimmingCharacters(in: .whitespaces)
-                guard path.hasPrefix("/") else {
-                    throw UserDefinitionError.invalidDirective(lineNumber: lineNumber)
-                }
-                guard pathRepositoryIdentities[path] == nil else {
-                    throw UserDefinitionError.duplicateDeclaration(lineNumber: lineNumber)
-                }
-                pathRepositoryIdentities[path] = RepositoryIdentity(value: arguments[arguments.index(after: lastSeparator)...].lowercased())
             case let word where word.hasPrefix("@"):
                 throw UserDefinitionError.invalidDirective(lineNumber: lineNumber)
             default:
@@ -264,12 +201,7 @@ public enum UserDefinitionText {
             }
         }
         let scopeDefinitions = sections.map { ScopeDefinition(scope: $0.scope, secretNames: $0.secretNames, allowPatterns: $0.allowPatterns) }
-        return UserDefinition(
-            userScope: scopeDefinitions[0],
-            customScopes: Array(scopeDefinitions.dropFirst()),
-            upstreamRepositoryIdentities: upstreamRepositoryIdentities,
-            pathRepositoryIdentities: pathRepositoryIdentities
-        )
+        return UserDefinition(userScope: scopeDefinitions[0], customScopes: Array(scopeDefinitions.dropFirst()))
     }
 
     // Every edit parses the text first, so that nothing is changed in a file that already says
@@ -332,12 +264,12 @@ public enum UserDefinitionText {
     }
 
     /// Whether a line belongs to the scope of its section: the `@scope` line, a name, or an
-    /// `@allow`. Blank lines, comments, `@alias`, and `@path` do not.
+    /// `@allow`. Blank lines and comments do not.
     static func isScopeEntry(line: String) -> Bool {
-        guard let firstWord = words(line: line).first, !firstWord.hasPrefix("#") else {
+        guard let firstWord = words(line: line).first else {
             return false
         }
-        return firstWord != aliasDirective && firstWord != pathDirective
+        return !firstWord.hasPrefix("#")
     }
 
     /// The indices of the lines of `scope`'s section: the lines before the first `@scope` for the
@@ -356,8 +288,8 @@ public enum UserDefinitionText {
 
     /// `text` with `line` at the end of what the section of `scope` declares: after its last scope
     /// entry, or after the comments that open the file when the user scope has none yet, so that a
-    /// comment written above an `@alias` or the first `@scope` stays next to it. A custom scope
-    /// without a section gets a new one at the end of the text.
+    /// comment written above the first `@scope` stays next to it. A custom scope without a section
+    /// gets a new one at the end of the text.
     static func inserting(line: String, scope: SharedScope, text: String?) -> String {
         let baseText = text ?? headerComment + "\n"
         var lines = baseText.components(separatedBy: "\n")

@@ -4,10 +4,9 @@ import Foundation
 /// maps to the same Keychain items on every Mac (and in every worktree of one Mac).
 public struct RepositoryIdentity: Hashable, Sendable, CustomStringConvertible {
     /// Normalized identifier, for example `github.com/owner/repo`, or the identifier the user gave
-    /// explicitly (`--repository`, or `@path` in `~/.secchain`) for a directory without a usable
-    /// Git remote. One from a Git remote, `@path`, or `@alias` is lowercase, and so is a remote URL
-    /// or a `host/owner/repo` typed in an app; `--repository`, and any other text typed in an app,
-    /// is kept as written.
+    /// explicitly (`--repository`, or typed in an app) for a directory without a usable Git remote.
+    /// One from a Git remote is lowercase, and so is a remote URL or a `host/owner/repo` typed in an
+    /// app; `--repository`, and any other text typed in an app, is kept as written.
     public let value: String
 
     public init(value: String) {
@@ -59,11 +58,11 @@ public enum RepositoryIdentityError: Error, Equatable, CustomStringConvertible {
     public func message(bundle: Bundle) -> String {
         switch self {
         case .notAGitRepository(let directory):
-            String(localized: "\(directory) is not inside a Git repository. Run secchain inside a repository, or give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain.", bundle: bundle)
+            String(localized: "\(directory) is not inside a Git repository. Run secchain inside a repository, or give the repository's identifier with '--repository <identifier>' (in the app, type it as the identifier).", bundle: bundle)
         case .noOriginRemote(let directory):
-            String(localized: "The Git repository at \(directory) has no 'origin' remote, so it cannot be identified on other Macs. Add the remote, or give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain.", bundle: bundle)
+            String(localized: "The Git repository at \(directory) has no 'origin' remote, so it cannot be identified on other Macs. Add the remote, or give the repository's identifier with '--repository <identifier>' (in the app, type it as the identifier).", bundle: bundle)
         case .unstableRemote(let sanitizedRemoteURL):
-            String(localized: "The 'origin' remote (\(sanitizedRemoteURL)) is a local path, which differs between Macs. Give the directory an identifier with '@path <directory> <identifier>' in ~/.secchain.", bundle: bundle)
+            String(localized: "The 'origin' remote (\(sanitizedRemoteURL)) is a local path, which differs between Macs. Give the repository's identifier with '--repository <identifier>' (in the app, type it as the identifier).", bundle: bundle)
         case .gitUnavailable(let reason):
             String(localized: "git could not be run: \(reason)", bundle: bundle)
         }

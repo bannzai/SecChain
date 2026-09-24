@@ -65,16 +65,13 @@ An authentication that SecChain itself requests on a Mac (the *confirm* level) c
 - The repository identity must survive different checkout paths on different Macs (`~/Projects/example` and `~/src/example` are the same repository). An absolute local path alone is therefore not a valid identity.
 - Directories that are not Git repositories need a defined behavior (an explicit identifier or a clear error).
 
-Identification rules (implemented in `RepositoryIdentity.swift`, `RepositoryIdentityResolver.swift`, and `UserDefinition.swift`):
+Identification rules (implemented in `RepositoryIdentity.swift` and `RepositoryIdentityResolver.swift`):
 
-1. `--repository <identifier>` on the command line wins, for acting on a repository from outside its checkout.
-2. Otherwise an `@path <directory> <identifier>` of `~/.secchain` whose directory is the current directory or one of its ancestors gives the identifier; the most specific one wins. It is the way to use SecChain in a directory without a usable remote.
-3. Otherwise the `origin` remote URL is normalized to `host/owner/repo`: user info, port, scheme, a trailing `.git`, trailing slashes, and letter case are dropped, so `git@github.com:Owner/Repo.git` and `https://github.com/owner/repo` are the same repository. `git config` is asked, which answers the same from sub-directories and linked worktrees.
-4. No Git repository, no `origin`, or an `origin` that is a local path is an error that names the fix. SecChain never falls back to the directory path.
+1. `--repository <identifier>` on the command line wins, for acting on a repository from outside its checkout or on a directory without a usable remote.
+2. Otherwise the `origin` remote URL is normalized to `host/owner/repo`: user info, port, scheme, a trailing `.git`, trailing slashes, and letter case are dropped, so `git@github.com:Owner/Repo.git` and `https://github.com/owner/repo` are the same repository. `git config` is asked, which answers the same from sub-directories and linked worktrees.
+3. No Git repository, no `origin`, or an `origin` that is a local path is an error that names `--repository`. SecChain never falls back to the directory path.
 
-Whichever rule answers, an `@alias <fork> <upstream>` of `~/.secchain` then replaces a fork's identifier by its upstream's, which is how a fork shares the upstream's secrets on purpose. Nothing in the working tree takes part (design decision 6).
-
-The identifier of `@path` and the upstream of `@alias` are folded to lowercase, for the reason rule 3 drops letter case: the Keychain compares services case-sensitively, so `@alias github.com/me/fork github.com/Upstream/Repo`, written the way the hosting service shows the upstream, would otherwise give the fork other items than a checkout of the upstream, whose remote makes it `github.com/upstream/repo`, and the secrets meant to be shared would silently split. `--repository` is taken as written.
+Nothing in the working tree takes part (design decision 6). A fork is a repository of its own: what it shares with its upstream belongs in a shared scope whose `@allow` lines name both.
 
 ### Secret scopes
 
@@ -89,7 +86,7 @@ A secret belongs to one scope:
 - `user` and the custom scopes are *shared scopes*. They hold what several repositories use, such as an `OPENAI_API_KEY` that is the same everywhere or a `YOUTUBE_API_KEY` of a few repositories, so that one value is stored once instead of once per repository.
 - A custom scope name consists of lowercase ASCII letters, digits, and hyphens, and starts with a letter or a digit, because it becomes part of a Keychain service, of a line of `~/.secchain`, and of a command-line argument. `user` names the built-in scope and `repository` is reserved: neither can name a custom scope.
 - `kSecAttrAccount` is the secret name in every scope. Protection levels and synchronization work the same way in every scope.
-- A device-bound value is kept in an internet password item (see "Measured behavior"). A repository scope uses its identifier as `kSecAttrServer`; a shared scope uses its whole service, `com.bannzai.SecChain.scope.<name>`, so that a repository whose identifier happens to be a scope name never shares that item with the scope. Nothing is stored for a repository whose identifier is itself such a service, in any letter case: only an identifier given by hand (`--repository`, `@path`, `@alias`, or typed in an app) can be one, and a secret stored there would let a later write or delete replace or remove the scope's device-bound value without the authentication its level asks for.
+- A device-bound value is kept in an internet password item (see "Measured behavior"). A repository scope uses its identifier as `kSecAttrServer`; a shared scope uses its whole service, `com.bannzai.SecChain.scope.<name>`, so that a repository whose identifier happens to be a scope name never shares that item with the scope. Nothing is stored for a repository whose identifier is itself such a service, in any letter case: only an identifier given by hand (`--repository`, or typed in an app) can be one, and a secret stored there would let a later write or delete replace or remove the scope's device-bound value without the authentication its level asks for.
 - `secchain run` passes the repository scope and every shared scope that an `@allow` of `~/.secchain` passes to the repository. A name held by several of them comes from the repository scope first, then from the custom scopes in the order `~/.secchain` lists them, then from the user scope.
 
 ### Secret definition file
@@ -97,7 +94,7 @@ A secret belongs to one scope:
 - A repository may contain a Git-trackable file listing the secret **names** it needs.
 - The file never contains secret values.
 
-The file is `.secchain` at the root of the working tree (or of the directory an `@path` names), one entry per line:
+The file is `.secchain` at the root of the working tree, one entry per line:
 
 ```text
 # comment
@@ -106,14 +103,14 @@ CLOUDFLARE_API_TOKEN
 ```
 
 - A secret name is a POSIX environment variable name (ASCII letters, digits, underscores, not starting with a digit), because `secchain run` exports it under that name.
-- The file has no directive: it cannot name the repository or choose a scope (design decision 6). `@repository`, which development builds before https://github.com/bannzai/SecChain/issues/56 read as the repository's identifier, is refused with an error that names `@alias` and `@path` of `~/.secchain`.
+- The file has no directive: it cannot name the repository or choose a scope (design decision 6). `@repository`, which development builds before https://github.com/bannzai/SecChain/issues/56 read as the repository's identifier, is refused with an error that names what replaced it: `--repository` for a directory without a Git remote, and a shared scope for secrets shared with another repository.
 - A line containing `=` is rejected, and the error does not echo the line, so a pasted `.env` file is refused instead of committed.
 - `secchain set` and `secchain delete` edit the text in place: comments and ordering written by hand survive.
 - The file is optional. Without it, `run` uses every secret of the scopes passed to the repository. With it, `run` refuses to start while a declared name has no stored value in those scopes; when a shared scope that is not passed to the repository holds or declares the name, the error names that scope and `secchain scope allow`.
 
 ### The user's definition file
 
-`~/.secchain` decides which repository a directory is and which shared scopes a repository gets. It is outside every repository and not tracked by Git; the user keeps it with their dotfiles. It belongs to one Mac and is never synchronized through iCloud. `$HOME` locates it, the way a shell expands `~`.
+`~/.secchain` decides which shared scopes a repository gets. It is outside every repository and not tracked by Git; the user keeps it with their dotfiles. It belongs to one Mac and is never synchronized through iCloud. `$HOME` locates it, the way a shell expands `~`.
 
 It has the line format of `.secchain`. The names and `@allow` lines before the first `@scope` belong to the user scope, and `@scope <name>` starts a custom scope that lasts until the next `@scope`:
 
@@ -127,16 +124,13 @@ ANTHROPIC_API_KEY
 YOUTUBE_API_KEY
 @allow github.com/bannzai/youtuber
 @allow github.com/bannzai/shorts-*
-
-@alias github.com/bannzai/some-fork github.com/upstream/some-repo
-@path /Users/bannzai/notes local/notes
 ```
 
 - The names of a scope are the names it is meant to hold. They do not limit what `run` passes; `secchain list --long --scope <name>` reports the ones without a value. `secchain set NAME --scope <name>` adds the name, together with the `@scope` line when the scope has none.
 - `@allow <pattern>` names repositories the scope is passed to: a repository identifier, or the start of one followed by `*` (a `*` anywhere else is an error). Letter case is ignored, because the identifier of a Git remote is lowercase. `github.com/bannzai/*` names every repository of `bannzai` and none of `bannzai-other`. A scope without `@allow` is passed to no repository.
-- The identifier `@allow` is compared with is the one of "Repository scoping": the Git remote, `--repository`, or `@path`, after `@alias`. Nothing in the repository can change it.
-- `@alias <fork> <upstream>` and `@path <absolute directory> <identifier>` say which repository a directory is. That belongs to no scope, so they apply wherever they are written. A second `@scope`, `@alias`, or `@path` for the same scope, fork, or directory is an error.
-- The file holds secret names, scope names, repository identifiers, patterns, and paths, never a value; a line containing `=` is rejected as in `.secchain`, and so is a pattern that contains one.
+- The identifier `@allow` is compared with is the one of "Repository scoping": the Git remote or `--repository`. Nothing in the repository can change it.
+- A second `@scope` for the same scope is an error.
+- The file holds secret names, scope names, and patterns, never a value; a line containing `=` is rejected as in `.secchain`, and so is a pattern that contains one.
 - `secchain set --scope`, `secchain delete --scope`, `secchain scope allow`, and `secchain scope deny` edit the text in place: comments and ordering written by hand survive, and a symbolic link into a dotfiles repository stays a link. An edit is applied to the file as it is when the command writes it, so that a change made while the command waited for a value or an authentication is kept.
 - The `.secchain` of the home directory is this file, and so is the `.secchain` of a dotfiles repository that `~/.secchain` links into. No command reads or writes it as a repository's definition file.
 
@@ -272,9 +266,10 @@ Decided on 2026-09-23 in https://github.com/bannzai/SecChain/issues/56, after th
 
 A repository is written by whoever wrote it, and `git clone` puts it on the Mac as it is. If anything in its working tree decided which repository it is, or which shared scopes it gets, a clone of an unknown repository could present itself as one of the user's and receive their shared secrets: with `@allow github.com/bannzai/*` in `~/.secchain`, a clone whose `.secchain` said `@repository github.com/bannzai/anything` would have matched.
 
-- The identity comes from the Git remote, which is where the user cloned from, or from what the user writes: `--repository`, and `@path` / `@alias` of `~/.secchain` ("Repository scoping").
+- The identity comes from the Git remote, which is where the user cloned from, or from what the user passes: `--repository` ("Repository scoping").
 - Only the `@allow` lines of `~/.secchain` decide which shared scopes a repository gets. The names a repository's `.secchain` lists never add a scope; a name only stops `run` when no passed scope holds it.
-- `.secchain` has no directive at all. The `@repository` of earlier development builds is refused rather than ignored, so that a fork or a directory that relied on it is told where its identity is declared now instead of silently becoming another repository. Nothing has been released, so there is no compatibility path.
+- `.secchain` has no directive at all. The `@repository` of earlier development builds is refused rather than ignored, so that a fork or a directory that relied on it is told what replaced it instead of silently becoming another repository. Nothing has been released, so there is no compatibility path.
+- The issue gave `@repository`'s two uses a new home in `~/.secchain`, `@alias <fork> <upstream>` and `@path <directory> <identifier>`. On 2026-09-24, before either was released, the maintainer dropped both: `--repository` already names a directory without a usable remote, and a shared scope already shares secrets between a fork and its upstream, so `~/.secchain` only decides which shared scopes a repository gets.
 - `~/.secchain` is found through `$HOME`. Setting `HOME` for `secchain` takes a process that already runs as the user, which could just as well pass `--repository` or write `~/.secchain` itself: the boundary is against what a repository's files say, not against such a process.
 - `@allow` is a setting of one Mac and is not synchronized: allowing a scope for a checkout on one Mac says nothing about a clone of the same name on another. A new Mac gets the secrets through iCloud Keychain and `~/.secchain` through the user's dotfiles.
 

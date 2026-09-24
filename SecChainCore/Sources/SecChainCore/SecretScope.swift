@@ -91,7 +91,7 @@ public enum SecretScope: Hashable, Sendable, CustomStringConvertible {
 
     /// Whether this is a repository whose identifier is the service of a shared scope, so that its
     /// device-bound values would be kept under that scope's `protectedValueServer`. Only an
-    /// identifier given by hand (`--repository`, `@path`, `@alias`, or typed in an app) can be one:
+    /// identifier given by hand (`--repository`, or typed in an app) can be one:
     /// a Git remote's identifier always contains a slash, which no scope's service does. Letter case
     /// is ignored, so that the answer does not depend on how the Keychain compares servers.
     var isRepositoryNamedLikeASharedScope: Bool {

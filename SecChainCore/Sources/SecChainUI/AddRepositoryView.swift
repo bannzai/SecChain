@@ -72,29 +72,12 @@ struct AddRepositoryView: View {
                     return
                 }
                 do {
-                    let userDefinition = try UserDefinitionText.parse(
-                        text: try UserDefinitionFile.readText(homeDirectory: UserDefinitionFile.homeDirectory) ?? ""
-                    )
                     // Only whether the folder's `.secchain` parses matters here: a folder that every
                     // secchain command refuses is not added either.
-                    _ = try RepositoryIdentityResolver.definition(
-                        directory: folder,
-                        userDefinition: userDefinition,
-                        homeDirectory: UserDefinitionFile.homeDirectory
-                    )
-                    // The same `@path` and `@alias` of ~/.secchain as secchain, so that the app and
-                    // the tool agree on which repository a folder is.
-                    finish(
-                        repositoryIdentity: try RepositoryIdentityResolver.resolve(
-                            directory: folder,
-                            explicitIdentifier: nil,
-                            userDefinition: userDefinition
-                        )
-                    )
+                    _ = try RepositoryIdentityResolver.definition(directory: folder, homeDirectory: UserDefinitionFile.homeDirectory)
+                    finish(repositoryIdentity: try RepositoryIdentityResolver.resolve(directory: folder, explicitIdentifier: nil))
                 } catch let repositoryIdentityError as RepositoryIdentityError {
                     folderErrorDescription = repositoryIdentityError.message(bundle: .module)
-                } catch let userDefinitionError as UserDefinitionError {
-                    folderErrorDescription = userDefinitionError.message(bundle: .module)
                 } catch let secretDefinitionError as SecretDefinitionError {
                     folderErrorDescription = secretDefinitionError.message(bundle: .module)
                 } catch {
@@ -116,8 +99,7 @@ struct AddRepositoryView: View {
 
 /// A pasted remote URL, or a `host/owner/repository` typed by hand, becomes the same identifier
 /// the command-line tool derives from the Git remote. Anything else is taken as written, like
-/// `--repository` of the command-line tool; the identifier of `@path` in `~/.secchain` is folded to
-/// lowercase instead.
+/// `--repository` of the command-line tool.
 func repositoryIdentity(enteredText: String) -> RepositoryIdentity {
     let trimmedText = enteredText.trimmingCharacters(in: .whitespacesAndNewlines)
     if trimmedText.contains("://") || trimmedText.contains("@") {
