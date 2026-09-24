@@ -75,6 +75,19 @@ struct RepositoryIdentityResolverTests {
         #expect(try RepositoryIdentityResolver.resolve(directory: repository, explicitIdentifier: "my-notes").value == "my-notes")
     }
 
+    /// `--repository` spelled the way the hosting service shows the name, or in any other letter
+    /// case, is the repository of a checkout of it: the same identifier, and so the same Keychain
+    /// items, as the lowercase one its remote gives.
+    @Test
+    func anExplicitIdentifierInAnotherLetterCaseIsTheRepositoryOfItsCheckout() throws {
+        let checkout = try makeRepository(originRemoteURL: "https://github.com/Bannzai/SecChain.git")
+        #expect(
+            try RepositoryIdentityResolver.resolve(directory: try makeTemporaryDirectory(), explicitIdentifier: "GitHub.com/Bannzai/SecChain")
+                == RepositoryIdentityResolver.resolve(directory: checkout, explicitIdentifier: nil)
+        )
+        #expect(try RepositoryIdentityResolver.resolve(directory: try makeTemporaryDirectory(), explicitIdentifier: "My-Notes").value == "my-notes")
+    }
+
     /// The hole `@repository` left open: a clone of an unknown repository could name itself after
     /// one of the user's and receive every scope an `@allow` wildcard passes to the user's
     /// repositories. The identity comes from what `git clone` recorded, never from a file of the

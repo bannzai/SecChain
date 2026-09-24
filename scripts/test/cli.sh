@@ -201,6 +201,11 @@ echo "== in the home directory, ~/.secchain is not read as a repository's .secch
 (cd "${HOME}" && "${SECCHAIN}" run --repository "${REPOSITORY}" -- true) >> "${CAPTURED_OUTPUT}" 2>&1 \
   || fail "run in the home directory read ~/.secchain as the repository's .secchain"
 
+echo "== --repository in another letter case names the repository its remote identifies"
+# The repository's secret was stored under the lowercase identifier its remote gives it.
+(cd "${WORK_DIRECTORY}" && "${SECCHAIN}" list --repository "GitHub.com/SecChain-CLI-Test/Repository-$$") | grep -qx "CLI_TEST_KEY" \
+  || fail "--repository spelled in another letter case did not reach the repository's secret"
+
 echo "== scope deny stops passing the scope"
 capture "${SECCHAIN}" scope deny "${SCOPE}" "${REPOSITORY}"
 [ "${LAST_STATUS}" -eq 0 ] || fail "scope deny exited with ${LAST_STATUS}"

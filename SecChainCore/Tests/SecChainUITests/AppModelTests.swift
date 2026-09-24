@@ -134,6 +134,7 @@ struct AppModelTests {
         #expect(SecChainUI.repositoryIdentity(enteredText: " git@github.com:Example/A.git ").value == "github.com/example/a")
         #expect(SecChainUI.repositoryIdentity(enteredText: "https://github.com/example/a").value == "github.com/example/a")
         #expect(SecChainUI.repositoryIdentity(enteredText: "GitHub.com/Example/A").value == "github.com/example/a")
-        #expect(SecChainUI.repositoryIdentity(enteredText: "My-Notes").value == "My-Notes")
+        // Like `--repository`, an identifier typed by hand is folded to lowercase.
+        #expect(SecChainUI.repositoryIdentity(enteredText: "My-Notes").value == "my-notes")
     }
 }

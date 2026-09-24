@@ -5,8 +5,13 @@ import Foundation
 public struct RepositoryIdentity: Hashable, Sendable, CustomStringConvertible {
     /// Normalized identifier, for example `github.com/owner/repo`, or the identifier the user gave
     /// explicitly (`--repository`, or typed in an app) for a directory without a usable Git remote.
-    /// One from a Git remote is lowercase, and so is a remote URL or a `host/owner/repo` typed in an
-    /// app; `--repository`, and any other text typed in an app, is kept as written.
+    ///
+    /// Lowercase however it was given, as `RepositoryRemoteURL.normalizedIdentifier` folds a
+    /// remote's: the Keychain compares services case-sensitively (`SecItem.h`, no
+    /// `kSecMatchCaseInsensitive`), so `--repository github.com/Owner/Repo`, spelled the way the
+    /// hosting service shows the name, would otherwise name other items than a checkout of that
+    /// repository. An identifier read back from the Keychain (`init(keychainService:)`) is taken as
+    /// it was stored.
     public let value: String
 
     public init(value: String) {

@@ -13,14 +13,15 @@ struct GitCommandResult {
 /// Only available on macOS: the iOS app never resolves a working directory, it lists the
 /// repositories already present in the Keychain.
 public enum RepositoryIdentityResolver {
-    /// Resolution order: `explicitIdentifier` (`--repository`), then the normalized `origin` remote.
-    /// Anything else is an error rather than a guess.
+    /// Resolution order: `explicitIdentifier` (`--repository`), folded to lowercase like every
+    /// identifier (`RepositoryIdentity.value`), then the normalized `origin` remote. Anything else is
+    /// an error rather than a guess.
     ///
     /// Nothing inside the repository takes part (documents/PROJECT.md, design decision 6): the
     /// identity decides which repository's secrets and which shared scopes a command gets, and a
     /// repository's files are written by whoever wrote the repository.
     public static func resolve(directory: URL, explicitIdentifier: String?) throws -> RepositoryIdentity {
-        try explicitIdentifier.flatMap { $0.isEmpty ? nil : RepositoryIdentity(value: $0) }
+        try explicitIdentifier.flatMap { $0.isEmpty ? nil : RepositoryIdentity(value: $0.lowercased()) }
             ?? originRemoteIdentity(directory: directory)
     }
 

@@ -67,11 +67,13 @@ An authentication that SecChain itself requests on a Mac (the *confirm* level) c
 
 Identification rules (implemented in `RepositoryIdentity.swift` and `RepositoryIdentityResolver.swift`):
 
-1. `--repository <identifier>` on the command line wins, for acting on a repository from outside its checkout or on a directory without a usable remote.
+1. `--repository <identifier>` on the command line wins, for acting on a repository from outside its checkout or on a directory without a usable remote. The identifier is folded to lowercase.
 2. Otherwise the `origin` remote URL is normalized to `host/owner/repo`: user info, port, scheme, a trailing `.git`, trailing slashes, and letter case are dropped, so `git@github.com:Owner/Repo.git` and `https://github.com/owner/repo` are the same repository. `git config` is asked, which answers the same from sub-directories and linked worktrees.
 3. No Git repository, no `origin`, or an `origin` that is a local path is an error that names `--repository`. SecChain never falls back to the directory path.
 
 Nothing in the working tree takes part (design decision 6). A fork is a repository of its own: what it shares with its upstream belongs in a shared scope whose `@allow` lines name both.
+
+An identifier is lowercase however it was given, `--repository` and one typed in an app included, for the reason rule 2 drops letter case: the Keychain compares services case-sensitively (`SecItem.h`: without `kSecMatchCaseInsensitive`, string matching is case-sensitive), so `--repository github.com/Owner/Repo`, spelled the way the hosting service shows the name, would otherwise name other items than a checkout of that repository, and the secrets would silently split.
 
 ### Secret scopes
 

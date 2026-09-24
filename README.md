@@ -217,7 +217,7 @@ YOUTUBE_API_KEY
 
 The repository identity comes from the `origin` remote, normalized to `host/owner/repo` (case, credentials, port, scheme, and a trailing `.git` are dropped), so `git@github.com:Owner/Repo.git` and `https://github.com/owner/repo` are the same repository and the same Keychain items — including from a linked worktree or a sub-directory. A directory that is not a Git repository, has no `origin`, or has an `origin` that is a local path needs `--repository <identifier>`; SecChain never falls back to the checkout path, because the same repository must resolve to the same secrets from every checkout on every Mac.
 
-`--repository <identifier>` on any command acts on a repository other than the current directory's, without touching that repository's `.secchain` file.
+`--repository <identifier>` on any command acts on a repository other than the current directory's, without touching that repository's `.secchain` file. The identifier is folded to lowercase like a remote's, so `--repository github.com/Owner/Repo` is the same repository as a checkout of it.
 
 ## Building from source
 
