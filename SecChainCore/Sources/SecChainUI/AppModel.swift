@@ -211,13 +211,24 @@ public final class AppModel {
         }
     }
 
+    /// Whether `@allow <identifier>` names the repository alone. An identifier typed by hand may end
+    /// in `*`, which the line would read as a wildcard that passes the scope to other repositories
+    /// too, or contain `*` elsewhere, whitespace, or `=`, which no `@allow` line can hold.
+    public func canAllowAlone(repositoryIdentity: RepositoryIdentity) -> Bool {
+        !repositoryIdentity.value.contains("*") && isValidRepositoryPattern(pattern: repositoryIdentity.value)
+    }
+
     /// Passes the shared scope to the repository, or stops passing it, by adding or removing the
     /// `@allow` line that names the repository alone, as `secchain scope allow` / `scope deny` do.
     /// A wildcard that also names it stays (`wildcardAllowPattern`). The file is read right before
     /// it is written, so that a change made in a terminal meanwhile is kept. Setting the state the
-    /// file already has leaves it unchanged (idempotent). Does nothing in the iOS app.
+    /// file already has leaves it unchanged (idempotent). Does nothing in the iOS app, and adds no
+    /// line for a repository that no line can name alone (`canAllowAlone`).
     public func setPassing(sharedScope: SharedScope, repositoryIdentity: RepositoryIdentity, isPassed: Bool) {
         guard let readUserDefinitionText, let writeUserDefinitionText else {
+            return
+        }
+        guard !isPassed || canAllowAlone(repositoryIdentity: repositoryIdentity) else {
             return
         }
         do {

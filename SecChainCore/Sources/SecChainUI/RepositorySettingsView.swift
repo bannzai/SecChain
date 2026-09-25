@@ -21,6 +21,12 @@ struct RepositorySettingsView: View {
                             .foregroundStyle(.red)
                     }
                 }
+                if !model.canAllowAlone(repositoryIdentity: repositoryIdentity) {
+                    Section {
+                        Label(String(localized: "An '@allow' line cannot name this identifier alone because it contains '*', a space or '='. Edit ~/.secchain to choose its scopes", bundle: .module), systemImage: "exclamationmark.triangle")
+                            .foregroundStyle(.secondary)
+                    }
+                }
                 Section {
                     ForEach(model.sharedScopes, id: \.self) { sharedScope in
                         passedScopeToggle(sharedScope: sharedScope)
@@ -67,6 +73,6 @@ struct RepositorySettingsView: View {
                 Text("Passed by '@allow \(wildcardAllowPattern)'. Edit ~/.secchain to change it", bundle: .module)
             }
         }
-        .disabled(model.userDefinition == nil || wildcardAllowPattern != nil)
+        .disabled(model.userDefinition == nil || wildcardAllowPattern != nil || !model.canAllowAlone(repositoryIdentity: repositoryIdentity))
     }
 }

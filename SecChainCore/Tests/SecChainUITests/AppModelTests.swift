@@ -158,6 +158,21 @@ struct AppModelTests {
     }
 
     @Test
+    func anIdentifierThatALineCannotNameAloneIsNeverAllowed() throws {
+        let model = makeMacModel()
+        model.reload()
+        // Typed by hand in Add Repository. As a line it would pass the scope to every repository
+        // of the owner.
+        let wildcardLikeIdentity = RepositoryIdentity(value: "github.com/example/*")
+        #expect(!model.canAllowAlone(repositoryIdentity: wildcardLikeIdentity))
+        #expect(!model.canAllowAlone(repositoryIdentity: RepositoryIdentity(value: "my notes")))
+        #expect(model.canAllowAlone(repositoryIdentity: repositoryIdentity))
+        model.setPassing(sharedScope: .user, repositoryIdentity: wildcardLikeIdentity, isPassed: true)
+        #expect(userDefinitionFile.text == nil)
+        #expect(!model.isPassed(sharedScope: .user, repositoryIdentity: RepositoryIdentity(value: "github.com/example/b")))
+    }
+
+    @Test
     func aFailedWriteIsReportedAndChangesNothing() throws {
         userDefinitionFile.text = "@scope youtube\n"
         let model = makeMacModel()

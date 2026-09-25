@@ -228,6 +228,17 @@
         }
       }
     },
+    "An '@allow' line cannot name this identifier alone because it contains '*', a space or '='. Edit ~/.secchain to choose its scopes" : {
+      "comment" : "Repository settings of a repository whose identifier was typed with a character that an @allow line reads otherwise",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この識別子には「*」、空白、「=」のどれかが含まれるため、「@allow」の行でこのリポジトリだけを指せません。scope を選ぶには ~/.secchain を編集してください"
+          }
+        }
+      }
+    },
     "Approval" : {
       "comment" : "Title of the screen that shows one request from a Mac",
       "localizations" : {
