@@ -1,19 +1,19 @@
 import SecChainCore
 import SwiftUI
 
-/// Root of both apps: repositories on the left, the selected repository's secrets on the right
-/// (a navigation stack on iPhone). The iOS app also lists the shared scopes that reached it.
+/// Root of both apps: repositories and shared scopes on the left, the selected one's secrets on the
+/// right (a navigation stack on iPhone).
 public struct RootView: View {
     @State private var model: AppModel
     @State private var isAddingRepository = false
+    /// Whether the sheet that creates a custom scope is shown.
+    @State private var isAddingScope = false
     @State private var isShowingSyncInformation = false
     @State private var isShowingRemoteApprovalChecks = false
     #if os(iOS)
     /// Provided by the iOS app, which owns it because a notification reaches the app delegate.
     @Environment(RemoteApprovalModel.self) private var remoteApprovalModel
     @State private var isShowingRemoteApproval = false
-    /// Whether the sheet that creates a custom scope is shown.
-    @State private var isAddingScope = false
     #endif
 
     public init(model: AppModel) {
@@ -74,15 +74,36 @@ public struct RootView: View {
                     }
                 }
                 #else
-                repositoryRows
+                Section(String(localized: "Repositories", bundle: .module)) {
+                    if model.repositoryIdentities.isEmpty {
+                        // A row instead of the overlay iOS shows: the scopes below keep the list
+                        // from being empty.
+                        Text("Add a repository to store its first secret", bundle: .module)
+                            .foregroundStyle(.secondary)
+                    }
+                    repositoryRows
+                }
+                // The Mac always lists the user scope, which `~/.secchain` gives every Mac.
+                Section(String(localized: "Scopes", bundle: .module)) {
+                    sharedScopeRows
+                    if let userDefinitionErrorDescription = model.userDefinitionErrorDescription {
+                        Label(userDefinitionErrorDescription, systemImage: "exclamationmark.triangle")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                            // A label in the sidebar is one line by default, which would cut off
+                            // the reason.
+                            .lineLimit(nil)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
                 #endif
             }
             .navigationTitle(String(localized: "Repositories", bundle: .module))
             #if os(macOS)
             .navigationSplitViewColumnWidth(min: 240, ideal: 280)
-            #endif
+            #else
             .overlay {
-                if isListEmpty {
+                if model.scopes.isEmpty {
                     ContentUnavailableView(
                         String(localized: "No repositories yet", bundle: .module),
                         systemImage: "key",
@@ -90,9 +111,9 @@ public struct RootView: View {
                     )
                 }
             }
+            #endif
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    #if os(iOS)
                     Menu(String(localized: "Add", bundle: .module), systemImage: "plus") {
                         Button(String(localized: "Add Repository", bundle: .module), systemImage: "folder") {
                             isAddingRepository = true
@@ -101,11 +122,6 @@ public struct RootView: View {
                             isAddingScope = true
                         }
                     }
-                    #else
-                    Button(String(localized: "Add Repository", bundle: .module), systemImage: "plus") {
-                        isAddingRepository = true
-                    }
-                    #endif
                 }
                 #if os(macOS)
                 // The sidebar's toolbar is narrow on the Mac: with more than the sidebar toggle and
@@ -134,15 +150,15 @@ public struct RootView: View {
                 model.addScope(scope: .repository(repositoryIdentity))
             }
         }
-        .sheet(isPresented: $isShowingSyncInformation) {
-            SyncInformationView()
-        }
-        #if os(iOS)
         .sheet(isPresented: $isAddingScope) {
             AddScopeView { scope in
                 model.addScope(scope: scope)
             }
         }
+        .sheet(isPresented: $isShowingSyncInformation) {
+            SyncInformationView()
+        }
+        #if os(iOS)
         .sheet(isPresented: $isShowingRemoteApproval, onDismiss: remoteApprovalModel.dismissRequest) {
             RemoteApprovalPairingView(model: remoteApprovalModel)
         }
@@ -186,9 +202,8 @@ public struct RootView: View {
         }
     }
 
-    #if os(iOS)
-    /// One row per shared scope that reached this device. `@allow`, which decides the repositories a
-    /// scope is passed to, lives in `~/.secchain` on each Mac and is neither shown nor edited here.
+    /// One row per shared scope (`AppModel.scopes`). `@allow`, which decides the repositories a scope
+    /// is passed to, is set in each repository's settings on the Mac, not here.
     var sharedScopeRows: some View {
         ForEach(model.sharedScopes, id: \.self) { sharedScope in
             NavigationLink(value: SecretScope.shared(sharedScope)) {
@@ -205,17 +220,6 @@ public struct RootView: View {
                 }
             }
         }
-    }
-    #endif
-
-    /// Whether the list has no row, so that it explains how to start instead of staying blank. The
-    /// macOS app lists repositories only.
-    var isListEmpty: Bool {
-        #if os(iOS)
-        model.scopes.isEmpty
-        #else
-        model.repositoryIdentities.isEmpty
-        #endif
     }
 
     /// Actions needed less often than adding a repository.
@@ -242,6 +246,13 @@ public struct RootView: View {
         Button("Show Sample Error", systemImage: "exclamationmark.triangle") {
             model.present(error: SecretStoreError.keychainUnavailable)
         }
+        #if os(macOS)
+        // An unreadable `~/.secchain` otherwise needs a broken file in the home directory of the
+        // Mac the app runs on, which a remote session cannot write.
+        Button("Show Sample ~/.secchain Error", systemImage: "exclamationmark.octagon") {
+            model.showSampleUserDefinitionError()
+        }
+        #endif
         // The Secure Enclave and CloudKit behavior that remote approval depends on differs between
         // the Simulator and a device, and neither can be driven by launch arguments remotely.
         Button("Run Remote Approval Checks", systemImage: "list.bullet.clipboard") {

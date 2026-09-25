@@ -239,6 +239,17 @@
         }
       }
     },
+    "An '@allow' line cannot name this identifier alone because it contains '*', a space or '='. Edit ~/.secchain to choose its scopes" : {
+      "comment" : "Repository settings of a repository whose identifier was typed with a character that an @allow line reads otherwise",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この識別子には「*」、空白、「=」のどれかが含まれるため、「@allow」の行でこのリポジトリだけを指せません。scope を選ぶには ~/.secchain を編集してください"
+          }
+        }
+      }
+    },
     "Approval" : {
       "comment" : "Title of the screen that shows one request from a Mac",
       "localizations" : {
@@ -632,6 +643,28 @@
         }
       }
     },
+    "Passed Scopes" : {
+      "comment" : "Header of the list of shared scopes in the repository settings",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "渡す scope"
+          }
+        }
+      }
+    },
+    "Passed by '@allow %@'. Edit ~/.secchain to change it" : {
+      "comment" : "Below a locked switch of the repository settings. %@ is an @allow pattern ending in *",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「@allow %@」で渡しています。変更するには ~/.secchain を編集してください"
+          }
+        }
+      }
+    },
     "Protection" : {
       "comment" : "Label of the picker that chooses the protection level of a secret",
       "localizations" : {
@@ -725,6 +758,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "リポジトリ"
+          }
+        }
+      }
+    },
+    "Repository Settings" : {
+      "comment" : "Toolbar button of a repository and title of its settings sheet",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リポジトリの設定"
           }
         }
       }
@@ -1356,6 +1400,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "secchain run は毎回 Touch ID またはパスワードでの認証を求めます。Secret は同期もできます。"
+          }
+        }
+      }
+    },
+    "secchain run passes the secrets of the scopes turned on here together with the repository's own. The setting is kept in ~/.secchain on this Mac" : {
+      "comment" : "Footer of the list of shared scopes in the repository settings",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "secchain run はこのリポジトリの Secret と一緒に、ここでオンにした scope の Secret を渡します。設定はこの Mac の ~/.secchain に保存されます"
           }
         }
       }
