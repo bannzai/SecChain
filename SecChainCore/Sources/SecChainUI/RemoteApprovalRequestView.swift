@@ -60,37 +60,43 @@ struct RemoteApprovalRequestView: View {
     /// and what will run.
     var details: some View {
         VStack(spacing: 0) {
-            detailRow(
-                label: String(localized: "Mac", bundle: .module),
-                icon: "laptopcomputer",
-                text: Text(request.requestingDeviceName)
-            )
+            detailRow(label: String(localized: "Mac", bundle: .module), icon: "laptopcomputer") {
+                Text(request.requestingDeviceName)
+            }
             Divider()
-            detailRow(
-                label: String(localized: "Repository", bundle: .module),
-                icon: "folder",
-                text: Text(request.repositoryIdentity.value)
-            )
+            detailRow(label: String(localized: "Repository", bundle: .module), icon: "folder") {
+                Text(request.repositoryIdentity.value)
+            }
             Divider()
-            detailRow(
-                label: String(localized: "Secrets", bundle: .module),
-                icon: "key",
-                text: Text(request.secretNames.map(\.value).joined(separator: "\n")).font(.body.monospaced())
-            )
+            detailRow(label: String(localized: "Secrets", bundle: .module), icon: "key") {
+                // Each name with the scope it comes from, because a secret of a shared scope reaches
+                // this repository only through `~/.secchain`, and that is what the user approves.
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(request.secretNames, id: \.self) { secretName in
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(secretName.value)
+                                .font(.body.monospaced())
+                            if let secretScope = request.secretScopes[secretName] {
+                                Text("\(secretScope.name) scope", bundle: .module, comment: "The scope a secret on the approval screen comes from, under its name. The argument is the scope's name as the command line spells it: repository, user, or a custom scope's name")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+            }
             Divider()
-            detailRow(
-                label: String(localized: "Command", bundle: .module),
-                icon: "terminal",
+            detailRow(label: String(localized: "Command", bundle: .module), icon: "terminal") {
                 // One argument per line, like the secret names above: a line that wraps breaks
                 // inside a word (`--env` after its hyphen was measured to split across two lines),
                 // and the boundary between arguments is exactly what this screen must not blur.
-                text: Text(approvedArgumentLines(commandArguments: request.commandArguments)).font(.body.monospaced())
-            )
+                Text(approvedArgumentLines(commandArguments: request.commandArguments)).font(.body.monospaced())
+            }
         }
         .background(RoundedRectangle(cornerRadius: 16).fill(Color(.secondarySystemGroupedBackground)))
     }
 
-    func detailRow(label: String, icon: String, text: Text) -> some View {
+    func detailRow(label: String, icon: String, @ViewBuilder content: () -> some View) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 12) {
             Label(label, systemImage: icon)
                 .labelStyle(.iconOnly)
@@ -100,7 +106,7 @@ struct RemoteApprovalRequestView: View {
                 Text(label)
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                text
+                content()
                     .textSelection(.enabled)
             }
             Spacer(minLength: 0)

@@ -34,6 +34,17 @@
         }
       }
     },
+    "%@ scope" : {
+      "comment" : "The scope a secret on the approval screen comes from, under its name. The argument is the scope's name as the command line spells it: repository, user, or a custom scope's name",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ scope"
+          }
+        }
+      }
+    },
     ".secchain line %lld: '@repository' is no longer read. The repository is identified by its Git remote: give a directory without one its identifier with '--repository <identifier>', and share secrets with another repository through a shared scope of ~/.secchain." : {
       "localizations" : {
         "ja" : {
