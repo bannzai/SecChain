@@ -1,11 +1,13 @@
 import SecChainCore
 import SwiftUI
 
-/// The secrets of one scope, a repository or a shared scope: names and settings only. Values
-/// appear solely in `RevealedValueView`, after an explicit action and authentication.
-struct RepositoryDetailView: View {
+/// The secrets of one repository or shared scope: names and settings only. Values appear solely in
+/// `RevealedValueView`, after an explicit action and authentication. One view serves both kinds
+/// because a shared scope's secrets are stored, protected, and revealed exactly like a
+/// repository's (documents/PROJECT.md, "Secret scopes").
+struct ScopeDetailView: View {
     let model: AppModel
-    /// The repository or shared scope whose secrets are shown.
+    /// The repository or shared scope whose secrets are listed and where a new one is added.
     let scope: SecretScope
 
     @State private var isAddingSecret = false
@@ -54,9 +56,9 @@ struct RepositoryDetailView: View {
                     String(localized: "No secrets yet", bundle: .module),
                     systemImage: "key",
                     description: Text(
-                        scope.repositoryIdentity == nil
-                            ? String(localized: "Add the first secret of this scope", bundle: .module)
-                            : String(localized: "Add the first secret of this repository", bundle: .module)
+                        scope.repositoryIdentity != nil
+                            ? String(localized: "Add the first secret of this repository", bundle: .module)
+                            : String(localized: "Add the first secret of this scope", bundle: .module)
                     )
                 )
             }
@@ -178,8 +180,9 @@ struct RepositoryDetailView: View {
     }
 }
 
-/// The name a scope is shown with: a repository by its identifier, the built-in user scope in the
-/// app's language, a custom scope by the name the user gave it.
+/// The scope as the apps name it. `SecretScope.description` is the command line's English wording,
+/// so the built-in user scope gets a translated name here; a repository identifier and a custom
+/// scope's name are the same in every language.
 func scopeTitle(scope: SecretScope) -> String {
     switch scope {
     case .repository(let repositoryIdentity): repositoryIdentity.value

@@ -1,14 +1,18 @@
 import SecChainCore
 import SwiftUI
 
-/// Sheet for making a custom scope appear in the list so that its first secret can be added. Only
-/// the name is asked for: which repositories get the scope is chosen in each repository's
-/// settings.
-struct AddCustomScopeView: View {
-    /// Called with the entered name.
-    let add: (CustomScopeName) -> Void
+/// Sheet for making a custom scope appear in the list so that its first secret can be added. The
+/// name follows the rules of `CustomScopeName`, the ones `secchain set --scope` applies on a Mac, so
+/// that a scope created here is the same scope there. Which repositories get the scope is decided
+/// by `~/.secchain` on each Mac (documents/PROJECT.md, "The user's definition file"): the macOS app
+/// sets it in each repository's settings, and iOS has no such file, so this sheet asks for the name
+/// only.
+struct AddScopeView: View {
+    /// Called with the chosen scope.
+    let add: (SecretScope) -> Void
 
     @Environment(\.dismiss) private var dismiss
+    /// The name as typed, validated by `CustomScopeName` only when it is used.
     @State private var rawName = ""
 
     var body: some View {
@@ -29,14 +33,14 @@ struct AddCustomScopeView: View {
                 } footer: {
                     Text(
                         rawName.isEmpty || CustomScopeName(rawName: rawName) != nil
-                            ? String(localized: "A custom scope holds secrets that several repositories share", bundle: .module)
-                            : String(localized: "Use lowercase letters, digits and hyphens, starting with a letter or a digit. 'user' and 'repository' are built in", bundle: .module)
+                            ? String(localized: "A Mac passes the secrets of a scope to the repositories its ~/.secchain allows", bundle: .module)
+                            : String(localized: "Use lowercase letters, digits and hyphens, starting with a letter or a digit; 'user' and 'repository' are built in", bundle: .module)
                     )
                     .foregroundStyle(rawName.isEmpty || CustomScopeName(rawName: rawName) != nil ? Color.secondary : Color.red)
                 }
             }
             .formStyle(.grouped)
-            .navigationTitle(String(localized: "Add Custom Scope", bundle: .module))
+            .navigationTitle(String(localized: "Add Scope", bundle: .module))
             #if os(iOS)
             .navigationBarTitleDisplayMode(.inline)
             #endif
@@ -49,7 +53,7 @@ struct AddCustomScopeView: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button(String(localized: "Add", bundle: .module)) {
                         if let customScopeName = CustomScopeName(rawName: rawName) {
-                            add(customScopeName)
+                            add(.shared(.custom(customScopeName)))
                             dismiss()
                         }
                     }

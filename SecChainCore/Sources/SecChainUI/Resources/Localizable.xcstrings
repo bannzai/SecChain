@@ -95,13 +95,13 @@
         }
       }
     },
-    "A custom scope holds secrets that several repositories share" : {
-      "comment" : "Footer of the Add Custom Scope sheet while the name is empty or valid",
+    "A Mac passes the secrets of a scope to the repositories its ~/.secchain allows" : {
+      "comment" : "Footer of the sheet that adds a custom scope on iOS",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "カスタム scope には複数のリポジトリで共有する Secret を置きます"
+            "value" : "scope の Secret は、Mac の ~/.secchain が許可したリポジトリに渡されます"
           }
         }
       }
@@ -158,23 +158,22 @@
         }
       }
     },
-    "Add Custom Scope" : {
-      "comment" : "Menu item of the add button and title of the sheet that adds a custom scope",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "カスタム scope を追加"
-          }
-        }
-      }
-    },
     "Add Repository" : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "リポジトリを追加"
+          }
+        }
+      }
+    },
+    "Add Scope" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "scope を追加"
           }
         }
       }
@@ -210,7 +209,6 @@
       }
     },
     "Add the first secret of this scope" : {
-      "comment" : "Description of the empty secret list of a shared scope",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -785,7 +783,7 @@
       }
     },
     "Scopes" : {
-      "comment" : "Header of the sidebar section that lists the shared scopes",
+      "comment" : "Header of the list section with the user scope and the custom scopes",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -1193,8 +1191,8 @@
         }
       }
     },
-    "Use lowercase letters, digits and hyphens, starting with a letter or a digit. 'user' and 'repository' are built in" : {
-      "comment" : "Footer of the Add Custom Scope sheet while the name is not valid",
+    "Use lowercase letters, digits and hyphens, starting with a letter or a digit; 'user' and 'repository' are built in" : {
+      "comment" : "Shown when the name typed for a new custom scope is not valid",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
@@ -1205,7 +1203,7 @@
       }
     },
     "User" : {
-      "comment" : "Name of the built-in user scope",
+      "comment" : "Name of the built-in scope shared by every repository the user allows",
       "localizations" : {
         "ja" : {
           "stringUnit" : {

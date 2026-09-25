@@ -44,14 +44,20 @@ final class InMemoryUserDefinitionFile {
 @Suite
 struct AppModelTests {
     let keychain = InMemorySecretKeychain()
-    /// The `~/.secchain` every model of a test reads and writes.
+    /// The `~/.secchain` every model of `makeMacModel` reads and writes.
     let userDefinitionFile = InMemoryUserDefinitionFile()
     let repositoryIdentity = RepositoryIdentity(value: "github.com/example/a")
     let dummyValue = SecretValue(exposingString: "dummy-value-for-test")
 
+    /// A model without `~/.secchain`, as the iOS app has it.
     func makeModel(authenticationFailure: SecretStoreError?) -> AppModel {
+        AppModel(store: SecretStore(keychain: keychain, ownerAuthenticator: FixedOwnerAuthenticator(failure: authenticationFailure)))
+    }
+
+    /// A model with `~/.secchain`, as the macOS app has it.
+    func makeMacModel() -> AppModel {
         AppModel(
-            store: SecretStore(keychain: keychain, ownerAuthenticator: FixedOwnerAuthenticator(failure: authenticationFailure)),
+            store: SecretStore(keychain: keychain, ownerAuthenticator: FixedOwnerAuthenticator(failure: nil)),
             readUserDefinitionText: userDefinitionFile.read,
             writeUserDefinitionText: userDefinitionFile.write(text:)
         )
@@ -62,24 +68,24 @@ struct AppModelTests {
         .custom(try #require(CustomScopeName(rawName: rawName)))
     }
 
-    // MARK: - Shared scopes
+    // MARK: - ~/.secchain on the Mac
 
     @Test
-    func theScopesAreTheUserScopeAndTheCustomScopesOfTheFileAndOfTheKeychain() async throws {
+    func theMacListsTheUserScopeAndTheCustomScopesOfTheFileAndOfTheKeychain() async throws {
         userDefinitionFile.text = "@scope youtube\n@scope design\n"
-        let model = makeModel(authenticationFailure: nil)
+        let model = makeMacModel()
         // A scope that another Mac created arrives through the Keychain alone.
         #expect(await model.save(name: try #require(SecretName(rawName: "A")), value: dummyValue, scope: .shared(try customScope("newsletter")), protectionLevel: .standard, isSynchronized: true))
-        #expect(model.sharedScopes == [.user, try customScope("youtube"), try customScope("design"), try customScope("newsletter")])
+        #expect(model.sharedScopes == [.user, try customScope("design"), try customScope("newsletter"), try customScope("youtube")])
         #expect(model.storedSecretsByScope[.shared(try customScope("newsletter"))]?.map(\.name.value) == ["A"])
         #expect(model.storedSecretsByScope[.shared(.user)] == [])
     }
 
     @Test
-    func aCustomScopeAddedInTheAppIsListedBeforeItHasSecretsAndLeavesTheFileAlone() throws {
-        let model = makeModel(authenticationFailure: nil)
-        model.add(scope: .shared(try customScope("youtube")))
-        model.add(scope: .shared(try customScope("youtube")))
+    func aCustomScopeAddedOnTheMacLeavesTheFileAlone() throws {
+        let model = makeMacModel()
+        model.addScope(scope: .shared(try customScope("youtube")))
+        model.addScope(scope: .shared(try customScope("youtube")))
         #expect(model.sharedScopes == [.user, try customScope("youtube")])
         #expect(model.selectedScope == .shared(try customScope("youtube")))
         #expect(userDefinitionFile.text == nil)
@@ -87,7 +93,7 @@ struct AppModelTests {
 
     @Test
     func anUnreadableFileIsReportedAndLeavesTheKeychainsScopes() async throws {
-        let model = makeModel(authenticationFailure: nil)
+        let model = makeMacModel()
         #expect(await model.save(name: try #require(SecretName(rawName: "A")), value: dummyValue, scope: .shared(try customScope("newsletter")), protectionLevel: .standard, isSynchronized: true))
         userDefinitionFile.text = "@scope youtube\nYOUTUBE_API_KEY=dummy-value-for-test\n"
         model.reload()
@@ -103,12 +109,10 @@ struct AppModelTests {
         #expect(model.userDefinitionErrorDescription == nil)
     }
 
-    // MARK: - Scopes passed to a repository
-
     @Test
     func turningAScopeOnAndOffAddsAndRemovesTheLineOfTheRepositoryAlone() throws {
         userDefinitionFile.text = "# mine\n@allow github.com/other/b\n\n@scope youtube\n"
-        let model = makeModel(authenticationFailure: nil)
+        let model = makeMacModel()
         model.reload()
         model.setPassing(sharedScope: .user, repositoryIdentity: repositoryIdentity, isPassed: true)
         model.setPassing(sharedScope: .user, repositoryIdentity: repositoryIdentity, isPassed: true)
@@ -123,7 +127,7 @@ struct AppModelTests {
 
     @Test
     func turningAScopeOnWithoutAFileCreatesIt() throws {
-        let model = makeModel(authenticationFailure: nil)
+        let model = makeMacModel()
         model.reload()
         model.setPassing(sharedScope: try customScope("youtube"), repositoryIdentity: repositoryIdentity, isPassed: true)
         let text = try #require(userDefinitionFile.text)
@@ -134,7 +138,7 @@ struct AppModelTests {
     @Test
     func turningAScopeOffRemovesTheLineWhateverItsLetterCase() throws {
         userDefinitionFile.text = "@allow github.com/Example/A\n"
-        let model = makeModel(authenticationFailure: nil)
+        let model = makeMacModel()
         model.reload()
         #expect(model.isPassed(sharedScope: .user, repositoryIdentity: repositoryIdentity))
         model.setPassing(sharedScope: .user, repositoryIdentity: repositoryIdentity, isPassed: false)
@@ -144,7 +148,7 @@ struct AppModelTests {
     @Test
     func aWildcardThatPassesTheScopeIsReportedAndKept() throws {
         userDefinitionFile.text = "@allow github.com/example/*\n@allow github.com/example/a\n"
-        let model = makeModel(authenticationFailure: nil)
+        let model = makeMacModel()
         model.reload()
         #expect(model.wildcardAllowPattern(sharedScope: .user, repositoryIdentity: repositoryIdentity) == "github.com/example/*")
         #expect(model.wildcardAllowPattern(sharedScope: .user, repositoryIdentity: RepositoryIdentity(value: "github.com/example-other/a")) == nil)
@@ -156,7 +160,7 @@ struct AppModelTests {
     @Test
     func aFailedWriteIsReportedAndChangesNothing() throws {
         userDefinitionFile.text = "@scope youtube\n"
-        let model = makeModel(authenticationFailure: nil)
+        let model = makeMacModel()
         model.reload()
         userDefinitionFile.writeFailure = CocoaError(.fileWriteNoPermission)
         model.setPassing(sharedScope: try customScope("youtube"), repositoryIdentity: repositoryIdentity, isPassed: true)
@@ -169,7 +173,7 @@ struct AppModelTests {
     @Test
     func aFileThatCannotBeReadIsNotEdited() throws {
         userDefinitionFile.text = "@scope youtube\n"
-        let model = makeModel(authenticationFailure: nil)
+        let model = makeMacModel()
         model.reload()
         userDefinitionFile.readFailure = CocoaError(.fileReadNoPermission)
         model.setPassing(sharedScope: try customScope("youtube"), repositoryIdentity: repositoryIdentity, isPassed: true)
@@ -178,15 +182,78 @@ struct AppModelTests {
         #expect(model.userDefinitionErrorDescription == CocoaError(.fileReadNoPermission).localizedDescription)
     }
 
-    // MARK: - Repositories
+    @Test
+    func demoDataOnTheMacNeverReachesTheUsersFile() throws {
+        let model = makeMacModel()
+        model.useDemoStore()
+        // The scopes of the demo `~/.secchain`, and the demo Keychain's.
+        #expect(model.sharedScopes == [.user, try customScope("design"), try customScope("youtube")])
+        model.setPassing(sharedScope: try customScope("design"), repositoryIdentity: repositoryIdentity, isPassed: true)
+        #expect(model.isPassed(sharedScope: try customScope("design"), repositoryIdentity: repositoryIdentity))
+        #expect(userDefinitionFile.text == nil)
+        model.useDemoStore()
+        #expect(!model.isPassed(sharedScope: try customScope("design"), repositoryIdentity: repositoryIdentity))
+    }
+
+    @Test
+    func withoutAFileNothingIsReadOrEdited() throws {
+        let model = makeModel(authenticationFailure: nil)
+        model.reload()
+        model.setPassing(sharedScope: .user, repositoryIdentity: repositoryIdentity, isPassed: true)
+        #expect(model.scopes.isEmpty)
+        #expect(model.userDefinition == nil)
+        #expect(model.userDefinitionErrorDescription == nil)
+    }
+
+    // MARK: - Scopes and secrets
 
     @Test
     func aRepositoryAddedInTheAppIsListedBeforeItHasSecrets() {
         let model = makeModel(authenticationFailure: nil)
-        model.add(scope: .repository(repositoryIdentity))
+        model.addScope(scope: .repository(repositoryIdentity))
         #expect(model.repositoryIdentities == [repositoryIdentity])
         #expect(model.selectedScope == .repository(repositoryIdentity))
         #expect(model.storedSecretsByScope[.repository(repositoryIdentity)] == [])
+    }
+
+    @Test
+    func aCustomScopeAddedInTheAppIsListedBeforeItHasSecrets() throws {
+        let model = makeModel(authenticationFailure: nil)
+        let youtubeScope = SecretScope.shared(.custom(try #require(CustomScopeName(rawName: "youtube"))))
+        model.addScope(scope: youtubeScope)
+        #expect(model.scopes == [youtubeScope])
+        #expect(model.repositoryIdentities.isEmpty)
+        #expect(model.selectedScope == youtubeScope)
+        #expect(model.storedSecretsByScope[youtubeScope] == [])
+    }
+
+    @Test
+    func sharedScopesAreListedAfterTheRepositoriesWithTheUserScopeFirst() async throws {
+        let model = makeModel(authenticationFailure: nil)
+        let name = try #require(SecretName(rawName: "API_KEY"))
+        let awsScope = SecretScope.shared(.custom(try #require(CustomScopeName(rawName: "aws"))))
+        let zooScope = SecretScope.shared(.custom(try #require(CustomScopeName(rawName: "zoo"))))
+        // "aws" sorts before "user" by name, and the Keychain service of a repository before both.
+        for scope in [zooScope, .shared(.user), awsScope, .repository(repositoryIdentity)] {
+            #expect(await model.save(name: name, value: dummyValue, scope: scope, protectionLevel: .standard, isSynchronized: true))
+        }
+        #expect(model.scopes == [.repository(repositoryIdentity), .shared(.user), awsScope, zooScope])
+        #expect(model.repositoryIdentities == [repositoryIdentity])
+        #expect(model.sharedScopes == [.user, try #require(awsScope.sharedScope), try #require(zooScope.sharedScope)])
+    }
+
+    @Test
+    func aSharedScopeSecretIsSavedRevealedAndDeletedInItsScope() async throws {
+        let model = makeModel(authenticationFailure: nil)
+        let name = try #require(SecretName(rawName: "API_KEY"))
+        #expect(await model.save(name: name, value: dummyValue, scope: .shared(.user), protectionLevel: .confirm, isSynchronized: true))
+        // The same name in a repository is another secret.
+        #expect(model.storedSecretsByScope[.repository(repositoryIdentity)] == nil)
+        let storedSecret = try #require(model.storedSecretsByScope[.shared(.user)]?.first)
+        #expect(storedSecret.scope == .shared(.user))
+        #expect(await model.revealedValue(storedSecret: storedSecret) == dummyValue)
+        #expect(await model.delete(storedSecret: storedSecret))
+        #expect(model.scopes.isEmpty)
     }
 
     @Test
@@ -267,7 +334,7 @@ struct AppModelTests {
     }
 
     @Test
-    func demoDataReplacesAnUnreachableKeychain() throws {
+    func demoDataReplacesAnUnreachableKeychain() {
         keychain.setFailure(failure: .missingEntitlement)
         let model = makeModel(authenticationFailure: nil)
         model.reload()
@@ -277,15 +344,8 @@ struct AppModelTests {
         #expect(model.presentedError == nil)
         let demoRepositoryIdentities = model.repositoryIdentities
         #expect(!demoRepositoryIdentities.isEmpty)
-        // Scopes of the demo `~/.secchain`, and one that only the demo Keychain has.
-        #expect(model.sharedScopes == [.user, try customScope("youtube"), try customScope("design"), try customScope("newsletter")])
-        // Edits on the demo screens never reach the user's file.
-        model.setPassing(sharedScope: try customScope("design"), repositoryIdentity: repositoryIdentity, isPassed: true)
-        #expect(model.isPassed(sharedScope: try customScope("design"), repositoryIdentity: repositoryIdentity))
-        #expect(userDefinitionFile.text == nil)
         model.useDemoStore()
         #expect(model.repositoryIdentities == demoRepositoryIdentities)
-        #expect(!model.isPassed(sharedScope: try customScope("design"), repositoryIdentity: repositoryIdentity))
     }
 
     @Test

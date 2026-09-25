@@ -8,27 +8,27 @@ import SecChainCore
 public final class AppModel {
     /// Where secrets are read and written. Only a debug build replaces it (`useDemoStore()`).
     private(set) var store: SecretStore
-    /// Reads `~/.secchain`, `nil` when the file does not exist. Injected, like `store`, so that the
-    /// tests and the demo data never touch the user's file.
-    private var readUserDefinitionText: () throws -> String?
-    /// Writes `~/.secchain`.
-    private var writeUserDefinitionText: (String) throws -> Void
+    /// Reads `~/.secchain`, `nil` when the file does not exist. The function itself is `nil` in the
+    /// iOS app, which has no such file. Injected, like `store`, so that the tests and the demo data
+    /// never touch the user's file.
+    private var readUserDefinitionText: (() throws -> String?)?
+    /// Writes `~/.secchain`. `nil` in the iOS app.
+    private var writeUserDefinitionText: ((String) throws -> Void)?
 
-    /// Repositories that have secrets, plus the ones added in this session that have none yet.
-    public private(set) var repositoryIdentities: [RepositoryIdentity] = []
-    /// Every shared scope (`UserDefinition.sharedScopes`), plus the custom scopes added in this
-    /// session that neither the Keychain nor `~/.secchain` knows yet.
-    public private(set) var sharedScopes: [SharedScope] = []
-    /// Secrets of the scopes loaded so far, repositories and shared scopes.
+    /// Scopes that have secrets on this device, the ones `~/.secchain` names on a Mac, and the ones
+    /// added in this session that have none yet: the repositories first, then the user scope, then
+    /// the custom scopes.
+    public private(set) var scopes: [SecretScope] = []
+    /// Secrets of the scopes loaded so far.
     public private(set) var storedSecretsByScope: [SecretScope: [StoredSecret]] = [:]
-    /// What `~/.secchain` declares. `nil` while the file cannot be read, so that no toggle edits a
-    /// file whose content the app does not know.
+    /// What `~/.secchain` declares. `nil` in the iOS app and while the file cannot be read, so that
+    /// no switch edits a file whose content the app does not know.
     public private(set) var userDefinition: UserDefinition?
     /// Why `~/.secchain` could not be read, or why the last edit of it failed. Shown next to the
     /// scopes instead of in an alert: the file stays broken until the user fixes it, while the
     /// Keychain part of the app keeps working.
     public private(set) var userDefinitionErrorDescription: String?
-    /// Scope shown in the detail column: a repository or a shared scope.
+    /// Scope shown in the detail column.
     public var selectedScope: SecretScope?
     /// Failure to show to the user. Set by every operation that throws.
     public var presentedError: SecretStoreError?
@@ -36,24 +36,31 @@ public final class AppModel {
     /// operation pointless and gets a dedicated screen instead of an alert.
     public private(set) var isKeychainUnreachable = false
 
-    /// Repositories and custom scopes the user added before storing a first secret. They exist
-    /// nowhere else, so they are gone after a restart unless a secret was stored (or, for a custom
-    /// scope, `~/.secchain` got a line of it).
+    /// Scopes the user added before storing a first secret. They exist nowhere else, so they are
+    /// gone after a restart unless a secret was stored (or, for a custom scope, `~/.secchain` got a
+    /// line of it).
     private var scopesWithoutSecrets: [SecretScope] = []
 
+    // No `~/.secchain` by default: that is the iOS app, which never runs a command and so never
+    // needs to know which scopes a repository gets. The macOS app passes both functions.
     public init(
         store: SecretStore,
-        readUserDefinitionText: @escaping () throws -> String?,
-        writeUserDefinitionText: @escaping (String) throws -> Void
+        readUserDefinitionText: (() throws -> String?)? = nil,
+        writeUserDefinitionText: ((String) throws -> Void)? = nil
     ) {
         self.store = store
         self.readUserDefinitionText = readUserDefinitionText
         self.writeUserDefinitionText = writeUserDefinitionText
     }
 
-    /// Every scope of the sidebar: the repositories, then the shared scopes.
-    public var scopes: [SecretScope] {
-        repositoryIdentities.map(SecretScope.repository) + sharedScopes.map(SecretScope.shared)
+    /// The repositories among `scopes`.
+    public var repositoryIdentities: [RepositoryIdentity] {
+        scopes.compactMap(\.repositoryIdentity)
+    }
+
+    /// The user scope and the custom scopes among `scopes`.
+    public var sharedScopes: [SharedScope] {
+        scopes.compactMap(\.sharedScope)
     }
 
     /// Reloads everything from the Keychain and `~/.secchain`. Safe to call at any time
@@ -61,18 +68,12 @@ public final class AppModel {
     public func reload() {
         reloadUserDefinition()
         do {
-            let storedScopes = try store.scopes()
-            scopesWithoutSecrets.removeAll { scope in
-                storedScopes.contains(scope) || scope.sharedScope.flatMap { userDefinition?.scopeDefinition(scope: $0) } != nil
-            }
-            repositoryIdentities = (storedScopes + scopesWithoutSecrets)
-                .compactMap(\.repositoryIdentity)
-                .sorted { $0.value < $1.value }
-            // An unreadable `~/.secchain` still leaves the scopes the Keychain knows.
-            let listedSharedScopes = try (userDefinition ?? UserDefinitionText.parse(text: ""))
-                .sharedScopes(storedScopes: storedScopes.compactMap(\.sharedScope))
-            sharedScopes = listedSharedScopes
-                + scopesWithoutSecrets.compactMap(\.sharedScope).filter { !listedSharedScopes.contains($0) }
+            // A scope another Mac created arrives through the Keychain alone, and one written in
+            // `~/.secchain` may have no secret yet, so the list is the union of both.
+            let knownScopes = try store.scopes() + definedScopes
+            scopesWithoutSecrets.removeAll(where: knownScopes.contains)
+            scopes = Array(Set(knownScopes + scopesWithoutSecrets))
+                .sorted { listOrder(scope: $0) < listOrder(scope: $1) }
             storedSecretsByScope = try Dictionary(
                 uniqueKeysWithValues: scopes.map { ($0, try store.storedSecrets(scope: $0)) }
             )
@@ -85,8 +86,20 @@ public final class AppModel {
         }
     }
 
+    /// The shared scopes `~/.secchain` names on a Mac: the user scope, which every Mac has, and the
+    /// custom scopes of its `@scope` lines. None in the iOS app.
+    var definedScopes: [SecretScope] {
+        guard readUserDefinitionText != nil else {
+            return []
+        }
+        return [.shared(.user)] + (userDefinition?.customScopes ?? []).map { .shared($0.scope) }
+    }
+
     /// Reads `~/.secchain` apart from the Keychain, so that a broken file never hides a secret.
     func reloadUserDefinition() {
+        guard let readUserDefinitionText else {
+            return
+        }
         do {
             userDefinition = try UserDefinitionText.parse(text: try readUserDefinitionText() ?? "")
             userDefinitionErrorDescription = nil
@@ -97,16 +110,19 @@ public final class AppModel {
     }
 
     #if DEBUG
-    /// Replaces the Keychain and `~/.secchain` with demo data. A build without SecChain's signature
-    /// cannot reach the Keychain, and a remote session (simtunnel) cannot pass launch arguments, so
-    /// the switch is offered on screen. Calling it again starts over from the same demo data
-    /// (idempotent).
+    /// Replaces the Keychain with demo data, and on a Mac `~/.secchain` too. A build without
+    /// SecChain's signature cannot reach the Keychain, and a remote session (simtunnel) cannot pass
+    /// launch arguments, so the switch is offered on screen. Calling it again starts over from the
+    /// same demo data (idempotent).
     func useDemoStore() {
         store = AppModelFactory.demoStore()
-        // Edits made on the demo screens stay in memory, so that they never reach the user's file.
-        var demoUserDefinitionText: String? = AppModelFactory.demoUserDefinitionText
-        readUserDefinitionText = { demoUserDefinitionText }
-        writeUserDefinitionText = { demoUserDefinitionText = $0 }
+        if readUserDefinitionText != nil {
+            // Edits made on the demo screens stay in memory, so that they never reach the user's
+            // file.
+            var demoUserDefinitionText: String? = AppModelFactory.demoUserDefinitionText
+            readUserDefinitionText = { demoUserDefinitionText }
+            writeUserDefinitionText = { demoUserDefinitionText = $0 }
+        }
         scopesWithoutSecrets = []
         selectedScope = nil
         reload()
@@ -120,9 +136,9 @@ public final class AppModel {
     }
     #endif
 
-    /// Makes a repository or a custom scope appear in the list so that its first secret can be
+    /// Makes a repository or a shared scope appear in the list so that its first secret can be
     /// added.
-    public func add(scope: SecretScope) {
+    public func addScope(scope: SecretScope) {
         if !scopes.contains(scope) {
             scopesWithoutSecrets.append(scope)
         }
@@ -199,8 +215,11 @@ public final class AppModel {
     /// `@allow` line that names the repository alone, as `secchain scope allow` / `scope deny` do.
     /// A wildcard that also names it stays (`wildcardAllowPattern`). The file is read right before
     /// it is written, so that a change made in a terminal meanwhile is kept. Setting the state the
-    /// file already has leaves it unchanged (idempotent).
+    /// file already has leaves it unchanged (idempotent). Does nothing in the iOS app.
     public func setPassing(sharedScope: SharedScope, repositoryIdentity: RepositoryIdentity, isPassed: Bool) {
+        guard let readUserDefinitionText, let writeUserDefinitionText else {
+            return
+        }
         do {
             let text = try readUserDefinitionText()
             let editedText: String?
@@ -254,4 +273,17 @@ public final class AppModel {
 /// words it. A file system failure keeps the system's wording, which names the file and the cause.
 func userDefinitionErrorMessage(error: any Error) -> String {
     (error as? UserDefinitionError)?.message(bundle: .module) ?? error.localizedDescription
+}
+
+/// Position of a scope in the list. Repositories come first because they are what most secrets
+/// belong to; the user scope precedes the custom scopes because it is the one every Mac has.
+func listOrder(scope: SecretScope) -> (Int, String) {
+    switch scope {
+    case .repository(let repositoryIdentity):
+        (0, repositoryIdentity.value)
+    case .shared(.user):
+        (1, SharedScope.userScopeName)
+    case .shared(.custom(let customScopeName)):
+        (2, customScopeName.value)
+    }
 }

@@ -153,11 +153,13 @@ There is deliberately no command that prints a secret value to standard output. 
 
 SwiftUI app with: repository list, per-repository secret list, add / update / delete, choosing the protection level, sync state and the information needed to configure it, and understandable errors when the Keychain cannot be accessed. Secret values are hidden by default; revealing one requires an explicit user action and user authentication.
 
-Shared scopes are listed next to the repositories: the user scope, then the custom scopes of `~/.secchain` and those that only the Keychain holds (a scope created on another Mac arrives through iCloud Keychain alone). A shared scope's secrets are managed on the same screen as a repository's. A custom scope added by name appears before it has a secret, as a repository added by hand does; its first secret keeps it in the Keychain, and `~/.secchain` gets a line of it once a repository is allowed it. A repository's settings switch each shared scope on or off for it by adding or removing the `@allow` line that is exactly its identifier; a scope that a wildcard passes to it is shown as passed and locked, because the wildcard names other repositories too. When `~/.secchain` cannot be read or written, the app says why next to the scopes and keeps working on the Keychain.
+Shared scopes are listed next to the repositories: the user scope, then the custom scopes that `~/.secchain` names or the Keychain holds (a scope created on another Mac arrives through iCloud Keychain alone). A shared scope's secrets are managed on the same screen as a repository's. A custom scope added by name appears before it has a secret, as a repository added by hand does; its first secret keeps it in the Keychain, and `~/.secchain` gets a line of it once a repository is allowed it. A repository's settings switch each shared scope on or off for it by adding or removing the `@allow` line that is exactly its identifier; a scope that a wildcard passes to it is shown as passed and locked, because the wildcard names other repositories too. When `~/.secchain` cannot be read or written, the app says why next to the scopes and keeps working on the Keychain.
 
 ### iOS app
 
 A SwiftUI iOS app manages the same synchronized items from an iPhone or iPad: repository list, secret list, add / update / delete, and reveal after Face ID / Touch ID. It has no `run` equivalent. *This device only* and *device-bound* secrets created on a Mac are not visible on iOS, and the app says so instead of showing an empty repository without explanation.
+
+The shared scopes whose secrets reached the device are listed next to the repositories and managed the same way, and a custom scope can be created under the rules of its name. iOS has no `~/.secchain`, so the app neither shows nor edits `@allow`: which repositories get a scope stays a setting of each Mac.
 
 ### One store for all front ends
 

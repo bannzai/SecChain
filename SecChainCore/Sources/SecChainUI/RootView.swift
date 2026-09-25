@@ -1,13 +1,13 @@
 import SecChainCore
 import SwiftUI
 
-/// Root of both apps: repositories on the left, the selected repository's secrets on the right
-/// (a navigation stack on iPhone).
+/// Root of both apps: repositories and shared scopes on the left, the selected one's secrets on the
+/// right (a navigation stack on iPhone).
 public struct RootView: View {
     @State private var model: AppModel
     @State private var isAddingRepository = false
-    /// Shows `AddCustomScopeView`, offered by the Mac's add menu.
-    @State private var isAddingCustomScope = false
+    /// Whether the sheet that creates a custom scope is shown.
+    @State private var isAddingScope = false
     @State private var isShowingSyncInformation = false
     @State private var isShowingRemoteApprovalChecks = false
     #if os(iOS)
@@ -53,10 +53,25 @@ public struct RootView: View {
         NavigationSplitView {
             List(selection: $model.selectedScope) {
                 #if os(iOS)
-                Section {
-                    repositoryRows
-                } footer: {
-                    MacOnlySecretsNote()
+                // The note explaining what cannot reach iOS closes the list, below the scopes when
+                // there are any, because it applies to both kinds.
+                if model.sharedScopes.isEmpty {
+                    Section {
+                        repositoryRows
+                    } footer: {
+                        MacOnlySecretsNote()
+                    }
+                } else {
+                    Section {
+                        repositoryRows
+                    }
+                    Section {
+                        sharedScopeRows
+                    } header: {
+                        Text("Scopes", bundle: .module)
+                    } footer: {
+                        MacOnlySecretsNote()
+                    }
                 }
                 #else
                 Section(String(localized: "Repositories", bundle: .module)) {
@@ -68,8 +83,7 @@ public struct RootView: View {
                     }
                     repositoryRows
                 }
-                // Shared scopes come with `~/.secchain`, which only the Mac has; the iOS app gets
-                // them in https://github.com/bannzai/SecChain/issues/59.
+                // The Mac always lists the user scope, which `~/.secchain` gives every Mac.
                 Section(String(localized: "Scopes", bundle: .module)) {
                     sharedScopeRows
                     if let userDefinitionErrorDescription = model.userDefinitionErrorDescription {
@@ -89,7 +103,7 @@ public struct RootView: View {
             .navigationSplitViewColumnWidth(min: 240, ideal: 280)
             #else
             .overlay {
-                if model.repositoryIdentities.isEmpty {
+                if model.scopes.isEmpty {
                     ContentUnavailableView(
                         String(localized: "No repositories yet", bundle: .module),
                         systemImage: "key",
@@ -100,20 +114,14 @@ public struct RootView: View {
             #endif
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    #if os(macOS)
                     Menu(String(localized: "Add", bundle: .module), systemImage: "plus") {
-                        Button(String(localized: "Add Repository", bundle: .module), systemImage: "folder.badge.plus") {
+                        Button(String(localized: "Add Repository", bundle: .module), systemImage: "folder") {
                             isAddingRepository = true
                         }
-                        Button(String(localized: "Add Custom Scope", bundle: .module), systemImage: "square.stack.3d.up") {
-                            isAddingCustomScope = true
+                        Button(String(localized: "Add Scope", bundle: .module), systemImage: "tag") {
+                            isAddingScope = true
                         }
                     }
-                    #else
-                    Button(String(localized: "Add Repository", bundle: .module), systemImage: "plus") {
-                        isAddingRepository = true
-                    }
-                    #endif
                 }
                 #if os(macOS)
                 // The sidebar's toolbar is narrow on the Mac: with more than the sidebar toggle and
@@ -132,19 +140,19 @@ public struct RootView: View {
             }
         } detail: {
             if let selectedScope = model.selectedScope {
-                RepositoryDetailView(model: model, scope: selectedScope)
+                ScopeDetailView(model: model, scope: selectedScope)
             } else {
                 ContentUnavailableView(String(localized: "Select a repository", bundle: .module), systemImage: "folder")
             }
         }
         .sheet(isPresented: $isAddingRepository) {
             AddRepositoryView { repositoryIdentity in
-                model.add(scope: .repository(repositoryIdentity))
+                model.addScope(scope: .repository(repositoryIdentity))
             }
         }
-        .sheet(isPresented: $isAddingCustomScope) {
-            AddCustomScopeView { customScopeName in
-                model.add(scope: .shared(.custom(customScopeName)))
+        .sheet(isPresented: $isAddingScope) {
+            AddScopeView { scope in
+                model.addScope(scope: scope)
             }
         }
         .sheet(isPresented: $isShowingSyncInformation) {
@@ -194,7 +202,8 @@ public struct RootView: View {
         }
     }
 
-    /// One row per shared scope: the user scope first, then the custom scopes (`AppModel.sharedScopes`).
+    /// One row per shared scope (`AppModel.scopes`). `@allow`, which decides the repositories a scope
+    /// is passed to, is set in each repository's settings on the Mac, not here.
     var sharedScopeRows: some View {
         ForEach(model.sharedScopes, id: \.self) { sharedScope in
             NavigationLink(value: SecretScope.shared(sharedScope)) {
@@ -207,7 +216,7 @@ public struct RootView: View {
                             .foregroundStyle(.secondary)
                     }
                 } icon: {
-                    Image(systemName: sharedScope == .user ? "person" : "square.stack.3d.up")
+                    Image(systemName: sharedScope == .user ? "person" : "tag")
                 }
             }
         }

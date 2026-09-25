@@ -17,9 +17,7 @@ public enum AppModelFactory {
             writeUserDefinitionText: { try UserDefinitionFile.write(text: $0, homeDirectory: UserDefinitionFile.homeDirectory) }
         )
         #else
-        // The iOS app has no `~/.secchain`: it never runs a command, so it never needs to know which
-        // scopes a repository gets, and it shows no control that edits the file.
-        AppModel(store: systemStore(), readUserDefinitionText: { nil }, writeUserDefinitionText: { _ in })
+        AppModel(store: systemStore())
         #endif
     }
 
@@ -64,17 +62,19 @@ public enum AppModelFactory {
     /// without touching the Keychain and without a signed build.
     static func demoStore() -> SecretStore {
         let keychain = InMemorySecretKeychain()
+        let webAppScope = SecretScope.repository(RepositoryIdentity(value: "github.com/example/web-app"))
+        // The scope is optional only because a custom scope is made from a name that could fail
+        // validation; the one below satisfies `CustomScopeName`.
         let demoSecrets: [(scope: SecretScope?, name: String, protectionLevel: ProtectionLevel, isSynchronized: Bool)] = [
-            (.repository(RepositoryIdentity(value: "github.com/example/web-app")), "OPENAI_API_KEY", .standard, true),
-            (.repository(RepositoryIdentity(value: "github.com/example/web-app")), "CLOUDFLARE_API_TOKEN", .confirm, true),
-            (.repository(RepositoryIdentity(value: "github.com/example/web-app")), "DATABASE_URL", .standard, false),
-            (.repository(RepositoryIdentity(value: "github.com/example/web-app")), "SIGNING_KEY_PASSWORD", .deviceBound, false),
+            (webAppScope, "OPENAI_API_KEY", .standard, true),
+            (webAppScope, "CLOUDFLARE_API_TOKEN", .confirm, true),
+            (webAppScope, "DATABASE_URL", .standard, false),
+            (webAppScope, "SIGNING_KEY_PASSWORD", .deviceBound, false),
             (.repository(RepositoryIdentity(value: "github.com/example/mobile-app")), "FIREBASE_TOKEN", .standard, true),
             (.repository(RepositoryIdentity(value: "my-notes")), "BLOG_API_KEY", .standard, true),
             (.shared(.user), "ANTHROPIC_API_KEY", .standard, true),
-            (SharedScope(name: "youtube").map(SecretScope.shared), "YOUTUBE_API_KEY", .confirm, true),
-            // A scope that only the Keychain knows, as one created on another Mac arrives.
-            (SharedScope(name: "newsletter").map(SecretScope.shared), "NEWSLETTER_API_KEY", .standard, true),
+            (.shared(.user), "GITHUB_TOKEN", .confirm, true),
+            (SharedScope(name: "youtube").map(SecretScope.shared), "YOUTUBE_API_KEY", .standard, true),
         ]
         for demoSecret in demoSecrets {
             guard let scope = demoSecret.scope, let name = SecretName(rawName: demoSecret.name) else {

@@ -100,7 +100,7 @@ secchain delete YOUTUBE_API_KEY --scope youtube
 - A pattern is a repository identifier as `secchain list --repositories` prints it, or the start of one followed by `*`: `github.com/bannzai/*` covers every repository of `bannzai` and none of `bannzai-other`. Quote a pattern with `*` so that the shell leaves it alone.
 - When a name is in several scopes a repository gets, the repository's own secret wins, then the custom scopes in the order of `~/.secchain`, then the user scope. `secchain list --long` shows which scope each name comes from.
 - Custom scope names use lowercase letters, digits, and hyphens. Without `--scope`, `set` and `delete` act on the repository's own secrets as before.
-- The macOS app does the same without a terminal: the sidebar lists the shared scopes under **Scopes**, **+ → Add Custom Scope** adds one, and **Repository Settings** of a repository turns each scope on or off for it. A scope that a wildcard `@allow` passes stays on there; change the wildcard in `~/.secchain` itself.
+- The macOS app does the same without a terminal: the sidebar lists the shared scopes under **Scopes**, **+ → Add Scope** adds one, and **Repository Settings** of a repository turns each scope on or off for it. A scope that a wildcard `@allow` passes stays on there; change the wildcard in `~/.secchain` itself.
 
 ### Delete a secret
 
