@@ -14,6 +14,11 @@ struct RunCommand: AsyncParsableCommand {
             the repository first, then from the custom scopes in the order of ~/.secchain, then from \
             the user scope.
 
+            Where a passed scope has environments, --env names the one to run with, such as \
+            'secchain run --env prod -- npm run build'. Such a scope gives only the secrets of that \
+            environment, never those of another one or those left without an environment; a scope \
+            without environments gives its secrets in every environment.
+
             Secrets that are not 'standard' ask for Touch ID or your password first; one prompt \
             covers all of them.
 
@@ -29,6 +34,9 @@ struct RunCommand: AsyncParsableCommand {
     var only: [String] = []
 
     @OptionGroup
+    var environmentOptions: EnvironmentOptions
+
+    @OptionGroup
     var repositoryOptions: RepositoryOptions
 
     @OptionGroup
@@ -41,14 +49,16 @@ struct RunCommand: AsyncParsableCommand {
         guard let executable = command.first else {
             throw ValidationError("No command given. Usage: secchain run -- <command> [arguments...]")
         }
+        let environment = try environmentOptions.validatedEnvironment()
         let context = try CommandContext.resolve(repositoryOption: repositoryOptions.repository)
         let passedScopes = context.userDefinition.passedScopes(repositoryIdentity: context.repositoryIdentity)
-        let storedSecrets = try SecretStore.system.storedSecrets(scopes: passedScopes)
+        let storedSecrets = try SecretStore.system.storedSecrets(scopes: passedScopes, environment: environment)
         let secretNames = try RunPlan.secretNames(
             storedSecretNames: storedSecrets.map(\.name),
             definition: context.definition,
             onlyNames: try only.map(validatedSecretName(rawName:)),
             repositoryIdentity: context.repositoryIdentity,
+            environment: environment,
             secretNamesOfScopesNotPassed: {
                 try secretNamesOfSharedScopes(userDefinition: context.userDefinition).filter { !passedScopes.contains(.shared($0.key)) }
             }
@@ -64,10 +74,12 @@ struct RunCommand: AsyncParsableCommand {
             try await setup.store.values(
                 names: secretNames,
                 scopes: passedScopes,
+                environment: environment,
                 authenticationReason: RunPlan.authenticationReason(
                     executable: executable,
                     repositoryIdentity: context.repositoryIdentity,
                     passedScopes: passedScopes,
+                    environment: environment,
                     requestedSecrets: requestedSecrets
                 )
             )
