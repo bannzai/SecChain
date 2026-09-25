@@ -11,6 +11,8 @@ struct ScopeDetailView: View {
     let scope: SecretScope
 
     @State private var isAddingSecret = false
+    /// Only a repository has settings, and only on the Mac (`RepositorySettingsView`).
+    @State private var isShowingRepositorySettings = false
     @State private var storedSecretBeingUpdated: StoredSecret?
     @State private var storedSecretBeingProtected: StoredSecret?
     @State private var storedSecretBeingDeleted: StoredSecret?
@@ -62,6 +64,17 @@ struct ScopeDetailView: View {
             }
         }
         .toolbar {
+            #if os(macOS)
+            // Which shared scopes a repository gets is decided by `~/.secchain`, which only the Mac
+            // has.
+            if scope.repositoryIdentity != nil {
+                ToolbarItem {
+                    Button(String(localized: "Repository Settings", bundle: .module), systemImage: "gearshape") {
+                        isShowingRepositorySettings = true
+                    }
+                }
+            }
+            #endif
             ToolbarItem(placement: .primaryAction) {
                 Button(String(localized: "Add Secret", bundle: .module), systemImage: "plus") {
                     isAddingSecret = true
@@ -70,6 +83,11 @@ struct ScopeDetailView: View {
         }
         .sheet(isPresented: $isAddingSecret) {
             SecretEditorView(model: model, mode: .add(scope: scope))
+        }
+        .sheet(isPresented: $isShowingRepositorySettings) {
+            if let repositoryIdentity = scope.repositoryIdentity {
+                RepositorySettingsView(model: model, repositoryIdentity: repositoryIdentity)
+            }
         }
         .sheet(item: $storedSecretBeingUpdated) { storedSecret in
             SecretEditorView(model: model, mode: .updateValue(storedSecret: storedSecret))

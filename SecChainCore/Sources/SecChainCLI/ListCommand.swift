@@ -186,14 +186,11 @@ struct ListCommand: ParsableCommand {
         storedSecret.environment?.value ?? "-"
     }
 
-    /// Every shared scope with the patterns that pass it to repositories: the user scope, the custom
-    /// scopes in the order of `~/.secchain`, then the ones that only the Keychain knows (a scope
-    /// created on another Mac, or removed from the file), which are passed to no repository here.
+    /// Every shared scope (`UserDefinition.sharedScopes`) with the patterns that pass it to
+    /// repositories.
     func listSharedScopes() throws {
         let userDefinition = try readUserDefinition().definition
-        let definedScopes = ([userDefinition.userScope] + userDefinition.customScopes).map(\.scope)
-        let storedScopes = try SecretStore.system.scopes().compactMap(\.sharedScope)
-        for sharedScope in definedScopes + storedScopes.filter({ !definedScopes.contains($0) }) {
+        for sharedScope in userDefinition.sharedScopes(storedScopes: try SecretStore.system.scopes().compactMap(\.sharedScope)) {
             let allowPatterns = userDefinition.scopeDefinition(scope: sharedScope)?.allowPatterns ?? []
             print("\(sharedScope.name)\t\(allowPatterns.isEmpty ? "(passed to no repository)" : allowPatterns.joined(separator: " "))")
         }
