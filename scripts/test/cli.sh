@@ -23,6 +23,11 @@ export HOME="${WORK_DIRECTORY}/home"
 USER_DEFINITION="${HOME}/.secchain"
 REPOSITORY_DIRECTORY="${WORK_DIRECTORY}/repository"
 REPOSITORY="github.com/secchain-cli-test/repository-$$"
+# A second throwaway repository for the environments, so that giving it environments changes nothing
+# for the checks of the first one. The user scope never gets an environment here: it is the real one,
+# and an environment of it would make every repository of the user need --env.
+ENVIRONMENT_REPOSITORY_DIRECTORY="${WORK_DIRECTORY}/environment-repository"
+ENVIRONMENT_REPOSITORY="github.com/secchain-cli-test/environment-repository-$$"
 SCOPE="secchain-cli-test-$$"
 USER_SCOPE_KEY="CLI_TEST_USER_KEY_$$"
 
@@ -35,6 +40,17 @@ cleanup() {
     "${SECCHAIN}" delete CLI_TEST_SHARED_KEY --scope "${SCOPE}"
     "${SECCHAIN}" delete "${USER_SCOPE_KEY}" --scope user
   ) > /dev/null 2>&1 || true
+  # Every secret of an environment first: while one is left, a delete without --env is refused.
+  for environment in local prod; do
+    for key in CLI_TEST_ENV_KEY_A CLI_TEST_ENV_KEY_B; do
+      "${SECCHAIN}" delete "${key}" --repository "${ENVIRONMENT_REPOSITORY}" --env "${environment}" > /dev/null 2>&1 || true
+    done
+    "${SECCHAIN}" delete CLI_TEST_ENV_SCOPE_KEY --scope "${SCOPE}" --env "${environment}" > /dev/null 2>&1 || true
+  done
+  for key in CLI_TEST_ENV_KEY_A CLI_TEST_ENV_KEY_B; do
+    "${SECCHAIN}" delete "${key}" --repository "${ENVIRONMENT_REPOSITORY}" > /dev/null 2>&1 || true
+  done
+  "${SECCHAIN}" delete CLI_TEST_ENV_SCOPE_KEY --scope "${SCOPE}" > /dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
@@ -232,6 +248,87 @@ capture "${SECCHAIN}" delete CLI_TEST_KEY
 ! grep -qx "CLI_TEST_KEY" .secchain || fail "delete left the name in .secchain"
 capture "${SECCHAIN}" delete CLI_TEST_KEY
 [ "${LAST_STATUS}" -eq 0 ] || fail "deleting again is not idempotent (status ${LAST_STATUS})"
+
+mkdir -p "${ENVIRONMENT_REPOSITORY_DIRECTORY}"
+cd "${ENVIRONMENT_REPOSITORY_DIRECTORY}"
+git init --quiet
+git remote add origin "https://${ENVIRONMENT_REPOSITORY}.git"
+
+echo "== a repository without environments runs without --env, and with one"
+capture sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_ENV_KEY_A"
+capture sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_ENV_KEY_B"
+EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run -- sh -c 'test "${CLI_TEST_ENV_KEY_A}" = "${EXPECTED_VALUE}"'
+[ "${LAST_STATUS}" -eq 0 ] || fail "run without --env failed in a repository without environments (status ${LAST_STATUS})"
+EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run --env prod -- sh -c 'test "${CLI_TEST_ENV_KEY_A}" = "${EXPECTED_VALUE}"'
+[ "${LAST_STATUS}" -eq 0 ] || fail "run --env did not pass the secrets of a repository without environments (status ${LAST_STATUS})"
+"${SECCHAIN}" list --envs | grep -qx "repository"$'\t'"-"$'\t'"2 without an environment" || fail "list --envs did not say the repository has no environment"
+
+echo "== moving one secret warns that it is the first environment and names the ones left"
+capture_output "${SECCHAIN}" env migrate local CLI_TEST_ENV_KEY_A
+[ "${LAST_STATUS}" -eq 0 ] || fail "env migrate of one secret exited with ${LAST_STATUS}"
+printf '%s' "${LAST_OUTPUT}" | grep -q "warning: local is the first environment of ${ENVIRONMENT_REPOSITORY}" || fail "moving the first secret did not warn about the first environment"
+printf '%s' "${LAST_OUTPUT}" | grep -q "does not pass them: CLI_TEST_ENV_KEY_B" || fail "the warning did not name the secret left without an environment"
+printf '%s' "${LAST_OUTPUT}" | grep -qF "secchain env migrate local" || fail "the warning did not say how to move the rest"
+"${SECCHAIN}" list --long --scope repository | grep -q "^CLI_TEST_ENV_KEY_A"$'\t'".*"$'\t'"local$" || fail "list --long did not show the environment of the moved secret"
+"${SECCHAIN}" list --long --scope repository | grep -q "^CLI_TEST_ENV_KEY_B"$'\t'".*"$'\t'"-$" || fail "list --long did not show '-' for the secret without an environment"
+
+echo "== once the repository has an environment, run needs --env"
+capture_output "${SECCHAIN}" run -- true
+[ "${LAST_STATUS}" -ne 0 ] || fail "run started without --env in a repository with an environment"
+printf '%s' "${LAST_OUTPUT}" | grep -qF "secchain run --env <environment>" || fail "the refusal did not say how to name the environment"
+printf '%s' "${LAST_OUTPUT}" | grep -qF "secchain env migrate" || fail "the refusal did not say how to move the secret left without an environment"
+capture_output "${SECCHAIN}" run --env local -- true
+[ "${LAST_STATUS}" -ne 0 ] || fail "run --env local started although the declared CLI_TEST_ENV_KEY_B has no value in local"
+printf '%s' "${LAST_OUTPUT}" | grep -q "no stored value in the environment local: CLI_TEST_ENV_KEY_B" || fail "the refusal did not name the environment and the secret it lacks"
+
+echo "== set without --env is refused before a value is read"
+capture_output sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_ENV_KEY_B"
+[ "${LAST_STATUS}" -ne 0 ] || fail "set without --env stored a secret in a repository with an environment"
+printf '%s' "${LAST_OUTPUT}" | grep -qF -e "--env <environment>" || fail "the refusal of set did not name --env"
+
+echo "== moving the rest leaves nothing without an environment, and moving again does nothing"
+capture "${SECCHAIN}" env migrate local
+[ "${LAST_STATUS}" -eq 0 ] || fail "env migrate of every secret exited with ${LAST_STATUS}"
+"${SECCHAIN}" list --envs | grep -qx "repository"$'\t'"local"$'\t'"0 without an environment" || fail "list --envs did not show the environment after moving everything"
+capture_output "${SECCHAIN}" env migrate local
+[ "${LAST_STATUS}" -eq 0 ] || fail "env migrate with nothing to move exited with ${LAST_STATUS}"
+printf '%s' "${LAST_OUTPUT}" | grep -q "^Nothing to move" || fail "env migrate with nothing to move did not say so"
+
+echo "== run --env passes the value of that environment, and no other"
+capture sh -c "printf '%s\n' '${OTHER_DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_ENV_KEY_A --env prod"
+[ "${LAST_STATUS}" -eq 0 ] || fail "set --env prod exited with ${LAST_STATUS}"
+capture "${SECCHAIN}" run --env prod -- true
+[ "${LAST_STATUS}" -ne 0 ] || fail "run --env prod started although CLI_TEST_ENV_KEY_B has no prod value (a fallback to local)"
+capture sh -c "printf '%s\n' '${OTHER_DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_ENV_KEY_B --env prod"
+EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run --env local -- sh -c 'test "${CLI_TEST_ENV_KEY_A}" = "${EXPECTED_VALUE}" && test "${CLI_TEST_ENV_KEY_B}" = "${EXPECTED_VALUE}"'
+[ "${LAST_STATUS}" -eq 0 ] || fail "run --env local did not pass the local values (status ${LAST_STATUS})"
+EXPECTED_VALUE="${OTHER_DUMMY_VALUE}" capture "${SECCHAIN}" run --env prod -- sh -c 'test "${CLI_TEST_ENV_KEY_A}" = "${EXPECTED_VALUE}" && test "${CLI_TEST_ENV_KEY_B}" = "${EXPECTED_VALUE}"'
+[ "${LAST_STATUS}" -eq 0 ] || fail "run --env prod did not pass the prod values (status ${LAST_STATUS})"
+[ "$("${SECCHAIN}" list --env prod | tr '\n' ' ')" = "CLI_TEST_ENV_KEY_A CLI_TEST_ENV_KEY_B " ] || fail "list --env prod did not print the names of prod"
+"${SECCHAIN}" list --envs | grep -qx "repository"$'\t'"local prod"$'\t'"0 without an environment" || fail "list --envs did not show both environments"
+
+echo "== deleting the value of one environment keeps the declaration the other still needs"
+capture "${SECCHAIN}" delete CLI_TEST_ENV_KEY_A --env prod
+[ "${LAST_STATUS}" -eq 0 ] || fail "delete --env prod exited with ${LAST_STATUS}"
+grep -qx "CLI_TEST_ENV_KEY_A" .secchain || fail "delete --env removed the name from .secchain although local still holds it"
+! "${SECCHAIN}" list --env prod | grep -qx "CLI_TEST_ENV_KEY_A" || fail "list --env prod still prints the deleted secret"
+
+echo "== a shared scope moves to an environment with --scope"
+capture sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_ENV_SCOPE_KEY --scope '${SCOPE}' --no-sync"
+capture "${SECCHAIN}" env migrate local --scope "${SCOPE}"
+[ "${LAST_STATUS}" -eq 0 ] || fail "env migrate --scope exited with ${LAST_STATUS}"
+"${SECCHAIN}" list --long --scope "${SCOPE}" | grep -q "^CLI_TEST_ENV_SCOPE_KEY"$'\t'".*"$'\t'"local$" || fail "env migrate --scope did not move the scope's secret"
+capture sh -c "printf '%s\n' '${OTHER_DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_ENV_SCOPE_KEY --scope '${SCOPE}' --env prod --no-sync"
+[ "${LAST_STATUS}" -eq 0 ] || fail "set --scope --env exited with ${LAST_STATUS}"
+"${SECCHAIN}" list --envs --scope "${SCOPE}" | grep -qx "${SCOPE}"$'\t'"local prod"$'\t'"0 without an environment" || fail "list --envs --scope did not show the scope's environments"
+
+echo "== invalid environment arguments are usage errors"
+capture "${SECCHAIN}" run --env Prod -- true
+[ "${LAST_STATUS}" -ne 0 ] || fail "run accepted an environment name with an uppercase letter"
+capture_output "${SECCHAIN}" list --repository "${ENVIRONMENT_REPOSITORY}#prod"
+[ "${LAST_STATUS}" -ne 0 ] || fail "--repository accepted an identifier that contains '#'"
+printf '%s' "${LAST_OUTPUT}" | grep -q "cannot be a repository identifier" || fail "the refusal of '#' did not say why"
+cd "${REPOSITORY_DIRECTORY}"
 
 echo "== the values appear in no output and in no file of the working directory or ~/.secchain"
 ! grep -rqF -e "${DUMMY_VALUE}" -e "${OTHER_DUMMY_VALUE}" "${WORK_DIRECTORY}" || fail "a value leaked into the captured output or a file"

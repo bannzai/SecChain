@@ -141,6 +141,23 @@ allowed Bash command "cat ~/.secchain"
 # Outside a run an inline script has no secret in its environment.
 allowed Bash command "python3 -c 'print(1 + 1)'"
 
+echo "== the environment subcommands and options pass"
+# `--env` names an environment of the secrets, not a `.env` file, and `env migrate` is SecChain's
+# subcommand, not the `env` command that prints the environment.
+allowed Bash command "secchain env migrate local"
+allowed Bash command "secchain env migrate local OPENAI_API_KEY"
+allowed Bash command "secchain env migrate local --scope user"
+allowed Bash command "secchain set OPENAI_API_KEY --env prod"
+allowed Bash command "secchain set OPENAI_API_KEY --scope user --env prod"
+allowed Bash command "secchain delete OPENAI_API_KEY --env prod"
+allowed Bash command "secchain list --env prod"
+allowed Bash command "secchain list --envs"
+allowed Bash command "secchain run --env local -- npm run dev"
+allowed Bash command "secchain run --env prod --only CLOUDFLARE_API_TOKEN -- ./scripts/deploy.sh"
+# The environment does not change what the child of a run may do.
+denied Bash command "secchain run --env prod -- env"
+denied Bash command "secchain run --env prod -- sh -c 'echo \$OPENAI_API_KEY'"
+
 echo "== calls that have nothing to do with secrets pass"
 allowed Read file_path "/Users/someone/project/.secchain"
 allowed Read file_path "/Users/someone/project/.gitignore"
