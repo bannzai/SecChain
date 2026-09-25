@@ -68,6 +68,8 @@ secchain list --long          # + protection level, sync state, the scope of eac
 secchain list --repositories  # every repository that has secrets on this Mac
 secchain list --scopes        # every shared scope, with the repositories it is passed to
 secchain list --scope user    # the names of one scope; --scope repository lists the repository's own
+secchain list --env prod      # the names run --env prod passes (see "Environments")
+secchain list --envs          # the environments of each scope, and how many secrets have none
 ```
 
 Values are never printed by any `list` form.
@@ -100,6 +102,37 @@ secchain delete YOUTUBE_API_KEY --scope youtube
 - A pattern is a repository identifier as `secchain list --repositories` prints it, or the start of one followed by `*`: `github.com/bannzai/*` covers every repository of `bannzai` and none of `bannzai-other`. Quote a pattern with `*` so that the shell leaves it alone.
 - When a name is in several scopes a repository gets, the repository's own secret wins, then the custom scopes in the order of `~/.secchain`, then the user scope. `secchain list --long` shows which scope each name comes from.
 - Custom scope names use lowercase letters, digits, and hyphens. Without `--scope`, `set` and `delete` act on the repository's own secrets as before.
+
+### Environments
+
+One name can hold a value per deployment target — `local`, `dev`, `prod`, any name you choose — so that `OPENAI_API_KEY` stays `OPENAI_API_KEY` in every one of them instead of becoming `OPENAI_API_KEY_PROD`:
+
+```bash
+secchain set OPENAI_API_KEY --env prod        # store the value of prod
+secchain run --env prod -- npm run build      # the command gets the prod value
+secchain delete OPENAI_API_KEY --env prod
+secchain list --env prod                      # the names of prod only
+secchain list --long                          # adds the environment column; "-" for no environment
+secchain list --envs                          # each scope's environments, and how many of its secrets have none
+```
+
+To give an existing repository environments:
+
+```bash
+secchain list --long                          # the secrets you have now (environment "-")
+secchain env migrate local                    # move the current values to local at once (any name works: dev is fine too)
+secchain set OPENAI_API_KEY --env prod        # store the value of prod
+secchain run --env local -- npm run dev
+secchain run --env prod -- npm run build
+```
+
+- Instead of moving everything at once, you can move one secret at a time and check each: `secchain env migrate local OPENAI_API_KEY`. `run` needs `--env` from the first secret you move on, though.
+- A scope that holds a secret of an environment has environments; nothing else records it, so the state reaches your other Macs through iCloud Keychain with the secrets. Deleting its last secret of an environment gives it none again.
+- Where a scope has environments, `run --env <environment>` gets only the secrets of that environment from it — never those of another environment, and never those left without one. `set` needs `--env` there as well, and `run` without `--env` refuses to start and says how to go on. A scope without environments gives its secrets in every environment, so a user scope whose `OPENAI_API_KEY` is the same everywhere can stay without environments while a repository has them.
+- Giving a shared scope environments makes `--env` necessary in every repository it is passed to. The first `set --env` or `env migrate` of one secret in a scope that still holds secrets without an environment warns about that, names those secrets, and says how to move them.
+- `env migrate` keeps the value, the protection level, and the synchronization; a `confirm` or `device-bound` secret asks for authentication first, once for the whole command. It never overwrites a value the environment already holds, and with nothing left to move it does nothing. `--scope` moves a shared scope's secrets.
+- `.secchain` declares names only and knows nothing of environments: every name it declares needs a value in each environment you run with. `delete --env` keeps a name declared while another environment still holds it.
+- Environment names use lowercase letters, digits, and hyphens, like custom scope names.
 
 ### Delete a secret
 
@@ -217,7 +250,7 @@ YOUTUBE_API_KEY
 
 The repository identity comes from the `origin` remote, normalized to `host/owner/repo` (case, credentials, port, scheme, and a trailing `.git` are dropped), so `git@github.com:Owner/Repo.git` and `https://github.com/owner/repo` are the same repository and the same Keychain items — including from a linked worktree or a sub-directory. A directory that is not a Git repository, has no `origin`, or has an `origin` that is a local path needs `--repository <identifier>`; SecChain never falls back to the checkout path, because the same repository must resolve to the same secrets from every checkout on every Mac.
 
-`--repository <identifier>` on any command acts on a repository other than the current directory's, without touching that repository's `.secchain` file. The identifier is folded to lowercase like a remote's, so `--repository github.com/Owner/Repo` is the same repository as a checkout of it.
+`--repository <identifier>` on any command acts on a repository other than the current directory's, without touching that repository's `.secchain` file. The identifier is folded to lowercase like a remote's, so `--repository github.com/Owner/Repo` is the same repository as a checkout of it. It cannot contain `#`, which separates the environment in the names SecChain gives its Keychain items.
 
 ## Building from source
 
@@ -266,10 +299,10 @@ Tests are split by what they need to run, so that most of them run anywhere whil
 | Layer | Command | Runs where | Covers |
 | --- | --- | --- | --- |
 | Unit tests | `make test` | Anywhere, including CI on pull requests from forks | Everything that can be decided without the system Keychain: repository identity, the `.secchain` and `~/.secchain` files, which scopes a repository gets and the order a name is taken in, the rules of `SecretStore` (protection levels, authentication, synchronization), the environment `run` builds, the error translation, and the assertions that a value never appears in a description or a log. They run against an in-memory Keychain double (`InMemorySecretKeychain`) and an authenticator double, so no prompt appears |
-| Signed integration tests | `make test-integration` | A Mac with the team's signing identity (not CI, because a runner has none) | The real data protection keychain, exercised by the signed binaries themselves: the app and the embedded tool read and write each other's items, a repository scope and a custom scope go through the same round trip, a device-bound item is refused without user interaction and a scope keeps its device-bound values apart from a repository of the same name, an unsigned `swift build` product fails with `errSecMissingEntitlement`, the command-line tool end to end including scopes (`scripts/test/cli.sh`), and both binaries reaching SecChain's CloudKit container (the Mac must be signed in to iCloud) |
+| Signed integration tests | `make test-integration` | A Mac with the team's signing identity (not CI, because a runner has none) | The real data protection keychain, exercised by the signed binaries themselves: the app and the embedded tool read and write each other's items, a repository scope and a custom scope go through the same round trip, a device-bound item is refused without user interaction and a scope keeps its device-bound values apart from a repository of the same name, the secrets of an environment are listed, read, and moved into it, and a device-bound one is not moved without user interaction, an unsigned `swift build` product fails with `errSecMissingEntitlement`, the command-line tool end to end including scopes and environments (`scripts/test/cli.sh`), and both binaries reaching SecChain's CloudKit container (the Mac must be signed in to iCloud) |
 | Manual checks | — | Two Macs and an iPhone on one Apple Account | What no automated run can reach: actual iCloud Keychain propagation between devices, and answering a Touch ID / Face ID prompt. Tracked in the pre-release checklist issue |
 
-`make test-integration` builds the app first, then runs `scripts/test/integration.sh` with the embedded tool of that build. It stores only its own throwaway values (`dummy-value-for-…`) under a throwaway repository identifier, a throwaway custom scope, and one throwaway name in the user scope, uses a throwaway `~/.secchain`, and deletes them again, so it does not touch secrets you keep.
+`make test-integration` builds the app first, then runs `scripts/test/integration.sh` with the embedded tool of that build. It stores only its own throwaway values (`dummy-value-for-…`) under throwaway repository identifiers, a throwaway custom scope, and one throwaway name in the user scope, which never gets an environment, uses a throwaway `~/.secchain`, and deletes them again, so it does not touch secrets you keep.
 
 Where each requirement of the project is covered is listed in [`documents/test-coverage.md`](documents/test-coverage.md).
 
