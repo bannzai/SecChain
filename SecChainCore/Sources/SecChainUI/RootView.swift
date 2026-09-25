@@ -76,6 +76,8 @@ public struct RootView: View {
                         Label(userDefinitionErrorDescription, systemImage: "exclamationmark.triangle")
                             .font(.caption)
                             .foregroundStyle(.red)
+                            // A sidebar row is one line by default, which would cut off the reason.
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
                 #endif
@@ -236,7 +238,7 @@ public struct RootView: View {
         #if os(macOS)
         // An unreadable `~/.secchain` otherwise needs a broken file in the home directory of the
         // Mac the app runs on, which a remote session cannot write.
-        Button("Show Sample ~/.secchain Error", systemImage: "doc.badge.exclamationmark") {
+        Button("Show Sample ~/.secchain Error", systemImage: "exclamationmark.octagon") {
             model.showSampleUserDefinitionError()
         }
         #endif
