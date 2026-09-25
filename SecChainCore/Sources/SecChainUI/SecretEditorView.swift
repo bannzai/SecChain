@@ -153,7 +153,7 @@ struct SecretEditorView: View {
                 succeeded = await model.save(
                     name: name,
                     value: SecretValue(exposingString: valueText),
-                    repositoryIdentity: repositoryIdentity,
+                    scope: .repository(repositoryIdentity),
                     protectionLevel: protectionLevel,
                     isSynchronized: isSynchronized
                 )
@@ -161,7 +161,7 @@ struct SecretEditorView: View {
                 succeeded = await model.save(
                     name: storedSecret.name,
                     value: SecretValue(exposingString: valueText),
-                    repositoryIdentity: storedSecret.repositoryIdentity,
+                    scope: storedSecret.scope,
                     protectionLevel: storedSecret.protectionLevel,
                     isSynchronized: storedSecret.isSynchronized
                 )

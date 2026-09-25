@@ -1,0 +1,364 @@
+import Foundation
+
+/// What the user's definition file (`~/.secchain`) declares: the shared scopes and the repositories
+/// each of them is passed to (documents/PROJECT.md, "The user's definition file").
+///
+/// It lives outside every repository on purpose: a repository's own files cannot widen what
+/// `secchain run` passes (design decision 6), so everything that does is here. Like a repository's
+/// `.secchain`, it holds names and patterns only, never a value.
+///
+/// File format, one entry per line. The names and `@allow` lines before the first `@scope` belong
+/// to the user scope, and each `@scope` line starts a custom scope that lasts until the next one:
+///
+///     # user scope
+///     OPENAI_API_KEY
+///     @allow github.com/bannzai/*
+///
+///     @scope youtube
+///     YOUTUBE_API_KEY
+///     @allow github.com/bannzai/youtuber
+public struct UserDefinition: Equatable, Sendable {
+    /// The lines before the first `@scope`.
+    public let userScope: ScopeDefinition
+    /// One entry per `@scope`, in file order, which is also their order of precedence in `run`.
+    public let customScopes: [ScopeDefinition]
+
+    /// The scopes `run` passes to a repository, in order of precedence: the repository's own scope,
+    /// then every custom scope that allows it, in file order, then the user scope when it allows it.
+    /// A repository's own secret always wins over a shared one of the same name, and the user
+    /// scope, the most general one, comes last.
+    public func passedScopes(repositoryIdentity: RepositoryIdentity) -> [SecretScope] {
+        [.repository(repositoryIdentity)]
+            + (customScopes + [userScope])
+                .filter { $0.isAllowed(repositoryIdentity: repositoryIdentity) }
+                .map { .shared($0.scope) }
+    }
+
+    /// The definition of a shared scope. The user scope always has one; a custom scope has one only
+    /// when a `@scope` line names it.
+    public func scopeDefinition(scope: SharedScope) -> ScopeDefinition? {
+        ([userScope] + customScopes).first { $0.scope == scope }
+    }
+}
+
+/// One shared scope as `~/.secchain` defines it.
+public struct ScopeDefinition: Equatable, Sendable {
+    /// The scope the section defines.
+    public let scope: SharedScope
+    /// Names the scope is meant to hold, in file order, without duplicates. They do not limit what
+    /// `run` passes; `list --long --scope` reports the ones that have no value.
+    public let secretNames: [SecretName]
+    /// `@allow` patterns in file order, without duplicates: the repositories the scope is passed to.
+    /// A scope without one is passed to no repository.
+    public let allowPatterns: [String]
+
+    /// Whether `run` passes the scope to the repository.
+    public func isAllowed(repositoryIdentity: RepositoryIdentity) -> Bool {
+        allowPatterns.contains { repositoryPatternMatches(pattern: $0, repositoryIdentity: repositoryIdentity) }
+    }
+}
+
+/// Whether an `@allow` pattern names a repository: the pattern is its identifier, or the pattern
+/// ends in `*` and the rest of it starts the identifier. `github.com/owner/*` therefore names every
+/// repository of `owner` and none of `owner-other`. Letter case is ignored, because the identifier
+/// of a Git remote is folded to lowercase while the pattern may be spelled the way the hosting
+/// service shows the name.
+public func repositoryPatternMatches(pattern: String, repositoryIdentity: RepositoryIdentity) -> Bool {
+    let lowercasedPattern = pattern.lowercased()
+    guard lowercasedPattern.hasSuffix("*") else {
+        return repositoryIdentity.value.lowercased() == lowercasedPattern
+    }
+    return repositoryIdentity.value.lowercased().hasPrefix(String(lowercasedPattern.dropLast()))
+}
+
+/// Whether a repository can be named by both patterns: two spellings of one identifier, a wildcard
+/// and an identifier it names, or two wildcards one of whose starts begins the other, ignoring
+/// letter case as `repositoryPatternMatches` does. `scope deny` uses it to tell that a scope still
+/// reaches some of what the removed line named, through a wider pattern or a narrower one.
+public func repositoryPatternsOverlap(pattern: String, otherPattern: String) -> Bool {
+    switch (pattern.hasSuffix("*"), otherPattern.hasSuffix("*")) {
+    case (false, _):
+        return repositoryPatternMatches(pattern: otherPattern, repositoryIdentity: RepositoryIdentity(value: pattern))
+    case (true, false):
+        return repositoryPatternMatches(pattern: pattern, repositoryIdentity: RepositoryIdentity(value: otherPattern))
+    case (true, true):
+        let patternStart = pattern.dropLast().lowercased()
+        let otherPatternStart = otherPattern.dropLast().lowercased()
+        return patternStart.hasPrefix(otherPatternStart) || otherPatternStart.hasPrefix(patternStart)
+    }
+}
+
+/// An `@allow` pattern: a whole identifier, or the start of one followed by a single `*`. A `*`
+/// anywhere else would read as a glob, which the comparison does not implement, and a `=` would
+/// make the line one that `UserDefinitionText.parse` refuses as a value.
+public func isValidRepositoryPattern(pattern: String) -> Bool {
+    !pattern.isEmpty
+        && !pattern.dropLast().contains("*")
+        && !pattern.contains("=")
+        && !pattern.contains(where: \.isWhitespace)
+}
+
+/// Why `~/.secchain` was rejected. Messages never echo the rest of an offending line, for the same
+/// reason as `SecretDefinitionError`: the most likely offending content is a secret value.
+public enum UserDefinitionError: Error, Equatable, CustomStringConvertible {
+    /// The line contains `=`, which suggests a value. Values belong in the Keychain only.
+    case valueNotAllowed(lineNumber: Int)
+    /// The line is neither a comment, a directive, nor a valid secret name.
+    case invalidSecretName(lineNumber: Int)
+    /// `@scope` names no valid custom scope: a malformed name, or `user` / `repository`, which
+    /// name the built-in scopes.
+    case invalidScopeName(lineNumber: Int)
+    /// `@allow` has no pattern, several, or a `*` that is not the last character.
+    case invalidAllowPattern(lineNumber: Int)
+    /// An unknown directive, or `@scope` with the wrong arguments.
+    case invalidDirective(lineNumber: Int)
+    /// A second `@scope` for one scope. Which of the two sections counts would be a guess, and an
+    /// edit would not know which to change.
+    case duplicateDeclaration(lineNumber: Int)
+
+    /// The message in English, as the command-line tool prints it: no SecChain binary has
+    /// translations in `Bundle.main`.
+    public var description: String {
+        message(bundle: .main)
+    }
+
+    /// The message translated by the String Catalog in `bundle`. English where the catalog has no
+    /// translation.
+    public func message(bundle: Bundle) -> String {
+        switch self {
+        case .valueNotAllowed(let lineNumber):
+            String(localized: "~/.secchain line \(lineNumber): contains '='. The file lists secret names only; store the value with 'secchain set <NAME> --scope <scope>'.", bundle: bundle)
+        case .invalidSecretName(let lineNumber):
+            String(localized: "~/.secchain line \(lineNumber): not a valid secret name. Use letters, digits and underscores, not starting with a digit.", bundle: bundle)
+        case .invalidScopeName(let lineNumber):
+            String(localized: "~/.secchain line \(lineNumber): not a custom scope name. Use lowercase letters, digits and hyphens, starting with a letter or a digit; 'user' and 'repository' are built in.", bundle: bundle)
+        case .invalidAllowPattern(let lineNumber):
+            String(localized: "~/.secchain line \(lineNumber): '@allow' takes one pattern, a repository identifier or the start of one followed by '*'.", bundle: bundle)
+        case .invalidDirective(let lineNumber):
+            String(localized: "~/.secchain line \(lineNumber): unknown or incomplete directive. The directives are '@scope <name>' and '@allow <pattern>'.", bundle: bundle)
+        case .duplicateDeclaration(let lineNumber):
+            String(localized: "~/.secchain line \(lineNumber): repeats the '@scope' of an earlier line.", bundle: bundle)
+        }
+    }
+}
+
+/// Pure text operations on `~/.secchain`. Edits work on the text instead of re-serializing a parsed
+/// model, so that comments and ordering written by the user survive `set`, `delete`, and
+/// `scope allow` / `scope deny`, as they do in a repository's `.secchain`.
+public enum UserDefinitionText {
+    /// File name of the user's definition file, placed in the home directory. The same name as a
+    /// repository's definition file, because both list secret names in the same line format.
+    public static let fileName = ".secchain"
+
+    static let scopeDirective = "@scope"
+    static let allowDirective = "@allow"
+
+    static let headerComment = """
+        # SecChain: secrets shared between repositories, and the repositories each scope is passed to.
+        # Names only. Never put a value in this file; store it with `secchain set <NAME> --scope <scope>`.
+        """
+
+    public static func parse(text: String) throws -> UserDefinition {
+        var sections: [(scope: SharedScope, secretNames: [SecretName], allowPatterns: [String])] = [(.user, [], [])]
+        for (index, rawLine) in text.components(separatedBy: "\n").enumerated() {
+            let lineNumber = index + 1
+            let line = rawLine.trimmingCharacters(in: .whitespacesAndNewlines)
+            if line.isEmpty || line.hasPrefix("#") {
+                continue
+            }
+            guard !line.contains("=") else {
+                throw UserDefinitionError.valueNotAllowed(lineNumber: lineNumber)
+            }
+            let words = line.split(whereSeparator: \.isWhitespace).map(String.init)
+            switch words[0] {
+            case scopeDirective:
+                guard words.count == 2 else {
+                    throw UserDefinitionError.invalidDirective(lineNumber: lineNumber)
+                }
+                guard let customScopeName = CustomScopeName(rawName: words[1]) else {
+                    throw UserDefinitionError.invalidScopeName(lineNumber: lineNumber)
+                }
+                guard !sections.contains(where: { $0.scope == .custom(customScopeName) }) else {
+                    throw UserDefinitionError.duplicateDeclaration(lineNumber: lineNumber)
+                }
+                sections.append((.custom(customScopeName), [], []))
+            case allowDirective:
+                guard words.count == 2, isValidRepositoryPattern(pattern: words[1]) else {
+                    throw UserDefinitionError.invalidAllowPattern(lineNumber: lineNumber)
+                }
+                if !sections[sections.count - 1].allowPatterns.contains(words[1]) {
+                    sections[sections.count - 1].allowPatterns.append(words[1])
+                }
+            case let word where word.hasPrefix("@"):
+                throw UserDefinitionError.invalidDirective(lineNumber: lineNumber)
+            default:
+                guard words.count == 1, let secretName = SecretName(rawName: line) else {
+                    throw UserDefinitionError.invalidSecretName(lineNumber: lineNumber)
+                }
+                if !sections[sections.count - 1].secretNames.contains(secretName) {
+                    sections[sections.count - 1].secretNames.append(secretName)
+                }
+            }
+        }
+        let scopeDefinitions = sections.map { ScopeDefinition(scope: $0.scope, secretNames: $0.secretNames, allowPatterns: $0.allowPatterns) }
+        return UserDefinition(userScope: scopeDefinitions[0], customScopes: Array(scopeDefinitions.dropFirst()))
+    }
+
+    // Every edit parses the text first, so that nothing is changed in a file that already says
+    // something this version cannot read, and parses what it adds, so that no edit leaves a file
+    // this version cannot read.
+
+    /// Text with `secretName` declared in the section of `scope`. `text == nil` means the file does
+    /// not exist yet. A custom scope without a section gets one, so that `secchain set --scope`
+    /// creates the scope. Adding a name the section already declares returns the text unchanged
+    /// (idempotent).
+    public static func adding(secretName: SecretName, scope: SharedScope, text: String?) throws -> String {
+        if let text, try parse(text: text).scopeDefinition(scope: scope)?.secretNames.contains(secretName) == true {
+            return text
+        }
+        return try parsed(text: inserting(line: secretName.value, scope: scope, text: text))
+    }
+
+    /// Text without the declaration of `secretName` in the section of `scope`. The same name in
+    /// another scope is another secret and stays. Removing a name that is not declared returns the
+    /// text unchanged (idempotent).
+    public static func removing(secretName: SecretName, scope: SharedScope, text: String) throws -> String {
+        _ = try parse(text: text)
+        return removing(scope: scope, text: text) { words in
+            words == [secretName.value]
+        }
+    }
+
+    /// Text with `@allow <pattern>` in the section of `scope`, creating the section of a custom
+    /// scope and the file when needed. A pattern that is not valid (`isValidRepositoryPattern`) is
+    /// refused like the line it would make. Allowing a pattern the section already has returns the
+    /// text unchanged (idempotent).
+    public static func adding(allowPattern: String, scope: SharedScope, text: String?) throws -> String {
+        if let text, try parse(text: text).scopeDefinition(scope: scope)?.allowPatterns.contains(allowPattern) == true {
+            return text
+        }
+        return try parsed(text: inserting(line: "\(allowDirective) \(allowPattern)", scope: scope, text: text))
+    }
+
+    /// Text without `@allow <pattern>` in the section of `scope`. Other patterns that still name the
+    /// same repositories stay: the text only loses the line that was asked for. Removing a pattern
+    /// the section does not have returns the text unchanged (idempotent).
+    public static func removing(allowPattern: String, scope: SharedScope, text: String) throws -> String {
+        _ = try parse(text: text)
+        return removing(scope: scope, text: text) { words in
+            words == [allowDirective, allowPattern]
+        }
+    }
+
+    // MARK: - Sections
+
+    /// `text` after checking that it parses: the text an edit is about to hand back.
+    static func parsed(text: String) throws -> String {
+        _ = try parse(text: text)
+        return text
+    }
+
+    /// Words of one line, as `parse` splits it.
+    static func words(line: String) -> [String] {
+        line.split(whereSeparator: \.isWhitespace).map(String.init)
+    }
+
+    /// Whether a line belongs to the scope of its section: the `@scope` line, a name, or an
+    /// `@allow`. Blank lines and comments do not.
+    static func isScopeEntry(line: String) -> Bool {
+        guard let firstWord = words(line: line).first else {
+            return false
+        }
+        return !firstWord.hasPrefix("#")
+    }
+
+    /// The indices of the lines of `scope`'s section: the lines before the first `@scope` for the
+    /// user scope, the `@scope` line and the lines up to the next one for a custom scope. `nil` when
+    /// no `@scope` line names the custom scope.
+    static func sectionRange(scope: SharedScope, lines: [String]) -> Range<Int>? {
+        let scopeLineIndices = lines.indices.filter { words(line: lines[$0]).first == scopeDirective }
+        guard case .custom(let customScopeName) = scope else {
+            return 0..<(scopeLineIndices.first ?? lines.count)
+        }
+        guard let start = scopeLineIndices.first(where: { words(line: lines[$0]) == [scopeDirective, customScopeName.value] }) else {
+            return nil
+        }
+        return start..<(scopeLineIndices.first { $0 > start } ?? lines.count)
+    }
+
+    /// `text` with `line` at the end of what the section of `scope` declares: after its last scope
+    /// entry, or after the comments that open the file when the user scope has none yet, so that a
+    /// comment written above the first `@scope` stays next to it. A custom scope without a section
+    /// gets a new one at the end of the text.
+    static func inserting(line: String, scope: SharedScope, text: String?) -> String {
+        let baseText = text ?? headerComment + "\n"
+        var lines = baseText.components(separatedBy: "\n")
+        guard let section = sectionRange(scope: scope, lines: lines) else {
+            let separatedText = baseText.isEmpty || baseText.hasSuffix("\n") ? baseText : baseText + "\n"
+            // A blank line keeps the new section apart from what comes before it.
+            return separatedText + (separatedText.isEmpty || separatedText.hasSuffix("\n\n") ? "" : "\n")
+                + "\(scopeDirective) \(scope.name)\n\(line)\n"
+        }
+        let insertionIndex = section.last(where: { isScopeEntry(line: lines[$0]) }).map { $0 + 1 }
+            ?? section.lowerBound + lines[section].prefix(while: { $0.trimmingCharacters(in: .whitespaces).hasPrefix("#") }).count
+        lines.insert(line, at: insertionIndex)
+        let editedText = lines.joined(separator: "\n")
+        return editedText.hasSuffix("\n") ? editedText : editedText + "\n"
+    }
+
+    /// `text` without the lines of `scope`'s section whose words `isRemoved` picks.
+    static func removing(scope: SharedScope, text: String, isRemoved: ([String]) -> Bool) -> String {
+        let lines = text.components(separatedBy: "\n")
+        guard let section = sectionRange(scope: scope, lines: lines) else {
+            return text
+        }
+        return lines.indices
+            .filter { !section.contains($0) || !isRemoved(words(line: lines[$0])) }
+            .map { lines[$0] }
+            .joined(separator: "\n")
+    }
+}
+
+#if os(macOS)
+/// Reads and writes `~/.secchain`. Only the Mac has one: the iOS app never runs a command, so it
+/// never needs to know which scopes a repository gets.
+public enum UserDefinitionFile {
+    /// The home directory `~/.secchain` is in: `$HOME`, the way a shell expands `~` and git finds
+    /// `~/.gitconfig`, so that the file this tool reads is the one the user edits in a terminal. The
+    /// account's home directory when `HOME` is not set. Foundation's own home directory APIs ignore
+    /// `HOME` on macOS (measured with `HOME=/tmp/…`), which is why the variable is read here.
+    public static var homeDirectory: URL {
+        ProcessInfo.processInfo.environment["HOME"].flatMap { $0.isEmpty ? nil : URL(fileURLWithPath: $0, isDirectory: true) }
+            ?? FileManager.default.homeDirectoryForCurrentUser
+    }
+
+    public static func url(homeDirectory: URL) -> URL {
+        homeDirectory.appendingPathComponent(UserDefinitionText.fileName, isDirectory: false)
+    }
+
+    /// Whether `url` is `~/.secchain` itself, through any symbolic link. The file has the name of a
+    /// repository's definition file, so the `.secchain` of the home directory, or of a dotfiles
+    /// repository that `~/.secchain` links into, is this one: the user's, and no repository's.
+    public static func isUserDefinitionFile(url: URL, homeDirectory: URL) -> Bool {
+        url.resolvingSymlinksInPath().standardizedFileURL.path
+            == self.url(homeDirectory: homeDirectory).resolvingSymlinksInPath().standardizedFileURL.path
+    }
+
+    /// `nil` when the file does not exist, which is a valid state: no shared scope is passed to any
+    /// repository, and the first `secchain set --scope` or `secchain scope allow` creates it.
+    public static func readText(homeDirectory: URL) throws -> String? {
+        guard FileManager.default.fileExists(atPath: url(homeDirectory: homeDirectory).path) else {
+            return nil
+        }
+        return try String(contentsOf: url(homeDirectory: homeDirectory), encoding: .utf8)
+    }
+
+    /// Writes through a symbolic link instead of replacing it: `~/.secchain` is meant to be kept
+    /// with the user's dotfiles, which are often links into a dotfiles repository, and an atomic
+    /// write replaces the file at the path it is given. Writing the same text again leaves the same
+    /// file (idempotent).
+    public static func write(text: String, homeDirectory: URL) throws {
+        try text.write(to: url(homeDirectory: homeDirectory).resolvingSymlinksInPath(), atomically: true, encoding: .utf8)
+    }
+}
+#endif

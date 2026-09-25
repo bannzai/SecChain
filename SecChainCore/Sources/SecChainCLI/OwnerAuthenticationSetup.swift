@@ -28,12 +28,13 @@ func thisMacName() -> String {
 ///
 /// Where a *confirm* authentication is answered is decided here, because only the command knows
 /// what the iPhone would be shown: the repository, the secret names, and the command the user is
-/// about to run (documents/PROJECT.md, design decision 5).
+/// about to run (documents/PROJECT.md, design decision 5). `scope` is what the command acts on: the
+/// repository of `run`, or the scope of `set` / `delete`.
 ///
 /// The pairing is only read when an authentication can actually happen, so that a repository of
 /// *standard* secrets behaves exactly as before.
 func secretStore(
-    repositoryIdentity: RepositoryIdentity,
+    scope: SecretScope,
     requestedSecrets: [StoredSecret],
     commandArguments: [String],
     approveRemotely: Bool
@@ -70,7 +71,10 @@ func secretStore(
             report: { reportToStandardError(line: $0) }
         ),
         request: RemoteApprovalRequest.filed(
-            repositoryIdentity: repositoryIdentity,
+            // The request has a repository field and no scope field yet, so a shared scope is
+            // shown in the repository's place as `scope <name>`; the command the iPhone shows
+            // carries `--scope <name>` as well.
+            repositoryIdentity: scope.repositoryIdentity ?? RepositoryIdentity(value: scope.description),
             secretNames: requestedSecrets.map(\.name),
             commandArguments: commandArguments,
             requestingDeviceName: thisMacName(),

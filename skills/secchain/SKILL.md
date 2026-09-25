@@ -6,7 +6,7 @@ license: MIT
 
 # SecChain
 
-SecChain stores secret values in the macOS Keychain, scoped to this repository. You never see the values; you only run commands through the tool that has access to them.
+SecChain stores secret values in the macOS Keychain, scoped to this repository, or in a shared scope that the user passes to the repositories they choose. You never see the values; you only run commands through the tool that has access to them.
 
 ## Rule: run secret-dependent commands through `secchain run`
 
@@ -14,7 +14,7 @@ SecChain stores secret values in the macOS Keychain, scoped to this repository. 
 secchain run -- <command> [arguments...]
 ```
 
-`secchain run` reads this repository's stored secrets and passes them to `<command>` as environment variables, then exits with that command's exit status. Use it for anything that needs a secret at runtime: a dev server, a deploy script, a one-off API call, a test suite that hits a real service.
+`secchain run` reads this repository's stored secrets, together with those of the shared scopes the user allowed for it (the `user` scope, or a custom one such as `youtube`), and passes them to `<command>` as environment variables, then exits with that command's exit status. Use it for anything that needs a secret at runtime: a dev server, a deploy script, a one-off API call, a test suite that hits a real service.
 
 ```bash
 secchain run -- npm run dev
@@ -60,7 +60,17 @@ If `secchain run` fails because a required secret has no stored value, tell the 
 secchain set <NAME>
 ```
 
-They run this themselves, in their own terminal, because the prompt reads the value with a hidden `readpassphrase` prompt or from standard input — never as a command-line argument. Do not offer to run `secchain set` for them with the value inline, and do not ask them to tell you the value so that you can run it.
+They run this themselves, in their own terminal, because the prompt reads the value with a hidden `readpassphrase` prompt or from standard input — never as a command-line argument. Do not offer to run `secchain set` for them with the value inline, and do not ask them to tell you the value so that you can run it. A value that several repositories share goes into a shared scope with `secchain set <NAME> --scope user` (or `--scope <name>`); which one is the user's choice.
+
+## Rule: leave the choice of shared scopes to the user
+
+When `secchain run` says a name is in a scope that is not allowed for this repository, it prints the command that would allow it:
+
+```text
+.secchain declares YOUTUBE_API_KEY, which is in scope youtube, not allowed for github.com/owner/repo. Allow it with 'secchain scope allow youtube github.com/owner/repo'.
+```
+
+Tell the user and let them run it. Do not run `secchain scope allow` yourself, and do not edit `~/.secchain`: which repositories receive a shared secret is the user's decision, the same way `--approve-remotely` is.
 
 ## Enforcing these rules with a Claude Code hook
 
@@ -98,11 +108,12 @@ Codex CLI sends the same hook input and reads the same decision from standard ou
 ## Checking what is available
 
 ```bash
-secchain list         # secret names for this repository — never values
-secchain list --long  # + protection level, sync state, and names declared but not yet set
+secchain list          # the secret names secchain run passes to this repository — never values
+secchain list --long   # + protection level, sync state, the scope each name comes from, and names declared but not yet set
+secchain list --scopes # the shared scopes and the repositories each is passed to
 secchain doctor        # whether this binary can use SecChain's shared Keychain access group at all
 ```
 
 Use `secchain list` to check whether a secret already exists before asking the user to set it.
 
-`secchain doctor` only tells you whether this binary can use SecChain's Keychain access group at all — an unsigned or wrongly signed binary fails every command immediately with a code-signing error, not a "not found" one, so you would not need `doctor` to notice that case. `doctor` passing does **not** mean a specific secret is reachable: a binary signed by a different Apple Developer Team also passes `doctor` (it can use its own access group), while reading and writing a Keychain vault separate from the official app's — so a secret the user says exists can still come back "not found". When that happens, do not conclude the binary is broken; ask the user to check, in order: the repository identifier (`secchain list --repositories`), whether this is the official, team-signed installation, and — if the secret was set on another Mac — the iCloud Keychain sync conditions. See the repository's `README.md` ("Check the installation") for the full explanation.
+`secchain doctor` only tells you whether this binary can use SecChain's Keychain access group at all — an unsigned or wrongly signed binary fails every command immediately with a code-signing error, not a "not found" one, so you would not need `doctor` to notice that case. `doctor` passing does **not** mean a specific secret is reachable: a binary signed by a different Apple Developer Team also passes `doctor` (it can use its own access group), while reading and writing a Keychain vault separate from the official app's — so a secret the user says exists can still come back "not found". When that happens, do not conclude the binary is broken; ask the user to check, in order: the repository identifier (`secchain list --repositories`), whether the secret is in a shared scope that is not allowed for this repository (`secchain list --scopes`), whether this is the official, team-signed installation, and — if the secret was set on another Mac — the iCloud Keychain sync conditions. See the repository's `README.md` ("Check the installation") for the full explanation.

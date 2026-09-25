@@ -72,15 +72,10 @@ struct AddRepositoryView: View {
                     return
                 }
                 do {
-                    let definitionText = try SecretDefinitionFile.readText(
-                        workingTreeRoot: try RepositoryIdentityResolver.workingTreeRoot(directory: folder) ?? folder
-                    )
-                    finish(
-                        repositoryIdentity: try RepositoryIdentityResolver.resolve(
-                            directory: folder,
-                            declaredIdentifier: try definitionText.map(SecretDefinitionText.parse(text:))?.declaredRepositoryIdentifier
-                        )
-                    )
+                    // Only whether the folder's `.secchain` parses matters here: a folder that every
+                    // secchain command refuses is not added either.
+                    _ = try RepositoryIdentityResolver.definition(directory: folder, homeDirectory: UserDefinitionFile.homeDirectory)
+                    finish(repositoryIdentity: try RepositoryIdentityResolver.resolve(directory: folder, explicitIdentifier: nil))
                 } catch let repositoryIdentityError as RepositoryIdentityError {
                     folderErrorDescription = repositoryIdentityError.message(bundle: .module)
                 } catch let secretDefinitionError as SecretDefinitionError {
@@ -103,16 +98,17 @@ struct AddRepositoryView: View {
 }
 
 /// A pasted remote URL, or a `host/owner/repository` typed by hand, becomes the same identifier
-/// the command-line tool derives from the Git remote. Anything else is taken literally, exactly
-/// like `@repository` in a definition file.
+/// the command-line tool derives from the Git remote. Anything else, a text that only looks like
+/// a remote included, is folded to lowercase, like `--repository` of the command-line tool
+/// (`RepositoryIdentity.value`).
 func repositoryIdentity(enteredText: String) -> RepositoryIdentity {
     let trimmedText = enteredText.trimmingCharacters(in: .whitespacesAndNewlines)
     if trimmedText.contains("://") || trimmedText.contains("@") {
-        return RepositoryIdentity(value: RepositoryRemoteURL.normalizedIdentifier(remoteURL: trimmedText) ?? trimmedText)
+        return RepositoryIdentity(value: RepositoryRemoteURL.normalizedIdentifier(remoteURL: trimmedText) ?? trimmedText.lowercased())
     }
     // `github.com/owner/repo`: a first path component with a dot is a host name.
     if let host = trimmedText.split(separator: "/").first, host.contains("."), trimmedText.contains("/") {
-        return RepositoryIdentity(value: RepositoryRemoteURL.normalizedIdentifier(remoteURL: "https://" + trimmedText) ?? trimmedText)
+        return RepositoryIdentity(value: RepositoryRemoteURL.normalizedIdentifier(remoteURL: "https://" + trimmedText) ?? trimmedText.lowercased())
     }
-    return RepositoryIdentity(value: trimmedText)
+    return RepositoryIdentity(value: trimmedText.lowercased())
 }

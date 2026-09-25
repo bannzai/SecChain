@@ -16,19 +16,32 @@ struct SecretDefinitionTests {
     }
 
     @Test
-    func parsesNamesCommentsAndTheRepositoryDirective() throws {
+    func parsesNamesAndComments() throws {
         let definition = try SecretDefinitionText.parse(
             text: """
                 # comment
 
-                @repository my-notes
                 OPENAI_API_KEY
                   CLOUDFLARE_API_TOKEN
                 OPENAI_API_KEY
                 """
         )
-        #expect(definition.declaredRepositoryIdentifier == "my-notes")
         #expect(definition.secretNames.map(\.value) == ["OPENAI_API_KEY", "CLOUDFLARE_API_TOKEN"])
+    }
+
+    /// A repository's own file must not be able to say which repository it is: an `@allow` of
+    /// `~/.secchain` would then pass a shared scope to whatever repository chose the right name.
+    @Test
+    func theRepositoryDirectiveIsRefusedWithWhereItsUsesMoved() {
+        #expect(throws: SecretDefinitionError.repositoryDirectiveRemoved(lineNumber: 2)) {
+            try SecretDefinitionText.parse(text: "OPENAI_API_KEY\n@repository github.com/bannzai/anything\n")
+        }
+        #expect(throws: SecretDefinitionError.repositoryDirectiveRemoved(lineNumber: 1)) {
+            try SecretDefinitionText.parse(text: "@repository")
+        }
+        let message = SecretDefinitionError.repositoryDirectiveRemoved(lineNumber: 2).description
+        #expect(message.contains("--repository"))
+        #expect(message.contains("shared scope of ~/.secchain"))
     }
 
     @Test
@@ -45,10 +58,15 @@ struct SecretDefinitionTests {
             try SecretDefinitionText.parse(text: "MY-KEY")
         }
         #expect(throws: SecretDefinitionError.invalidDirective(lineNumber: 1)) {
-            try SecretDefinitionText.parse(text: "@repository")
+            try SecretDefinitionText.parse(text: "@unknown value")
+        }
+        // The directives of `~/.secchain` do not work here either: a repository cannot pass itself
+        // a scope.
+        #expect(throws: SecretDefinitionError.invalidDirective(lineNumber: 1)) {
+            try SecretDefinitionText.parse(text: "@allow github.com/bannzai/*")
         }
         #expect(throws: SecretDefinitionError.invalidDirective(lineNumber: 1)) {
-            try SecretDefinitionText.parse(text: "@unknown value")
+            try SecretDefinitionText.parse(text: "@scope user")
         }
     }
 

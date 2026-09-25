@@ -3,8 +3,8 @@ import Foundation
 /// The non-secret facts about one secret, exactly as the Keychain item's attributes hold them.
 /// It is what listing returns; the value is never part of it.
 public struct StoredSecret: Hashable, Sendable, Identifiable {
-    /// Repository the secret belongs to (from `kSecAttrService`).
-    public let repositoryIdentity: RepositoryIdentity
+    /// Scope the secret belongs to (from `kSecAttrService`).
+    public let scope: SecretScope
     /// Secret name (from `kSecAttrAccount`).
     public let name: SecretName
     /// Protection level (from `kSecAttrDescription`).
@@ -16,21 +16,21 @@ public struct StoredSecret: Hashable, Sendable, Identifiable {
     public let modificationDate: Date?
 
     public init(
-        repositoryIdentity: RepositoryIdentity,
+        scope: SecretScope,
         name: SecretName,
         protectionLevel: ProtectionLevel,
         isSynchronized: Bool,
         modificationDate: Date?
     ) {
-        self.repositoryIdentity = repositoryIdentity
+        self.scope = scope
         self.name = name
         self.protectionLevel = protectionLevel
         self.isSynchronized = isSynchronized
         self.modificationDate = modificationDate
     }
 
-    /// Identity of the Keychain item: repository, name and the synchronizable flag.
+    /// Identity of the Keychain item: service, name and the synchronizable flag.
     public var id: String {
-        "\(repositoryIdentity.value)\u{0}\(name.value)\u{0}\(isSynchronized)"
+        "\(scope.keychainService)\u{0}\(name.value)\u{0}\(isSynchronized)"
     }
 }

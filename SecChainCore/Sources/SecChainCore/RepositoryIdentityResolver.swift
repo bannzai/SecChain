@@ -13,15 +13,23 @@ struct GitCommandResult {
 /// Only available on macOS: the iOS app never resolves a working directory, it lists the
 /// repositories already present in the Keychain.
 public enum RepositoryIdentityResolver {
-    /// Resolution order: the identifier declared in the secret definition file (if any), then the
-    /// normalized `origin` remote. Anything else is an error rather than a guess.
+    /// Resolution order: `explicitIdentifier` (`--repository`), folded to lowercase like every
+    /// identifier (`RepositoryIdentity.value`), then the normalized `origin` remote. Anything else is
+    /// an error rather than a guess.
+    ///
+    /// Nothing inside the repository takes part (documents/PROJECT.md, design decision 6): the
+    /// identity decides which repository's secrets and which shared scopes a command gets, and a
+    /// repository's files are written by whoever wrote the repository.
+    public static func resolve(directory: URL, explicitIdentifier: String?) throws -> RepositoryIdentity {
+        try explicitIdentifier.flatMap { $0.isEmpty ? nil : RepositoryIdentity(value: $0.lowercased()) }
+            ?? originRemoteIdentity(directory: directory)
+    }
+
+    /// The identity the normalized `origin` remote gives the repository that contains `directory`.
     ///
     /// `git config` is asked instead of reading `.git/config`, because it answers correctly from
     /// sub-directories and from linked worktrees, whose `.git` is a file.
-    public static func resolve(directory: URL, declaredIdentifier: String?) throws -> RepositoryIdentity {
-        if let declaredIdentifier, !declaredIdentifier.isEmpty {
-            return RepositoryIdentity(value: declaredIdentifier)
-        }
+    static func originRemoteIdentity(directory: URL) throws -> RepositoryIdentity {
         guard try runGit(arguments: ["rev-parse", "--is-inside-work-tree"], directory: directory).exitCode == 0 else {
             throw RepositoryIdentityError.notAGitRepository(directory: directory.path)
         }
@@ -45,6 +53,29 @@ public enum RepositoryIdentityResolver {
             return nil
         }
         return URL(fileURLWithPath: topLevel.standardOutput, isDirectory: true)
+    }
+
+    /// Directory whose `.secchain` is the definition file of `directory`: the working tree root
+    /// inside Git, otherwise `directory` itself. `nil` when that `.secchain` is the `~/.secchain` of
+    /// `homeDirectory` (`UserDefinitionFile.isUserDefinitionFile`), which is no repository's. The
+    /// command-line tool and the macOS app both ask here, so that they read the same file for one
+    /// directory.
+    public static func definitionDirectory(directory: URL, homeDirectory: URL) throws -> URL? {
+        let repositoryDirectory = try workingTreeRoot(directory: directory) ?? directory
+        guard !UserDefinitionFile.isUserDefinitionFile(url: SecretDefinitionFile.url(workingTreeRoot: repositoryDirectory), homeDirectory: homeDirectory) else {
+            return nil
+        }
+        return repositoryDirectory
+    }
+
+    /// The parsed definition file of `directory` (`definitionDirectory`), `nil` when there is none.
+    /// The macOS app parses it when a folder is chosen, so that a file every `secchain` command
+    /// refuses, such as one with the `@repository` of an earlier build, is refused there too instead
+    /// of the folder silently becoming another repository.
+    public static func definition(directory: URL, homeDirectory: URL) throws -> SecretDefinition? {
+        try definitionDirectory(directory: directory, homeDirectory: homeDirectory)
+            .flatMap { try SecretDefinitionFile.readText(workingTreeRoot: $0) }
+            .map(SecretDefinitionText.parse(text:))
     }
 
     static func runGit(arguments: [String], directory: URL) throws -> GitCommandResult {

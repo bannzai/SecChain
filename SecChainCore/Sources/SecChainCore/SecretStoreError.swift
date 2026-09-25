@@ -27,6 +27,9 @@ public enum SecretStoreError: Error, Equatable, CustomStringConvertible {
     case deviceBoundCannotSynchronize
     /// The value to store is empty.
     case emptyValue
+    /// The repository identifier is the service of a shared scope, whose device-bound values would
+    /// share Keychain items with the repository's (`SecretScope.isRepositoryNamedLikeASharedScope`).
+    case reservedRepositoryIdentifier(repository: String)
     /// Any other Security framework failure, with the system's wording for the status.
     case keychainFailure(operation: String, status: OSStatus, message: String)
 
@@ -60,6 +63,8 @@ public enum SecretStoreError: Error, Equatable, CustomStringConvertible {
             String(localized: "A device-bound secret cannot be synchronized. Choose either device-bound or synchronization.", bundle: bundle)
         case .emptyValue:
             String(localized: "The value is empty.", bundle: bundle)
+        case .reservedRepositoryIdentifier(let repository):
+            String(localized: "\(repository) cannot be a repository identifier: it is the name SecChain gives the Keychain items of a shared scope.", bundle: bundle)
         case .keychainFailure(let operation, let status, let message):
             String(localized: "Keychain \(operation) failed with status \(status): \(message)", bundle: bundle)
         }
