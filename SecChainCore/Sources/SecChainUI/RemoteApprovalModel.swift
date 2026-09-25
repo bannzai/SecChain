@@ -302,7 +302,16 @@ public final class RemoteApprovalModel {
         try? await store.save(
             request: RemoteApprovalRequest.filed(
                 repositoryIdentity: RepositoryIdentity(value: "github.com/example/web-app"),
-                secretNames: [SecretName(rawName: "CLOUDFLARE_API_TOKEN"), SecretName(rawName: "OPENAI_API_KEY")].compactMap { $0 },
+                // One secret of the repository and one a shared scope passes to it, so that the
+                // screen shows both kinds of scope.
+                secretScopes: Dictionary(
+                    uniqueKeysWithValues: [
+                        ("CLOUDFLARE_API_TOKEN", SecretScope.repository(RepositoryIdentity(value: "github.com/example/web-app"))),
+                        ("OPENAI_API_KEY", SecretScope.shared(.user)),
+                    ].compactMap { rawName, secretScope in
+                        SecretName(rawName: rawName).map { ($0, secretScope) }
+                    }
+                ),
                 commandArguments: ["npm", "run", "deploy", "--", "--env", "production"],
                 requestingDeviceName: "Example MacBook Pro",
                 now: Date(),

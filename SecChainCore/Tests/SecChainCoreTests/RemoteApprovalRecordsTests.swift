@@ -12,7 +12,7 @@ struct RemoteApprovalRecordsTests {
     func makeRequest() -> RemoteApprovalRequest {
         RemoteApprovalRequest.filed(
             repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
-            secretNames: [SecretName(rawName: "API_TOKEN")].compactMap { $0 },
+            secretScopes: SecretName(rawName: "API_TOKEN").map { [$0: SecretScope.shared(.user)] } ?? [:],
             commandArguments: ["npm", "run", "deploy"],
             requestingDeviceName: "Example Mac",
             now: now,
@@ -108,7 +108,7 @@ struct RemoteApprovalRecordsTests {
     /// signature does not match would let one side accept what the other cannot produce.
     @Test
     func theSchemaVersionMatchesTheSignedMessageVersion() {
-        #expect(remoteApprovalSchemaVersion == 1)
+        #expect(remoteApprovalSchemaVersion == 2)
         #expect(String(decoding: RemoteApproval.signedMessagePrefix, as: UTF8.self).contains("v\(remoteApprovalSchemaVersion)"))
     }
 
@@ -142,12 +142,12 @@ struct RemoteApprovalRecordsTests {
             .unexpectedRecordType(expected: RemoteApprovalRecordType.request, found: RemoteApprovalRecordType.decision),
             .missingField(name: RemoteApprovalRecordField.nonce),
             .malformedField(name: RemoteApprovalRecordField.signature),
-            .unsupportedSchemaVersion(found: 2, supported: remoteApprovalSchemaVersion),
+            .unsupportedSchemaVersion(found: 1, supported: remoteApprovalSchemaVersion),
         ]
         for error in errors {
             #expect(!error.description.isEmpty)
         }
         #expect(RemoteApprovalRecordError.missingField(name: RemoteApprovalRecordField.nonce).description.contains(RemoteApprovalRecordField.nonce))
-        #expect(RemoteApprovalRecordError.unsupportedSchemaVersion(found: 2, supported: 1).description.contains("2"))
+        #expect(RemoteApprovalRecordError.unsupportedSchemaVersion(found: 1, supported: 2).description.contains("1"))
     }
 }

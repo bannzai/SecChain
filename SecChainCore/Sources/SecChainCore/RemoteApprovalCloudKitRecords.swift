@@ -16,7 +16,12 @@ public enum RemoteApprovalCloudKitRecords {
         record[RemoteApprovalRecordField.nonce] = request.nonce
         record[RemoteApprovalRecordField.expiry] = request.expiry
         record[RemoteApprovalRecordField.repositoryIdentity] = request.repositoryIdentity.value
-        record[RemoteApprovalRecordField.secretNames] = request.secretNames.map(\.value)
+        // Two lists of the same length rather than one list of pairs, because a CloudKit field holds
+        // a list of one primitive type. Sorted by name, so that the same request always produces
+        // the same record.
+        let sortedSecretScopes = request.secretScopes.sorted { $0.key < $1.key }
+        record[RemoteApprovalRecordField.secretNames] = sortedSecretScopes.map(\.key.value)
+        record[RemoteApprovalRecordField.secretScopes] = sortedSecretScopes.map(\.value.name)
         record[RemoteApprovalRecordField.commandArguments] = request.commandArguments
         record[RemoteApprovalRecordField.requestingDeviceName] = request.requestingDeviceName
         return record
@@ -24,23 +29,46 @@ public enum RemoteApprovalCloudKitRecords {
 
     public static func request(record: CKRecord) throws -> RemoteApprovalRequest {
         try validate(record: record, recordType: RemoteApprovalRecordType.request)
-        let secretNames = try field(record: record, name: RemoteApprovalRecordField.secretNames, type: [String].self)
+        let repositoryIdentity = RepositoryIdentity(
+            value: try field(record: record, name: RemoteApprovalRecordField.repositoryIdentity, type: String.self)
+        )
+        let rawSecretNames = try field(record: record, name: RemoteApprovalRecordField.secretNames, type: [String].self)
+        let rawSecretScopeNames = try field(record: record, name: RemoteApprovalRecordField.secretScopes, type: [String].self)
+        guard rawSecretScopeNames.count == rawSecretNames.count else {
+            throw RemoteApprovalRecordError.malformedField(name: RemoteApprovalRecordField.secretScopes)
+        }
         return RemoteApprovalRequest(
             requestIdentifier: try identifier(record: record),
             nonce: try field(record: record, name: RemoteApprovalRecordField.nonce, type: Data.self),
             expiry: try field(record: record, name: RemoteApprovalRecordField.expiry, type: Date.self),
-            repositoryIdentity: RepositoryIdentity(
-                value: try field(record: record, name: RemoteApprovalRecordField.repositoryIdentity, type: String.self)
-            ),
-            secretNames: try secretNames.map { rawName in
-                guard let secretName = SecretName(rawName: rawName) else {
+            repositoryIdentity: repositoryIdentity,
+            secretScopes: try Dictionary(
+                zip(rawSecretNames, rawSecretScopeNames).map { rawName, rawScopeName in
+                    guard let secretName = SecretName(rawName: rawName) else {
+                        throw RemoteApprovalRecordError.malformedField(name: RemoteApprovalRecordField.secretNames)
+                    }
+                    return (secretName, try secretScope(rawScopeName: rawScopeName, repositoryIdentity: repositoryIdentity))
+                },
+                // A name listed twice could be shown with one scope and signed with the other.
+                uniquingKeysWith: { _, _ in
                     throw RemoteApprovalRecordError.malformedField(name: RemoteApprovalRecordField.secretNames)
                 }
-                return secretName
-            },
+            ),
             commandArguments: try field(record: record, name: RemoteApprovalRecordField.commandArguments, type: [String].self),
             requestingDeviceName: try field(record: record, name: RemoteApprovalRecordField.requestingDeviceName, type: String.self)
         )
+    }
+
+    /// The scope a request names by `SecretScope.name`. The repository scope is the request's own
+    /// repository, the only one a request can name.
+    static func secretScope(rawScopeName: String, repositoryIdentity: RepositoryIdentity) throws -> SecretScope {
+        if rawScopeName == SecretScope.repositoryScopeName {
+            return .repository(repositoryIdentity)
+        }
+        guard let sharedScope = SharedScope(name: rawScopeName) else {
+            throw RemoteApprovalRecordError.malformedField(name: RemoteApprovalRecordField.secretScopes)
+        }
+        return .shared(sharedScope)
     }
 
     public static func record(decision: RemoteApprovalDecision) -> CKRecord {

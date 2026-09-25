@@ -10,7 +10,7 @@ extension KeychainDoctor {
     public static func runSecureEnclaveChecks() -> [KeychainDoctorCheck] {
         let request = RemoteApprovalRequest.filed(
             repositoryIdentity: RepositoryIdentity(value: "github.com/bannzai/SecChain"),
-            secretNames: [SecretName(rawName: "DUMMY_NAME_FOR_DOCTOR")].compactMap { $0 },
+            secretScopes: Dictionary(uniqueKeysWithValues: ["DUMMY_NAME_FOR_DOCTOR"].compactMap(SecretName.init(rawName:)).map { ($0, SecretScope.repository(RepositoryIdentity(value: "github.com/bannzai/SecChain"))) }),
             commandArguments: ["true"],
             requestingDeviceName: "doctor",
             now: Date(),

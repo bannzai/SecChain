@@ -38,7 +38,7 @@ struct RemoteApprovalModelTests {
     func fileRequest(secretName: String) async throws -> RemoteApprovalRequest {
         let request = RemoteApprovalRequest.filed(
             repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
-            secretNames: [SecretName(rawName: secretName)].compactMap { $0 },
+            secretScopes: SecretName(rawName: secretName).map { [$0: SecretScope.shared(.user)] } ?? [:],
             commandArguments: ["npm", "run", "deploy"],
             requestingDeviceName: "Example Mac",
             now: Date(),

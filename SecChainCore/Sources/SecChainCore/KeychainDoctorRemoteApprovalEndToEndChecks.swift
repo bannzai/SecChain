@@ -98,7 +98,7 @@ extension KeychainDoctor {
         let stepName = "remote approval: Ctrl-C stops the waiting and leaves a cancellation behind"
         let request = RemoteApprovalRequest.filed(
             repositoryIdentity: RepositoryIdentity(value: "github.com/bannzai/SecChain"),
-            secretNames: [SecretName(rawName: "DUMMY_NAME_FOR_DOCTOR")].compactMap { $0 },
+            secretScopes: Dictionary(uniqueKeysWithValues: ["DUMMY_NAME_FOR_DOCTOR"].compactMap(SecretName.init(rawName:)).map { ($0, SecretScope.repository(RepositoryIdentity(value: "github.com/bannzai/SecChain"))) }),
             commandArguments: ["true"],
             requestingDeviceName: cloudKitDoctorDeviceName,
             now: Date(),
@@ -155,7 +155,7 @@ extension KeychainDoctor {
     ) async -> KeychainDoctorCheck {
         let request = RemoteApprovalRequest.filed(
             repositoryIdentity: RepositoryIdentity(value: "github.com/bannzai/SecChain"),
-            secretNames: [SecretName(rawName: "DUMMY_NAME_FOR_DOCTOR")].compactMap { $0 },
+            secretScopes: Dictionary(uniqueKeysWithValues: ["DUMMY_NAME_FOR_DOCTOR"].compactMap(SecretName.init(rawName:)).map { ($0, SecretScope.repository(RepositoryIdentity(value: "github.com/bannzai/SecChain"))) }),
             commandArguments: ["true"],
             requestingDeviceName: cloudKitDoctorDeviceName,
             now: Date(),

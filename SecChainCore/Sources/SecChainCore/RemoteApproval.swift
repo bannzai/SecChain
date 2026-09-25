@@ -34,15 +34,18 @@ public enum RemoteApproval {
     /// Separates approval signatures from anything else the same key might sign. The version
     /// changes whenever the layout of the signed message changes, together with
     /// `remoteApprovalSchemaVersion`.
-    public static let signedMessagePrefix = Data("SecChain remote approval v1\n".utf8)
+    public static let signedMessagePrefix = Data("SecChain remote approval v2\n".utf8)
 
     /// SHA-256 over the content the iPhone shows, so that an approval also covers the repository,
-    /// the secrets, and the command the user saw. Secret names are sorted because the order in
-    /// which a command lists them does not change what is approved.
+    /// the secrets with the scope each one is taken from, and the command the user saw. Secrets are
+    /// sorted by name because the order in which a command lists them does not change what is
+    /// approved.
     public static func contentDigest(request: RemoteApprovalRequest) -> Data {
         Data(SHA256.hash(data: lengthPrefixedConcatenation(fields: [
             Data(request.repositoryIdentity.value.utf8),
-            lengthPrefixedConcatenation(fields: request.secretNames.sorted().map { Data($0.value.utf8) }),
+            lengthPrefixedConcatenation(fields: request.secretScopes.sorted { $0.key < $1.key }.map { secretName, secretScope in
+                lengthPrefixedConcatenation(fields: [Data(secretName.value.utf8), Data(secretScope.name.utf8)])
+            }),
             lengthPrefixedConcatenation(fields: request.commandArguments.map { Data($0.utf8) }),
             Data(request.requestingDeviceName.utf8),
         ])))

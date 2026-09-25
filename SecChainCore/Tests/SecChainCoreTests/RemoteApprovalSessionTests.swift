@@ -54,7 +54,7 @@ struct RemoteApprovalSessionTests {
     func makeRequest(clock: ManualClock) -> RemoteApprovalRequest {
         RemoteApprovalRequest.filed(
             repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
-            secretNames: [SecretName(rawName: "API_TOKEN")].compactMap { $0 },
+            secretScopes: SecretName(rawName: "API_TOKEN").map { [$0: SecretScope.shared(.user)] } ?? [:],
             commandArguments: ["npm", "run", "deploy"],
             requestingDeviceName: "Example Mac",
             now: clock.now,
@@ -160,7 +160,7 @@ struct RemoteApprovalSessionTests {
         let openRequestOfThisMac = makeRequest(clock: clock)
         let expiredRequestOfAnotherMac = RemoteApprovalRequest.filed(
             repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
-            secretNames: [SecretName(rawName: "API_TOKEN")].compactMap { $0 },
+            secretScopes: SecretName(rawName: "API_TOKEN").map { [$0: SecretScope.shared(.user)] } ?? [:],
             commandArguments: ["npm", "run", "deploy"],
             requestingDeviceName: "Another Mac",
             now: startOfWaiting.addingTimeInterval(-RemoteApprovalSession.expiryInterval * 2),
@@ -290,7 +290,7 @@ struct RemoteApprovalSessionTests {
             nonce: request.nonce,
             expiry: request.expiry,
             repositoryIdentity: request.repositoryIdentity,
-            secretNames: request.secretNames,
+            secretScopes: request.secretScopes,
             commandArguments: ["env"],
             requestingDeviceName: request.requestingDeviceName
         )

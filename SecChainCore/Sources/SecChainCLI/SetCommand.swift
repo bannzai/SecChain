@@ -100,7 +100,7 @@ struct SetCommand: AsyncParsableCommand {
 }
 
 /// `--scope <name>` for a shared scope, nothing for a repository's own. Part of the command the
-/// paired iPhone is shown, which is the only place a request names the scope so far.
+/// paired iPhone is shown, so that the command reads as the one the user typed.
 func scopeArguments(scope: SecretScope) -> [String] {
     scope.sharedScope.map { ["--scope", $0.name] } ?? []
 }
