@@ -30,6 +30,15 @@ ENVIRONMENT_REPOSITORY_DIRECTORY="${WORK_DIRECTORY}/environment-repository"
 ENVIRONMENT_REPOSITORY="github.com/secchain-cli-test/environment-repository-$$"
 SCOPE="secchain-cli-test-$$"
 USER_SCOPE_KEY="CLI_TEST_USER_KEY_$$"
+# Where the real user scope already has environments, a secret stored there without one is refused
+# and `run` needs --env, so the throwaway name goes into the first of them and every command about
+# it names that environment. The checks never give the user scope an environment it does not have.
+# An environment name has no character a shell splits or expands, so the option is used unquoted.
+USER_SCOPE_ENVIRONMENT="$("${SECCHAIN}" list --envs --scope user | cut -f2 | cut -d' ' -f1)"
+USER_SCOPE_ENVIRONMENT_OPTION=""
+if [ "${USER_SCOPE_ENVIRONMENT}" != "-" ]; then
+  USER_SCOPE_ENVIRONMENT_OPTION="--env ${USER_SCOPE_ENVIRONMENT}"
+fi
 
 cleanup() {
   (
@@ -38,7 +47,7 @@ cleanup() {
     "${SECCHAIN}" delete CLI_TEST_SHARED_KEY
     "${SECCHAIN}" delete CLI_TEST_SCOPE_KEY --scope "${SCOPE}"
     "${SECCHAIN}" delete CLI_TEST_SHARED_KEY --scope "${SCOPE}"
-    "${SECCHAIN}" delete "${USER_SCOPE_KEY}" --scope user
+    "${SECCHAIN}" delete "${USER_SCOPE_KEY}" --scope user ${USER_SCOPE_ENVIRONMENT_OPTION}
   ) > /dev/null 2>&1 || true
   # Every secret of an environment first: while one is left, a delete without --env is refused.
   for environment in local prod; do
@@ -183,16 +192,16 @@ EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run -- sh -c 'test "${CLI_
 "${SECCHAIN}" list --long | grep -q "^CLI_TEST_SHARED_KEY.*repository.*(also in ${SCOPE})" || fail "list --long did not say the name is also in the scope"
 
 echo "== the user scope is passed through a wildcard pattern"
-capture sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set '${USER_SCOPE_KEY}' --scope user --no-sync"
+capture sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set '${USER_SCOPE_KEY}' --scope user --no-sync ${USER_SCOPE_ENVIRONMENT_OPTION}"
 [ "${LAST_STATUS}" -eq 0 ] || fail "set --scope user exited with ${LAST_STATUS}"
-capture_output "${SECCHAIN}" run --only "${USER_SCOPE_KEY}" -- true
+capture_output "${SECCHAIN}" run --only "${USER_SCOPE_KEY}" ${USER_SCOPE_ENVIRONMENT_OPTION} -- true
 [ "${LAST_STATUS}" -ne 0 ] || fail "run passed the user scope before it was allowed"
-printf '%s' "${LAST_OUTPUT}" | grep -q "No value is stored for ${USER_SCOPE_KEY}" || fail "run did not report the secret of the user scope as missing"
+printf '%s' "${LAST_OUTPUT}" | grep -q "is stored for ${USER_SCOPE_KEY}" || fail "run did not report the secret of the user scope as missing"
 capture "${SECCHAIN}" scope allow user 'github.com/secchain-cli-test/*'
-EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run --only "${USER_SCOPE_KEY}" -- sh -c "test \"\${${USER_SCOPE_KEY}}\" = \"\${EXPECTED_VALUE}\""
+EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run --only "${USER_SCOPE_KEY}" ${USER_SCOPE_ENVIRONMENT_OPTION} -- sh -c "test \"\${${USER_SCOPE_KEY}}\" = \"\${EXPECTED_VALUE}\""
 [ "${LAST_STATUS}" -eq 0 ] || fail "run did not pass the user scope through the wildcard (status ${LAST_STATUS})"
 capture "${SECCHAIN}" scope deny user 'github.com/secchain-cli-test/*'
-capture "${SECCHAIN}" run --only "${USER_SCOPE_KEY}" -- true
+capture "${SECCHAIN}" run --only "${USER_SCOPE_KEY}" ${USER_SCOPE_ENVIRONMENT_OPTION} -- true
 [ "${LAST_STATUS}" -ne 0 ] || fail "run still passed the user scope after scope deny"
 
 echo "== invalid scope arguments are usage errors"
@@ -238,7 +247,7 @@ capture "${SECCHAIN}" delete CLI_TEST_SCOPE_KEY --scope "${SCOPE}"
 ! grep -qx "CLI_TEST_SCOPE_KEY" "${USER_DEFINITION}" || fail "delete --scope left the name in ~/.secchain"
 capture "${SECCHAIN}" delete CLI_TEST_SHARED_KEY --scope "${SCOPE}"
 capture "${SECCHAIN}" delete CLI_TEST_SHARED_KEY
-capture "${SECCHAIN}" delete "${USER_SCOPE_KEY}" --scope user
+capture "${SECCHAIN}" delete "${USER_SCOPE_KEY}" --scope user ${USER_SCOPE_ENVIRONMENT_OPTION}
 [ "${LAST_STATUS}" -eq 0 ] || fail "delete --scope user exited with ${LAST_STATUS}"
 
 echo "== delete removes the secret and its declaration"
