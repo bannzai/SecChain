@@ -9,39 +9,50 @@ public final class AppModel {
     /// Where secrets are read and written. Only a debug build replaces it (`useDemoStore()`).
     private(set) var store: SecretStore
 
-    /// Repositories that have secrets, plus the ones added in this session that have none yet.
-    public private(set) var repositoryIdentities: [RepositoryIdentity] = []
-    /// Secrets of the repositories loaded so far.
-    public private(set) var storedSecretsByRepository: [RepositoryIdentity: [StoredSecret]] = [:]
-    /// Repository shown in the detail column.
-    public var selectedRepositoryIdentity: RepositoryIdentity?
+    /// Scopes that have secrets on this device, plus the ones added in this session that have none
+    /// yet: the repositories first, then the user scope, then the custom scopes.
+    public private(set) var scopes: [SecretScope] = []
+    /// Secrets of the scopes loaded so far.
+    public private(set) var storedSecretsByScope: [SecretScope: [StoredSecret]] = [:]
+    /// Scope shown in the detail column.
+    public var selectedScope: SecretScope?
     /// Failure to show to the user. Set by every operation that throws.
     public var presentedError: SecretStoreError?
     /// `true` when the Keychain refused the binary itself (code signing), which makes every
     /// operation pointless and gets a dedicated screen instead of an alert.
     public private(set) var isKeychainUnreachable = false
 
-    /// Repositories the user added before storing a first secret. They exist nowhere else, so
-    /// they are gone after a restart unless a secret was stored.
-    private var repositoryIdentitiesWithoutSecrets: [RepositoryIdentity] = []
+    /// Scopes the user added before storing a first secret. They exist nowhere else, so they are
+    /// gone after a restart unless a secret was stored.
+    private var scopesWithoutSecrets: [SecretScope] = []
 
     public init(store: SecretStore) {
         self.store = store
     }
 
+    /// The repositories among `scopes`.
+    public var repositoryIdentities: [RepositoryIdentity] {
+        scopes.compactMap(\.repositoryIdentity)
+    }
+
+    /// The user scope and the custom scopes among `scopes`.
+    public var sharedScopes: [SharedScope] {
+        scopes.compactMap(\.sharedScope)
+    }
+
     /// Reloads everything from the Keychain. Safe to call at any time (idempotent).
     public func reload() {
         do {
-            let storedRepositoryIdentities = try store.repositoryIdentities()
-            repositoryIdentitiesWithoutSecrets.removeAll(where: storedRepositoryIdentities.contains)
-            repositoryIdentities = (storedRepositoryIdentities + repositoryIdentitiesWithoutSecrets)
-                .sorted { $0.value < $1.value }
-            storedSecretsByRepository = try Dictionary(
-                uniqueKeysWithValues: repositoryIdentities.map { ($0, try store.storedSecrets(scope: .repository($0))) }
+            let storedScopes = try store.scopes()
+            scopesWithoutSecrets.removeAll(where: storedScopes.contains)
+            scopes = (storedScopes + scopesWithoutSecrets)
+                .sorted { listOrder(scope: $0) < listOrder(scope: $1) }
+            storedSecretsByScope = try Dictionary(
+                uniqueKeysWithValues: scopes.map { ($0, try store.storedSecrets(scope: $0)) }
             )
             isKeychainUnreachable = false
-            if let selectedRepositoryIdentity, !repositoryIdentities.contains(selectedRepositoryIdentity) {
-                self.selectedRepositoryIdentity = nil
+            if let selectedScope, !scopes.contains(selectedScope) {
+                self.selectedScope = nil
             }
         } catch {
             present(error: error)
@@ -54,19 +65,20 @@ public final class AppModel {
     /// offered on screen. Calling it again starts over from the same demo data (idempotent).
     func useDemoStore() {
         store = AppModelFactory.demoStore()
-        repositoryIdentitiesWithoutSecrets = []
-        selectedRepositoryIdentity = nil
+        scopesWithoutSecrets = []
+        selectedScope = nil
         reload()
     }
     #endif
 
-    /// Makes a repository appear in the list so that its first secret can be added.
-    public func addRepository(repositoryIdentity: RepositoryIdentity) {
-        if !repositoryIdentities.contains(repositoryIdentity) {
-            repositoryIdentitiesWithoutSecrets.append(repositoryIdentity)
+    /// Makes a repository or a shared scope appear in the list so that its first secret can be
+    /// added.
+    public func addScope(scope: SecretScope) {
+        if !scopes.contains(scope) {
+            scopesWithoutSecrets.append(scope)
         }
         reload()
-        selectedRepositoryIdentity = repositoryIdentity
+        selectedScope = scope
     }
 
     /// Returns whether the operation succeeded, so that a sheet knows whether to close.
@@ -139,5 +151,18 @@ public final class AppModel {
         } else {
             presentedError = secretStoreError
         }
+    }
+}
+
+/// Position of a scope in the list. Repositories come first because they are what most secrets
+/// belong to; the user scope precedes the custom scopes because it is the one every Mac has.
+func listOrder(scope: SecretScope) -> (Int, String) {
+    switch scope {
+    case .repository(let repositoryIdentity):
+        (0, repositoryIdentity.value)
+    case .shared(.user):
+        (1, SharedScope.userScopeName)
+    case .shared(.custom(let customScopeName)):
+        (2, customScopeName.value)
     }
 }

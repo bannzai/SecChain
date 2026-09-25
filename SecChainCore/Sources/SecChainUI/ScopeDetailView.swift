@@ -1,11 +1,14 @@
 import SecChainCore
 import SwiftUI
 
-/// The secrets of one repository: names and settings only. Values appear solely in
-/// `RevealedValueView`, after an explicit action and authentication.
-struct RepositoryDetailView: View {
+/// The secrets of one repository or shared scope: names and settings only. Values appear solely in
+/// `RevealedValueView`, after an explicit action and authentication. One view serves both kinds
+/// because a shared scope's secrets are stored, protected, and revealed exactly like a
+/// repository's (documents/PROJECT.md, "Secret scopes").
+struct ScopeDetailView: View {
     let model: AppModel
-    let repositoryIdentity: RepositoryIdentity
+    /// The repository or shared scope whose secrets are listed and where a new one is added.
+    let scope: SecretScope
 
     @State private var isAddingSecret = false
     @State private var storedSecretBeingUpdated: StoredSecret?
@@ -25,7 +28,7 @@ struct RepositoryDetailView: View {
     }
 
     var storedSecrets: [StoredSecret] {
-        model.storedSecretsByRepository[repositoryIdentity] ?? []
+        model.storedSecretsByScope[scope] ?? []
     }
 
     var body: some View {
@@ -40,7 +43,7 @@ struct RepositoryDetailView: View {
             secretRows
             #endif
         }
-        .navigationTitle(repositoryIdentity.value)
+        .navigationTitle(scopeTitle(scope: scope))
         #if os(iOS)
         // A repository identifier is too long for a large title on an iPhone and would be cut off.
         .navigationBarTitleDisplayMode(.inline)
@@ -50,7 +53,11 @@ struct RepositoryDetailView: View {
                 ContentUnavailableView(
                     String(localized: "No secrets yet", bundle: .module),
                     systemImage: "key",
-                    description: Text("Add the first secret of this repository", bundle: .module)
+                    description: Text(
+                        scope.repositoryIdentity != nil
+                            ? String(localized: "Add the first secret of this repository", bundle: .module)
+                            : String(localized: "Add the first secret of this scope", bundle: .module)
+                    )
                 )
             }
         }
@@ -62,7 +69,7 @@ struct RepositoryDetailView: View {
             }
         }
         .sheet(isPresented: $isAddingSecret) {
-            SecretEditorView(model: model, mode: .add(repositoryIdentity: repositoryIdentity))
+            SecretEditorView(model: model, mode: .add(scope: scope))
         }
         .sheet(item: $storedSecretBeingUpdated) { storedSecret in
             SecretEditorView(model: model, mode: .updateValue(storedSecret: storedSecret))
@@ -152,6 +159,17 @@ struct RepositoryDetailView: View {
                 revealedSecret = RevealedSecret(storedSecret: storedSecret, value: value)
             }
         }
+    }
+}
+
+/// The scope as the apps name it. `SecretScope.description` is the command line's English wording,
+/// so the built-in user scope gets a translated name here; a repository identifier and a custom
+/// scope's name are the same in every language.
+func scopeTitle(scope: SecretScope) -> String {
+    switch scope {
+    case .repository(let repositoryIdentity): repositoryIdentity.value
+    case .shared(.user): String(localized: "User", bundle: .module)
+    case .shared(.custom(let customScopeName)): customScopeName.value
     }
 }
 

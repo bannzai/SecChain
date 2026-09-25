@@ -51,21 +51,27 @@ public enum AppModelFactory {
     /// without touching the Keychain and without a signed build.
     static func demoStore() -> SecretStore {
         let keychain = InMemorySecretKeychain()
-        let demoSecrets: [(repository: String, name: String, protectionLevel: ProtectionLevel, isSynchronized: Bool)] = [
-            ("github.com/example/web-app", "OPENAI_API_KEY", .standard, true),
-            ("github.com/example/web-app", "CLOUDFLARE_API_TOKEN", .confirm, true),
-            ("github.com/example/web-app", "DATABASE_URL", .standard, false),
-            ("github.com/example/web-app", "SIGNING_KEY_PASSWORD", .deviceBound, false),
-            ("github.com/example/mobile-app", "FIREBASE_TOKEN", .standard, true),
-            ("my-notes", "BLOG_API_KEY", .standard, true),
+        let webAppScope = SecretScope.repository(RepositoryIdentity(value: "github.com/example/web-app"))
+        // The scope is optional only because a custom scope is made from a name that could fail
+        // validation; the one below satisfies `CustomScopeName`.
+        let demoSecrets: [(scope: SecretScope?, name: String, protectionLevel: ProtectionLevel, isSynchronized: Bool)] = [
+            (webAppScope, "OPENAI_API_KEY", .standard, true),
+            (webAppScope, "CLOUDFLARE_API_TOKEN", .confirm, true),
+            (webAppScope, "DATABASE_URL", .standard, false),
+            (webAppScope, "SIGNING_KEY_PASSWORD", .deviceBound, false),
+            (.repository(RepositoryIdentity(value: "github.com/example/mobile-app")), "FIREBASE_TOKEN", .standard, true),
+            (.repository(RepositoryIdentity(value: "my-notes")), "BLOG_API_KEY", .standard, true),
+            (.shared(.user), "ANTHROPIC_API_KEY", .standard, true),
+            (.shared(.user), "GITHUB_TOKEN", .confirm, true),
+            (SharedScope(name: "youtube").map(SecretScope.shared), "YOUTUBE_API_KEY", .standard, true),
         ]
         for demoSecret in demoSecrets {
-            guard let name = SecretName(rawName: demoSecret.name) else {
+            guard let scope = demoSecret.scope, let name = SecretName(rawName: demoSecret.name) else {
                 continue
             }
             try? keychain.write(
                 storedSecret: StoredSecret(
-                    scope: .repository(RepositoryIdentity(value: demoSecret.repository)),
+                    scope: scope,
                     name: name,
                     protectionLevel: demoSecret.protectionLevel,
                     isSynchronized: demoSecret.isSynchronized,

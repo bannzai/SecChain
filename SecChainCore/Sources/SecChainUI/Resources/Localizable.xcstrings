@@ -95,6 +95,17 @@
         }
       }
     },
+    "A Mac passes the secrets of a scope to the repositories its ~/.secchain allows" : {
+      "comment" : "Footer of the sheet that adds a custom scope on iOS",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "scope の Secret は、Mac の ~/.secchain が許可したリポジトリに渡されます"
+          }
+        }
+      }
+    },
     "A device-bound secret cannot be synchronized. Choose either device-bound or synchronization." : {
       "localizations" : {
         "ja" : {
@@ -157,6 +168,16 @@
         }
       }
     },
+    "Add Scope" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "scope を追加"
+          }
+        }
+      }
+    },
     "Add Secret" : {
       "localizations" : {
         "ja" : {
@@ -183,6 +204,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このリポジトリに最初の Secret を追加"
+          }
+        }
+      }
+    },
+    "Add the first secret of this scope" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この scope に最初の Secret を追加"
           }
         }
       }
@@ -718,6 +749,17 @@
         }
       }
     },
+    "Scopes" : {
+      "comment" : "Header of the list section with the user scope and the custom scopes",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scope"
+          }
+        }
+      }
+    },
     "SecChain cannot reach its Keychain items" : {
       "localizations" : {
         "ja" : {
@@ -1112,6 +1154,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "英字、数字、アンダースコアを使い、数字で始めないでください"
+          }
+        }
+      }
+    },
+    "Use lowercase letters, digits and hyphens, starting with a letter or a digit; 'user' and 'repository' are built in" : {
+      "comment" : "Shown when the name typed for a new custom scope is not valid",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英小文字、数字、ハイフンを使い、英小文字か数字で始めてください。「user」と「repository」は組み込みの scope です"
+          }
+        }
+      }
+    },
+    "User" : {
+      "comment" : "Name of the built-in scope shared by every repository the user allows",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザー"
           }
         }
       }

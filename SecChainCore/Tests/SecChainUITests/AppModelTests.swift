@@ -30,10 +30,50 @@ struct AppModelTests {
     @Test
     func aRepositoryAddedInTheAppIsListedBeforeItHasSecrets() {
         let model = makeModel(authenticationFailure: nil)
-        model.addRepository(repositoryIdentity: repositoryIdentity)
+        model.addScope(scope: .repository(repositoryIdentity))
         #expect(model.repositoryIdentities == [repositoryIdentity])
-        #expect(model.selectedRepositoryIdentity == repositoryIdentity)
-        #expect(model.storedSecretsByRepository[repositoryIdentity] == [])
+        #expect(model.selectedScope == .repository(repositoryIdentity))
+        #expect(model.storedSecretsByScope[.repository(repositoryIdentity)] == [])
+    }
+
+    @Test
+    func aCustomScopeAddedInTheAppIsListedBeforeItHasSecrets() throws {
+        let model = makeModel(authenticationFailure: nil)
+        let youtubeScope = SecretScope.shared(.custom(try #require(CustomScopeName(rawName: "youtube"))))
+        model.addScope(scope: youtubeScope)
+        #expect(model.scopes == [youtubeScope])
+        #expect(model.repositoryIdentities.isEmpty)
+        #expect(model.selectedScope == youtubeScope)
+        #expect(model.storedSecretsByScope[youtubeScope] == [])
+    }
+
+    @Test
+    func sharedScopesAreListedAfterTheRepositoriesWithTheUserScopeFirst() async throws {
+        let model = makeModel(authenticationFailure: nil)
+        let name = try #require(SecretName(rawName: "API_KEY"))
+        let awsScope = SecretScope.shared(.custom(try #require(CustomScopeName(rawName: "aws"))))
+        let zooScope = SecretScope.shared(.custom(try #require(CustomScopeName(rawName: "zoo"))))
+        // "aws" sorts before "user" by name, and the Keychain service of a repository before both.
+        for scope in [zooScope, .shared(.user), awsScope, .repository(repositoryIdentity)] {
+            #expect(await model.save(name: name, value: dummyValue, scope: scope, protectionLevel: .standard, isSynchronized: true))
+        }
+        #expect(model.scopes == [.repository(repositoryIdentity), .shared(.user), awsScope, zooScope])
+        #expect(model.repositoryIdentities == [repositoryIdentity])
+        #expect(model.sharedScopes == [.user, try #require(awsScope.sharedScope), try #require(zooScope.sharedScope)])
+    }
+
+    @Test
+    func aSharedScopeSecretIsSavedRevealedAndDeletedInItsScope() async throws {
+        let model = makeModel(authenticationFailure: nil)
+        let name = try #require(SecretName(rawName: "API_KEY"))
+        #expect(await model.save(name: name, value: dummyValue, scope: .shared(.user), protectionLevel: .confirm, isSynchronized: true))
+        // The same name in a repository is another secret.
+        #expect(model.storedSecretsByScope[.repository(repositoryIdentity)] == nil)
+        let storedSecret = try #require(model.storedSecretsByScope[.shared(.user)]?.first)
+        #expect(storedSecret.scope == .shared(.user))
+        #expect(await model.revealedValue(storedSecret: storedSecret) == dummyValue)
+        #expect(await model.delete(storedSecret: storedSecret))
+        #expect(model.scopes.isEmpty)
     }
 
     @Test
@@ -41,7 +81,7 @@ struct AppModelTests {
         let model = makeModel(authenticationFailure: nil)
         let name = try #require(SecretName(rawName: "API_KEY"))
         #expect(await model.save(name: name, value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: .confirm, isSynchronized: true))
-        let storedSecret = try #require(model.storedSecretsByRepository[repositoryIdentity]?.first)
+        let storedSecret = try #require(model.storedSecretsByScope[.repository(repositoryIdentity)]?.first)
         #expect(storedSecret.protectionLevel == .confirm)
         #expect(await model.delete(storedSecret: storedSecret))
         #expect(model.repositoryIdentities.isEmpty)
@@ -56,14 +96,14 @@ struct AppModelTests {
         try await SecretStore(keychain: keychain, ownerAuthenticator: FixedOwnerAuthenticator(failure: nil))
             .set(name: try #require(SecretName(rawName: "FROM_CLI")), value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: nil, isSynchronized: nil)
         model.reload()
-        #expect(model.storedSecretsByRepository[repositoryIdentity]?.map(\.name.value) == ["FROM_CLI"])
+        #expect(model.storedSecretsByScope[.repository(repositoryIdentity)]?.map(\.name.value) == ["FROM_CLI"])
     }
 
     @Test
     func aDeviceBoundSecretIsSavedWithoutSynchronization() async throws {
         let model = makeModel(authenticationFailure: nil)
         #expect(await model.save(name: try #require(SecretName(rawName: "A")), value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: .deviceBound, isSynchronized: true))
-        #expect(model.storedSecretsByRepository[repositoryIdentity]?.first?.isSynchronized == false)
+        #expect(model.storedSecretsByScope[.repository(repositoryIdentity)]?.first?.isSynchronized == false)
         #expect(model.presentedError == nil)
     }
 
@@ -73,7 +113,7 @@ struct AppModelTests {
         #expect(await makeModel(authenticationFailure: nil).save(name: name, value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: .standard, isSynchronized: true))
         let model = makeModel(authenticationFailure: .authenticationCancelled)
         model.reload()
-        let storedSecret = try #require(model.storedSecretsByRepository[repositoryIdentity]?.first)
+        let storedSecret = try #require(model.storedSecretsByScope[.repository(repositoryIdentity)]?.first)
         #expect(await model.revealedValue(storedSecret: storedSecret) == nil)
         #expect(model.presentedError == nil)
     }
@@ -84,7 +124,7 @@ struct AppModelTests {
         #expect(await makeModel(authenticationFailure: nil).save(name: name, value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: .standard, isSynchronized: true))
         let model = makeModel(authenticationFailure: .authenticationFailed)
         model.reload()
-        let storedSecret = try #require(model.storedSecretsByRepository[repositoryIdentity]?.first)
+        let storedSecret = try #require(model.storedSecretsByScope[.repository(repositoryIdentity)]?.first)
         #expect(await model.revealedValue(storedSecret: storedSecret) == nil)
         #expect(model.presentedError == .authenticationFailed)
     }
@@ -106,7 +146,7 @@ struct AppModelTests {
         let model = makeModel(authenticationFailure: nil)
         let name = try #require(SecretName(rawName: "API_KEY"))
         #expect(await model.save(name: name, value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: .standard, isSynchronized: true))
-        let storedSecret = try #require(model.storedSecretsByRepository[repositoryIdentity]?.first)
+        let storedSecret = try #require(model.storedSecretsByScope[.repository(repositoryIdentity)]?.first)
         #expect(await model.revealedValue(storedSecret: storedSecret) == dummyValue)
         // The revealed value belongs to the view that asked for it; the model that outlives every
         // sheet must not hold one.
