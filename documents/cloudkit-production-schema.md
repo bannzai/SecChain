@@ -26,6 +26,11 @@ The fields of each type, the record names, and what is signed are in
 `documents/remote-approval-records.md`, which stays the source of truth for the layout; this
 document only lists which types have to exist in production.
 
+The layout to deploy is version 2 (`schemaVersion` = 2). Its `ApprovalRequest` carries
+`secretScopes` (List of String), the field version 1 did not have
+(https://github.com/bannzai/SecChain/issues/57). A field that is in production cannot be deleted
+again, which is why the version was raised before the first deployment.
+
 The doctor has no record type of its own: a deployed record type cannot be deleted again, so
 `secchain doctor --cloudkit` exercises these four instead (`documents/PROJECT.md`, design
 decision 5).
@@ -60,14 +65,18 @@ spike").
 1. **Create the four record types in the development environment.** Run `make test-integration` on a
    Mac signed in to iCloud, with a build signed by the team. It runs `secchain doctor --cloudkit`,
    which saves and reads back one record of each type with every field populated — including
-   `signature`, which only an approval carries — and deletes the records again. A deployment copies
-   no records, and the record types and fields it created stay behind, which is what is deployed.
+   `signature`, which only an approval carries, and `secretScopes`, which version 1 did not write —
+   and deletes the records again. A deployment copies no records, and the record types and fields it
+   created stay behind, which is what is deployed.
 2. **Remove every other record type from the development schema first.** A deployment merges the
    whole development schema into production, and "you can't delete record types or fields that are
    already in production" (Apple's documentation, linked above). The type to look for is
    `DoctorProbe`, which the spike created before the doctor moved to the record types of the
    protocol.
 3. **Check the two queryable indexes** described above.
+4. **Check that `ApprovalRequest` has `secretScopes`** (List of String) next to `secretNames` in the
+   development schema. Without it the deployment would carry the layout of version 1, which no
+   build reads any more.
 
 ## Deploying
 

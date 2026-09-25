@@ -15,11 +15,36 @@ code is what both front ends compile against.
 
 ## Layout version
 
-Every record carries `schemaVersion`, currently `1`, matching the `v1` in
+Every record carries `schemaVersion`, currently `2`, matching the `v2` in
 `RemoteApproval.signedMessagePrefix`. A device that reads another version refuses the record
 instead of guessing what the fields mean. The version changes when a field changes meaning or the
 signed message is laid out differently, which requires both front ends to ship the new version:
 until then, every approval of the new layout fails verification on the old one.
+
+| Version | What changed |
+| --- | --- |
+| 1 | The first layout |
+| 2 | `ApprovalRequest` names the scope of each secret (`secretScopes`), and the signature covers it (https://github.com/bannzai/SecChain/issues/57) |
+
+The version is one number for the whole protocol, so every record type is refused in another
+version, including those whose fields did not change.
+
+### Receiving a record of another version
+
+Reading a record of another version throws `RemoteApprovalRecordError.unsupportedSchemaVersion`,
+whose message names both versions and asks to update SecChain on both devices. What that means for
+each side:
+
+| Situation | What happens |
+| --- | --- |
+| The Mac files a request in a version the iPhone does not read | The iPhone's query for open requests fails with the error, when it launches and when the notification arrives, so it shows the error instead of the requests and answers nothing. The Mac waits until the request expires, reports that no answer arrived, and deletes the request as it does for every expired one |
+| The Mac finds an answer in another version | The Mac reports the error and does not run the command. It cannot happen with the apps as they are: the iPhone only answers a request it could read |
+| The Mac reads a `DevicePairing` of another version (`secchain pair`) | Pairing fails with the error. **Pair Again** on the iPhone publishes the key in the iPhone's version and withdraws the old record. A Mac that is already paired keeps its own copy of the key, which carries no version, and stays paired |
+| A record of another version stays in the database, because the device that would delete it was killed, or is no longer run in that version | Every query of that record type keeps failing with the error until the record is deleted: the device that reads it cannot tell when it expires. Deleting it is a step in the CloudKit Console (Records, the record type, the record, Delete) |
+
+An approval never crosses versions even where a record is read: the signed message starts with the
+version (`SecChain remote approval v2`), so a signature made in one version does not verify in
+another.
 
 ## Record types
 
@@ -33,12 +58,20 @@ One authentication a Mac asks the iPhone to answer.
 | `requestIdentifier` | String | UUID of the request, the same one the record name carries |
 | `nonce` | Bytes | 32 random bytes chosen for this request only |
 | `expiry` | Date/Time | When the Mac stops accepting an approval (2 minutes after it was filed) |
-| `repositoryIdentity` | String | Repository whose secrets the command reads |
-| `secretNames` | List of String | Names of the secrets, never their values |
+| `repositoryIdentity` | String | Repository the command runs for, which the secrets are passed to. `set` and `delete` of a shared scope act on no repository and store `scope <name>` here |
+| `secretNames` | List of String | Names of the secrets, never their values, sorted |
+| `secretScopes` | List of String | The scope of the secret at the same position of `secretNames`, by the name the command line uses: `repository` for the repository's own secrets, `user`, or the name of a custom scope |
 | `commandArguments` | List of String | The command the user is about to run, word by word |
 | `requestingDeviceName` | String | Name of the Mac, so that the user can tell where the request came from |
 
 Record name: `approval-request-<requestIdentifier>`.
+
+`secretScopes` is a list of its own next to `secretNames` because a CloudKit field holds a list of
+one primitive type, not of pairs. A record whose two lists differ in length, that names a scope that
+is not valid, or that lists a name twice is refused. `repository` always means the repository of
+`repositoryIdentity`, so a request cannot name a second repository. For `secchain run`, a name held
+by several scopes is listed once, with the scope it is taken from (`documents/PROJECT.md`, "Secret
+scopes").
 
 `commandArguments` is what the user typed after `--`, or the operation for an update or a delete
 (`["set", "API_TOKEN"]`, `["delete", "API_TOKEN"]`). It never contains a secret value: `secchain`
@@ -161,7 +194,7 @@ checking first.
 `RemoteApproval.signedMessage(request:)` is the byte string the iPhone signs and the Mac verifies:
 
 ```
-"SecChain remote approval v1\n"
+"SecChain remote approval v2\n"
 requestIdentifier          (16 bytes, the UUID as it is laid out in memory)
 nonce                      (4-byte big-endian length, then the bytes)
 expiry                     (8 bytes, big-endian Int64, whole seconds since 1970)
@@ -169,10 +202,14 @@ contentDigest              (4-byte big-endian length, then 32 bytes)
 ```
 
 `contentDigest` is `SHA-256` over the length-prefixed concatenation of the repository identity, the
-sorted secret names, the command arguments, and the requesting device name — that is, over what the
-iPhone showed the user. Every field is preceded by its length so that bytes cannot move from one
-field into the next without changing the result. Secret names are sorted because the order a
-command lists them in does not change what is approved.
+secrets, the command arguments, and the requesting device name — that is, over what the iPhone
+showed the user. The secrets are one length-prefixed field made of one length-prefixed entry per
+secret, sorted by name, and each entry is the length-prefixed name followed by the length-prefixed
+scope name (the value `secretScopes` stores). Every field is preceded by its length so that bytes
+cannot move from one field into the next without changing the result. Secrets are sorted by name
+because the order a command lists them in does not change what is approved; the scope of each is
+part of the entry because a secret of a shared scope reaches the repository only through
+`~/.secchain`, and that is what the user approves.
 
 The expiry is signed in whole seconds because CloudKit stores dates with millisecond precision and
 both sides have to produce the same bytes from their own copy of the request.

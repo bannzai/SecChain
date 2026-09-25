@@ -56,7 +56,7 @@ An authentication that SecChain itself requests on a Mac (the *confirm* level) c
 - It is opt-in. The default stays the local prompt.
 - It is another way to answer an existing authentication, not a fourth protection level.
 - *Device-bound* secrets are excluded: the Keychain itself enforces user presence on the device that holds the value, and a remote approval cannot satisfy that.
-- The request travels through the user's **CloudKit private database**. SecChain runs no server. A request or an approval never contains a secret value; it names the repository, the secret names, the command, the requesting Mac, and an expiry.
+- The request travels through the user's **CloudKit private database**. SecChain runs no server. A request or an approval never contains a secret value; it names the repository, the secret names with the scope of each, the command, the requesting Mac, and an expiry.
 - An approval must not be forgeable by a process running as the user on the Mac, because that is exactly the actor *confirm* exists to stop. An approval is therefore a signature made by a key that only the iPhone holds, over the request's identifier, nonce, expiry, and a digest of what the iPhone showed, and the Mac verifies it against a public key enrolled once.
 
 ### Repository scoping
