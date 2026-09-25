@@ -289,7 +289,7 @@ struct AppModelTests {
         #expect(model.repositoryIdentities.isEmpty)
         // What the command-line tool does: write through its own SecretStore.
         try await SecretStore(keychain: keychain, ownerAuthenticator: FixedOwnerAuthenticator(failure: nil))
-            .set(name: try #require(SecretName(rawName: "FROM_CLI")), value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: nil, isSynchronized: nil)
+            .set(name: try #require(SecretName(rawName: "FROM_CLI")), value: dummyValue, scope: .repository(repositoryIdentity), environment: nil, protectionLevel: nil, isSynchronized: nil)
         model.reload()
         #expect(model.storedSecretsByScope[.repository(repositoryIdentity)]?.map(\.name.value) == ["FROM_CLI"])
     }

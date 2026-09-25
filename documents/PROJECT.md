@@ -91,6 +91,26 @@ A secret belongs to one scope:
 - A device-bound value is kept in an internet password item (see "Measured behavior"). A repository scope uses its identifier as `kSecAttrServer`; a shared scope uses its whole service, `com.bannzai.SecChain.scope.<name>`, so that a repository whose identifier happens to be a scope name never shares that item with the scope. Nothing is stored for a repository whose identifier is itself such a service, in any letter case: only an identifier given by hand (`--repository`, or typed in an app) can be one, and a secret stored there would let a later write or delete replace or remove the scope's device-bound value without the authentication its level asks for.
 - `secchain run` passes the repository scope and every shared scope that an `@allow` of `~/.secchain` passes to the repository. A name held by several of them comes from the repository scope first, then from the custom scopes in the order `~/.secchain` lists them, then from the user scope.
 
+### Environments
+
+Tracked in https://github.com/bannzai/SecChain/issues/68; the rules that constrain it are design decision 7.
+
+An environment is the deployment target a value is meant for, such as `local`, `dev`, or `prod`. It is the third part of what identifies a secret, next to the scope and the name, so that one name holds a value per deployment target and the environment variable `run` sets keeps that name. A scope answers "who shares this value", an environment "which deployment target it is for"; neither can stand in for the other: a scope chosen per deployment target could not be switched per `run`, and a name per target (`OPENAI_API_KEY_PROD`) would no longer be the name the application reads.
+
+| Secret | `kSecAttrService` | `kSecAttrServer` of a device-bound value |
+| --- | --- | --- |
+| without an environment | the scope's service, as in "Secret scopes" | as in "Secret scopes" |
+| of environment `prod` | the scope's service followed by `#prod`, for example `com.bannzai.SecChain.repository.<identifier>#prod` or `com.bannzai.SecChain.scope.user#prod` | the scope's server followed by `#prod` |
+
+- The environment goes into `kSecAttrService` because a generic password is identified by access group, service, account, and synchronizable flag, and `kSecAttrAccount` has to stay the secret name. `#` appears in no repository identifier a Git remote gives and in no scope name; `--repository` refuses an identifier that contains it, and nothing is stored for a repository whose identifier does.
+- An environment name follows the rules of a custom scope name: lowercase ASCII letters, digits, and hyphens, starting with a letter or a digit. No name is reserved.
+- Protection levels and synchronization work the same way with and without an environment.
+- A scope that holds at least one secret of an environment *has environments*. `run` then needs `--env <environment>` and takes from that scope only the secrets of that environment. A scope without environments gives its secrets in every environment, so a user scope whose value is the same everywhere stays without environments while a repository has them.
+- In a scope that has environments, `set` needs `--env`, and `delete` without `--env` removes only a secret left without an environment. `run` without `--env` refuses to start and names `--env`, and `secchain env migrate` for secrets still without an environment.
+- `secchain env migrate <environment> [NAME] [--scope <scope>]` moves the secrets of a scope that have no environment into one: every value is read first, under one authentication when a secret is not *standard*, then each is written to the environment before its old items are deleted, so a failure never loses a value. It refuses to overwrite a value the environment already holds, and does nothing when nothing is left to move.
+- The first operation that gives a scope an environment while it still holds secrets without one (`set --env`, or `env migrate` of one secret) warns on standard error, and goes on: it names those secrets, says that `run` no longer passes them and that `run` and `set` need `--env` from now on (for a shared scope, in every repository it is passed to), and gives the ways to move them. `env migrate` of one secret warns about the ones left as long as any are.
+- `.secchain` declares names only. A declared name needs a value in every environment a command runs with, and the error of `run` names the environment that lacks it.
+
 ### Secret definition file
 
 - A repository may contain a Git-trackable file listing the secret **names** it needs.
@@ -146,6 +166,7 @@ YOUTUBE_API_KEY
 | Run a command with secrets | `secchain run -- <command>` reads the secrets of the scopes passed to the repository and passes them to the child process as environment variables. A subset of secrets can be selected. No plaintext temporary files. |
 | Act on a shared scope | `--scope user` or `--scope <name>` on `set`, `list`, and `delete`. Without it, `set` and `delete` act on the repository scope. `list --scopes` lists the shared scopes with their `@allow` patterns. |
 | Pass a shared scope to repositories | `secchain scope allow <scope> <pattern>` and `secchain scope deny <scope> <pattern>` add and remove an `@allow` line of `~/.secchain`. |
+| Act on an environment | `--env <environment>` on `set`, `delete`, `list`, and `run` (see "Environments"). `list --long` shows the environment of each secret, `-` for none, and `list --envs` the environments of each scope with the number of its secrets without one. `secchain env migrate` moves secrets without an environment into one. |
 
 There is deliberately no command that prints a secret value to standard output. `run` is the primary way to consume secrets, so that shell automation and AI coding agents can use a secret without being able to read it.
 
@@ -279,6 +300,15 @@ A repository is written by whoever wrote it, and `git clone` puts it on the Mac 
 - `~/.secchain` is found through `$HOME`. Setting `HOME` for `secchain` takes a process that already runs as the user, which could just as well pass `--repository` or write `~/.secchain` itself: the boundary is against what a repository's files say, not against such a process.
 - `@allow` is a setting of one Mac and is not synchronized: allowing a scope for a checkout on one Mac says nothing about a clone of the same name on another. A new Mac gets the secrets through iCloud Keychain and `~/.secchain` through the user's dotfiles.
 
+### 7. Environments are read from the Keychain, and a scope with environments never falls back
+
+Decided on 2026-09-26 in https://github.com/bannzai/SecChain/issues/68.
+
+- **Whether a scope has environments is derived from its Keychain items**: a secret of an environment in the scope is what makes it one, and no setting or flag records it. The state therefore reaches the user's other Macs through iCloud Keychain together with the secrets, and deleting the last secret of an environment returns the scope to how it was. A setting in `~/.secchain` or in the repository would have to be kept in step with the items on every Mac, and a stale one would silently pass the wrong values.
+- **A scope with environments gives `run --env <environment>` the secrets of that environment and nothing else**: neither a secret left without an environment nor one of another environment stands in for a missing one. A value meant for one deployment target reaching another (a development key in a production build, or the other way around) is the failure environments exist to prevent, and a fallback would do exactly that without a message. A missing value is instead reported by `.secchain`, whose declared names `run` checks in the environment it runs with.
+- **Every passed scope is decided on its own**: a scope without environments gives its secrets in every environment, so that a value the same everywhere is stored once, as a shared scope already allows for repositories.
+- Nothing had been released, so there is no compatibility path: an item without an environment keeps the service it always had, and a scope without environments behaves as before.
+
 ## Measured behavior
 
 Observed on 2026-09-17 with macOS 26 / Xcode 26.5, using `secchain doctor` and `make test-integration` with builds signed by the team (Apple Development identity, automatic signing).
@@ -338,8 +368,8 @@ Observed on 2026-09-18 for https://github.com/bannzai/SecChain/issues/38 with `s
 
 | Layer | Runs where | Covers |
 | --- | --- | --- |
-| Unit tests against an in-memory Keychain double | Anywhere, including CI on pull requests from forks | Repository identification, isolation, scopes, both definition files, error translation, environment construction for `run`, no-leak assertions |
-| Signed integration tests against the real data protection keychain | A Mac with the team's signing identity | Add / update / delete in a repository scope and in a shared scope, sync attribute handling, interoperability between the app and the embedded tool |
+| Unit tests against an in-memory Keychain double | Anywhere, including CI on pull requests from forks | Repository identification, isolation, scopes, environments (which secrets `run` gets, moving secrets into an environment), both definition files, error translation, environment construction for `run`, no-leak assertions |
+| Signed integration tests against the real data protection keychain | A Mac with the team's signing identity | Add / update / delete in a repository scope and in a shared scope, secrets of an environment and moving secrets into one, sync attribute handling, interoperability between the app and the embedded tool |
 | Manual checks | Two Macs and an iPhone on the same Apple Account | Actual iCloud Keychain propagation, authentication prompts on real hardware |
 
 ## References

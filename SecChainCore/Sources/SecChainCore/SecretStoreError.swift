@@ -7,6 +7,12 @@ import Security
 public enum SecretStoreError: Error, Equatable, CustomStringConvertible {
     /// No value is stored under this name for this repository.
     case secretNotFound(name: String, repository: String)
+    /// No value of this environment is stored under this name in the scopes named by `repository`.
+    case secretNotFoundInEnvironment(name: String, repository: String, environment: String)
+    /// The scope has secrets of environments, so an operation on it has to name one: a secret
+    /// stored without an environment would never be passed by `run` (documents/PROJECT.md,
+    /// "Environments"). `environments` are the scope's environments, for the message.
+    case environmentRequired(repository: String, environments: [String])
     /// The Keychain already holds the item that was about to be added.
     case duplicateSecret(name: String, repository: String)
     /// The running binary is not signed with SecChain's Keychain access group. This is a
@@ -30,6 +36,10 @@ public enum SecretStoreError: Error, Equatable, CustomStringConvertible {
     /// The repository identifier is the service of a shared scope, whose device-bound values would
     /// share Keychain items with the repository's (`SecretScope.isRepositoryNamedLikeASharedScope`).
     case reservedRepositoryIdentifier(repository: String)
+    /// The repository identifier contains the separator of an environment, so its secrets would be
+    /// read back as those of an environment of another repository
+    /// (`SecretScope.isRepositoryNamedWithAnEnvironmentSeparator`).
+    case repositoryIdentifierContainsEnvironmentSeparator(repository: String)
     /// Any other Security framework failure, with the system's wording for the status.
     case keychainFailure(operation: String, status: OSStatus, message: String)
 
@@ -45,6 +55,10 @@ public enum SecretStoreError: Error, Equatable, CustomStringConvertible {
         switch self {
         case .secretNotFound(let name, let repository):
             String(localized: "No value is stored for \(name) in \(repository). Store it with 'secchain set \(name)'.", bundle: bundle)
+        case .secretNotFoundInEnvironment(let name, let repository, let environment):
+            String(localized: "No value of the environment \(environment) is stored for \(name) in \(repository). Store it with 'secchain set \(name) --env \(environment)'.", bundle: bundle)
+        case .environmentRequired(let repository, let environments):
+            String(localized: "\(repository) has the environments \(environments.joined(separator: ", ")), so name one with '--env <environment>'.", bundle: bundle)
         case .duplicateSecret(let name, let repository):
             String(localized: "\(name) already exists in \(repository).", bundle: bundle)
         case .missingEntitlement:
@@ -65,6 +79,8 @@ public enum SecretStoreError: Error, Equatable, CustomStringConvertible {
             String(localized: "The value is empty.", bundle: bundle)
         case .reservedRepositoryIdentifier(let repository):
             String(localized: "\(repository) cannot be a repository identifier: it is the name SecChain gives the Keychain items of a shared scope.", bundle: bundle)
+        case .repositoryIdentifierContainsEnvironmentSeparator(let repository):
+            String(localized: "\(repository) cannot be a repository identifier: '#' separates the environment in the names SecChain gives its Keychain items.", bundle: bundle)
         case .keychainFailure(let operation, let status, let message):
             String(localized: "Keychain \(operation) failed with status \(status): \(message)", bundle: bundle)
         }

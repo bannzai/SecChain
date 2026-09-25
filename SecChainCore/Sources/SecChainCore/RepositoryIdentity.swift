@@ -50,6 +50,10 @@ public enum RepositoryIdentityError: Error, Equatable, CustomStringConvertible {
     case unstableRemote(sanitizedRemoteURL: String)
     /// The `git` executable could not be run.
     case gitUnavailable(reason: String)
+    /// The explicit identifier contains the separator of an environment
+    /// (`SecretEnvironment.keychainServiceSeparator`), so the repository's secrets would be read back
+    /// as those of an environment of another repository.
+    case identifierContainsEnvironmentSeparator(identifier: String)
 
     /// The message in English, as the command-line tool prints it: no SecChain binary has
     /// translations in `Bundle.main`.
@@ -70,6 +74,8 @@ public enum RepositoryIdentityError: Error, Equatable, CustomStringConvertible {
             String(localized: "The 'origin' remote (\(sanitizedRemoteURL)) is a local path, which differs between Macs. Give the repository's identifier with '--repository <identifier>' (in the app, type it as the identifier).", bundle: bundle)
         case .gitUnavailable(let reason):
             String(localized: "git could not be run: \(reason)", bundle: bundle)
+        case .identifierContainsEnvironmentSeparator(let identifier):
+            String(localized: "\(identifier) cannot be a repository identifier: '#' separates the environment in the names SecChain gives its Keychain items.", bundle: bundle)
         }
     }
 }

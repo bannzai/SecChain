@@ -6,12 +6,13 @@ import Security
 ///
 /// Item layout:
 ///
-/// - Every secret has a **generic password** item: service = the scope's service, account = the
-///   secret name, `kSecAttrDescription` = the protection level, data = the value.
+/// - Every secret has a **generic password** item: service = the scope's service, followed by
+///   `#<environment>` for a secret of an environment (`SecretScope.keychainService(environment:)`),
+///   account = the secret name, `kSecAttrDescription` = the protection level, data = the value.
 /// - A device-bound secret keeps an empty value in that item (it is only the listable marker) and
 ///   stores the real value in an **internet password** item (server =
-///   `SecretScope.protectedValueServer`, account = secret name) protected by an access control that
-///   demands user presence.
+///   `SecretScope.protectedValueServer(environment:)`, account = secret name) protected by an access
+///   control that demands user presence.
 ///
 /// The split exists because a list query fails as a whole when it matches an access-controlled
 /// item (measured by `KeychainDoctor.listingFailsWhenAnAccessControlledItemMatches`). Keeping the
@@ -20,14 +21,14 @@ import Security
 public struct SystemSecretKeychain: SecretKeychain {
     public init() {}
 
+    /// The scope is not part of the query: a query matches a service exactly, and the secrets of the
+    /// scope's environments each have a service of their own that no query can name in advance. Every
+    /// item of the access group is listed and the ones of other scopes are left out.
     public func storedSecrets(scope: SecretScope?) throws -> [StoredSecret] {
         var query = Self.baseQuery(itemClass: kSecClassGenericPassword)
         query[kSecAttrSynchronizable as String] = kSecAttrSynchronizableAny
         query[kSecMatchLimit as String] = kSecMatchLimitAll
         query[kSecReturnAttributes as String] = true
-        if let scope {
-            query[kSecAttrService as String] = scope.keychainService
-        }
         var items: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &items)
         guard status != errSecItemNotFound else {
@@ -41,7 +42,9 @@ public struct SystemSecretKeychain: SecretKeychain {
                 repository: scope?.description ?? "*"
             )
         }
-        return ((items as? [[String: Any]]) ?? []).compactMap(Self.storedSecret(attributes:))
+        return ((items as? [[String: Any]]) ?? [])
+            .compactMap(Self.storedSecret(attributes:))
+            .filter { scope == nil || $0.scope == scope }
     }
 
     public func value(storedSecret: StoredSecret, ownerAuthentication: OwnerAuthentication?) throws -> SecretValue {
@@ -89,7 +92,7 @@ public struct SystemSecretKeychain: SecretKeychain {
             var attributes = Self.itemQuery(storedSecret: storedSecret)
             attributes[kSecValueData as String] = itemData
             attributes[kSecAttrDescription as String] = storedSecret.protectionLevel.rawValue
-            attributes[kSecAttrLabel as String] = "SecChain: \(storedSecret.scope.description) / \(storedSecret.name.value)"
+            attributes[kSecAttrLabel as String] = "SecChain: \(storedSecret.locationDescription) / \(storedSecret.name.value)"
             // After first unlock, so that long-running commands and builds keep working while the
             // screen is locked. The `ThisDeviceOnly` variant keeps a local secret out of backups
             // that migrate to another device, which is what "this device only" promises.
@@ -166,7 +169,7 @@ public struct SystemSecretKeychain: SecretKeychain {
 
     static func itemQuery(storedSecret: StoredSecret) -> [String: Any] {
         var query = baseQuery(itemClass: kSecClassGenericPassword)
-        query[kSecAttrService as String] = storedSecret.scope.keychainService
+        query[kSecAttrService as String] = storedSecret.keychainService
         query[kSecAttrAccount as String] = storedSecret.name.value
         query[kSecAttrSynchronizable as String] = storedSecret.isSynchronized
         return query
@@ -174,7 +177,7 @@ public struct SystemSecretKeychain: SecretKeychain {
 
     static func protectedValueQuery(storedSecret: StoredSecret) -> [String: Any] {
         var query = baseQuery(itemClass: kSecClassInternetPassword)
-        query[kSecAttrServer as String] = storedSecret.scope.protectedValueServer
+        query[kSecAttrServer as String] = storedSecret.scope.protectedValueServer(environment: storedSecret.environment)
         query[kSecAttrAccount as String] = storedSecret.name.value
         query[kSecAttrSynchronizable as String] = false
         return query
@@ -194,6 +197,7 @@ public struct SystemSecretKeychain: SecretKeychain {
         return StoredSecret(
             scope: scope,
             name: name,
+            environment: SecretEnvironment(keychainService: service),
             // Items written before protection levels existed, or by hand, carry no description;
             // `standard` is the level whose behavior equals a plain item.
             protectionLevel: (attributes[kSecAttrDescription as String] as? String).flatMap(ProtectionLevel.init(rawValue:)) ?? .standard,
@@ -214,7 +218,7 @@ public struct SystemSecretKeychain: SecretKeychain {
             status: status,
             operation: operation,
             name: storedSecret.name.value,
-            repository: storedSecret.scope.description
+            repository: storedSecret.locationDescription
         )
     }
 }

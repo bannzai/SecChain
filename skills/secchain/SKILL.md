@@ -72,6 +72,32 @@ When `secchain run` says a name is in a scope that is not allowed for this repos
 
 Tell the user and let them run it. Do not run `secchain scope allow` yourself, and do not edit `~/.secchain`: which repositories receive a shared secret is the user's decision, the same way `--approve-remotely` is.
 
+## Rule: name the environment the task is about, and leave migrations to the user
+
+A secret can hold one value per environment, such as `local` and `prod`, under the same name. Where a scope has environments, `secchain run` needs `--env` and passes only the values of that environment:
+
+```bash
+secchain run --env local -- npm run dev
+secchain run --env prod -- npm run build
+```
+
+- Use the environment the task names (a deploy to production runs with `--env prod`). When the task does not say which one and `secchain run` refuses with `... has the environments local, prod, so name the one to run with`, ask the user instead of picking one: running against the wrong deployment target is not a detail to guess.
+- `secchain list --envs` shows each scope's environments; `secchain list --env <environment>` shows the names `run --env <environment>` passes.
+- When a value is missing in one environment, ask the user to run `secchain set <NAME> --env <environment>`, following the rule above on missing secrets.
+- `secchain env migrate` moves existing secrets into an environment, and the first secret moved makes `--env` necessary for every `run` in that repository — for a shared scope, in every repository it is passed to. That is the user's decision: tell them what the warning or the error says, and let them run it.
+
+The steps the user follows to give an existing repository environments:
+
+```bash
+secchain list --long                          # the secrets now (environment "-")
+secchain env migrate local                    # move the current values to local at once (any name works: dev is fine too)
+secchain set OPENAI_API_KEY --env prod        # store the value of prod
+secchain run --env local -- npm run dev
+secchain run --env prod -- npm run build
+```
+
+Moving one secret at a time (`secchain env migrate local OPENAI_API_KEY`) works as well, but `run` needs `--env` from the first one moved on. `.secchain` declares names only, so every name it declares needs a value in each environment a command runs with.
+
 ## Enforcing these rules with a Claude Code hook
 
 The rules above are instructions, and an instruction can be forgotten. `hooks/secchain-guard.py` is a `PreToolUse` hook that refuses the calls those rules rule out before they run, and `hooks/settings.json` is the configuration that installs it.
@@ -109,8 +135,9 @@ Codex CLI sends the same hook input and reads the same decision from standard ou
 
 ```bash
 secchain list          # the secret names secchain run passes to this repository — never values
-secchain list --long   # + protection level, sync state, the scope each name comes from, and names declared but not yet set
+secchain list --long   # + protection level, sync state, environment, the scope each name comes from, and names declared but not yet set
 secchain list --scopes # the shared scopes and the repositories each is passed to
+secchain list --envs   # the environments of each scope passed to this repository
 secchain doctor        # whether this binary can use SecChain's shared Keychain access group at all
 ```
 

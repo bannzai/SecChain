@@ -155,10 +155,13 @@ public final class AppModel {
         isSynchronized: Bool
     ) async -> Bool {
         await perform {
+            // The apps cannot choose an environment yet, so a new secret is one without an
+            // environment. `SecretStore.set` refuses it in a scope that has environments.
             _ = try await self.store.set(
                 name: name,
                 value: value,
                 scope: scope,
+                environment: nil,
                 protectionLevel: protectionLevel,
                 isSynchronized: protectionLevel == .deviceBound ? nil : isSynchronized
             )
@@ -170,6 +173,7 @@ public final class AppModel {
             _ = try await self.store.changeProtection(
                 name: storedSecret.name,
                 scope: storedSecret.scope,
+                environment: storedSecret.environment,
                 protectionLevel: protectionLevel,
                 isSynchronized: protectionLevel == .deviceBound ? false : isSynchronized
             )
@@ -178,7 +182,7 @@ public final class AppModel {
 
     public func delete(storedSecret: StoredSecret) async -> Bool {
         await perform {
-            try await self.store.delete(name: storedSecret.name, scope: storedSecret.scope)
+            try await self.store.delete(name: storedSecret.name, scope: storedSecret.scope, environment: storedSecret.environment)
         }
     }
 
@@ -186,7 +190,7 @@ public final class AppModel {
     /// A cancelled prompt is not an error worth an alert.
     public func revealedValue(storedSecret: StoredSecret) async -> SecretValue? {
         do {
-            return try await store.revealedValue(name: storedSecret.name, scope: storedSecret.scope)
+            return try await store.revealedValue(name: storedSecret.name, scope: storedSecret.scope, environment: storedSecret.environment)
         } catch SecretStoreError.authenticationCancelled {
             return nil
         } catch {

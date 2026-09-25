@@ -15,6 +15,12 @@ struct SetCommand: AsyncParsableCommand {
             With --scope, the secret goes to a shared scope and its name is declared in that scope of \
             ~/.secchain, which gets the scope if it has none yet. Which repositories receive the scope \
             is decided with 'secchain scope allow'.
+
+            With --env, the value is the one of that environment, such as local or prod. Once a \
+            scope has an environment, every secret stored in it needs --env, and 'secchain run' \
+            needs --env in the repositories the scope is passed to. Giving a scope its first \
+            environment while it holds secrets without one warns which of them 'secchain run' stops \
+            passing, and how to move them ('secchain env migrate').
             """
     )
 
@@ -37,6 +43,9 @@ struct SetCommand: AsyncParsableCommand {
     var scopeOptions: ScopeOptions
 
     @OptionGroup
+    var environmentOptions: EnvironmentOptions
+
+    @OptionGroup
     var repositoryOptions: RepositoryOptions
 
     @OptionGroup
@@ -44,6 +53,7 @@ struct SetCommand: AsyncParsableCommand {
 
     func run() async throws {
         let secretName = try validatedSecretName(rawName: name)
+        let environment = try environmentOptions.validatedEnvironment()
         let scope: SecretScope
         // The definition file that declares the name: the scope's section of `~/.secchain` for a
         // shared scope, the repository's `.secchain` otherwise. It is parsed before the value is
@@ -75,13 +85,19 @@ struct SetCommand: AsyncParsableCommand {
                 }
             }
         }
+        // Refused before the value is typed: a value stored without an environment in a scope that
+        // has environments would never be passed by `run`.
+        try SecretStore.system.checkEnvironmentIsNamed(scope: scope, environment: environment)
+        if let environment {
+            try warnAboutSecretsWithoutEnvironment(scope: scope, environment: environment, remainingSecretNames: nil)
+        }
         // Updating a secret that is not standard authenticates first, and that authentication takes
         // the same route as the one of `run`. The name is what the iPhone is shown; the value is
         // read from standard input and never leaves this process.
         let setup = try secretStore(
             scope: scope,
-            requestedSecrets: try SecretStore.system.storedSecrets(scope: scope).filter { $0.name == secretName },
-            commandArguments: ["set", secretName.value] + scopeArguments(scope: scope),
+            requestedSecrets: try SecretStore.system.storedSecrets(scope: scope, environment: environment).filter { $0.name == secretName },
+            commandArguments: ["set", secretName.value] + scopeArguments(scope: scope) + environmentArguments(environment: environment),
             approveRemotely: remoteApprovalOptions.approveRemotely
         )
         let value = try SecretInput.read(secretName: secretName)
@@ -90,12 +106,13 @@ struct SetCommand: AsyncParsableCommand {
                 name: secretName,
                 value: value,
                 scope: scope,
+                environment: environment,
                 protectionLevel: level,
                 isSynchronized: sync
             )
         }
         try writeDefinition()
-        print("Stored \(secretName.value) for \(scope.description) (\(storedSecret.protectionLevel.rawValue), \(storedSecret.isSynchronized ? "synchronized" : "this Mac only")).")
+        print("Stored \(secretName.value) for \(storedSecret.locationDescription) (\(storedSecret.protectionLevel.rawValue), \(storedSecret.isSynchronized ? "synchronized" : "this Mac only")).")
     }
 }
 
@@ -103,4 +120,32 @@ struct SetCommand: AsyncParsableCommand {
 /// paired iPhone is shown, so that the command reads as the one the user typed.
 func scopeArguments(scope: SecretScope) -> [String] {
     scope.sharedScope.map { ["--scope", $0.name] } ?? []
+}
+
+/// `--env <environment>`, nothing without an environment. Part of the command the paired iPhone is
+/// shown, for the reason of `scopeArguments`.
+func environmentArguments(environment: SecretEnvironment?) -> [String] {
+    environment.map { ["--env", $0.value] } ?? []
+}
+
+/// Writes `environmentWarningLines` to standard error before an operation that stores secrets of
+/// `environment` in `scope` (`set --env`, `env migrate` of named secrets). `remainingSecretNames` are
+/// the secrets without an environment that the operation leaves, `nil` for all of the scope's.
+///
+/// The warning comes when the operation gives the scope its first environment, and, for
+/// `env migrate` of named secrets, whenever secrets without one remain. The operation goes on
+/// afterwards: a command run without a terminal is not stopped by a question nobody answers.
+func warnAboutSecretsWithoutEnvironment(scope: SecretScope, environment: SecretEnvironment, remainingSecretNames: [SecretName]?) throws {
+    let isFirstEnvironment = try SecretStore.system.environments(scope: scope).isEmpty
+    guard isFirstEnvironment || remainingSecretNames != nil else {
+        return
+    }
+    for line in environmentWarningLines(
+        scope: scope,
+        environment: environment,
+        isFirstEnvironment: isFirstEnvironment,
+        secretNamesWithoutEnvironment: try remainingSecretNames ?? SecretStore.system.storedSecrets(scope: scope, environment: nil).map(\.name)
+    ) {
+        reportToStandardError(line: "warning: \(line)")
+    }
 }

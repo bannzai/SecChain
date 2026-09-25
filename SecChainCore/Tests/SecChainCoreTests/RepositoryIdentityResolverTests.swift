@@ -88,6 +88,19 @@ struct RepositoryIdentityResolverTests {
         #expect(try RepositoryIdentityResolver.resolve(directory: try makeTemporaryDirectory(), explicitIdentifier: "My-Notes").value == "my-notes")
     }
 
+    /// `#` separates the environment in a Keychain service, so `--repository github.com/a/b#prod`
+    /// would name the prod secrets of `github.com/a/b`.
+    @Test
+    func anExplicitIdentifierWithTheSeparatorOfAnEnvironmentIsRefused() throws {
+        #expect(throws: RepositoryIdentityError.identifierContainsEnvironmentSeparator(identifier: "github.com/a/b#prod")) {
+            try RepositoryIdentityResolver.resolve(directory: try makeTemporaryDirectory(), explicitIdentifier: "github.com/a/b#prod")
+        }
+        #expect(
+            RepositoryIdentityError.identifierContainsEnvironmentSeparator(identifier: "github.com/a/b#prod").description
+                == "github.com/a/b#prod cannot be a repository identifier: '#' separates the environment in the names SecChain gives its Keychain items."
+        )
+    }
+
     /// The hole `@repository` left open: a clone of an unknown repository could name itself after
     /// one of the user's and receive every scope an `@allow` wildcard passes to the user's
     /// repositories. The identity comes from what `git clone` recorded, never from a file of the

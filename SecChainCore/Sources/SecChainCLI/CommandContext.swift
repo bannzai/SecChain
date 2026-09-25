@@ -83,6 +83,28 @@ struct ScopeOptions: ParsableArguments {
     }
 }
 
+/// Options of the commands that act on the secrets of one environment.
+struct EnvironmentOptions: ParsableArguments {
+    @Option(
+        name: .customLong("env"),
+        help: "Act on the secrets of this environment, such as local or prod. Required where the scope has environments."
+    )
+    var environment: String?
+
+    /// The environment `--env` names, `nil` without `--env`.
+    func validatedEnvironment() throws -> SecretEnvironment? {
+        try environment.map(validatedEnvironment(rawName:))
+    }
+}
+
+/// Parses an environment name, so that an invalid one is reported as a usage error.
+func validatedEnvironment(rawName: String) throws -> SecretEnvironment {
+    guard let secretEnvironment = SecretEnvironment(rawName: rawName) else {
+        throw ValidationError("'\(rawName)' is not an environment name. Use lowercase letters, digits and hyphens, starting with a letter or a digit.")
+    }
+    return secretEnvironment
+}
+
 /// Parses a secret name argument, so that an invalid name is reported as a usage error.
 func validatedSecretName(rawName: String) throws -> SecretName {
     guard let secretName = SecretName(rawName: rawName) else {
