@@ -157,6 +157,8 @@ SwiftUI app with: repository list, per-repository secret list, add / update / de
 
 A SwiftUI iOS app manages the same synchronized items from an iPhone or iPad: repository list, secret list, add / update / delete, and reveal after Face ID / Touch ID. It has no `run` equivalent. *This device only* and *device-bound* secrets created on a Mac are not visible on iOS, and the app says so instead of showing an empty repository without explanation.
 
+The shared scopes whose secrets reached the device are listed next to the repositories and managed the same way, and a custom scope can be created under the rules of its name. iOS has no `~/.secchain`, so the app neither shows nor edits `@allow`: which repositories get a scope stays a setting of each Mac.
+
 ### One store for all front ends
 
 A secret registered in the macOS app is usable from the command-line tool in that repository, and the other way around. Synchronized secrets are also manageable from the iOS app. All three are signed by the same team and use the same access group, service naming, and attributes.
