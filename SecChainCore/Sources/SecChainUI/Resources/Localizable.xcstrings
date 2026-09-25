@@ -12,6 +12,17 @@
         }
       }
     },
+    "%@ cannot be a repository identifier: '#' separates the environment in the names SecChain gives its Keychain items." : {
+      "comment" : "Error message when a secret is stored, or when --repository names a repository. %@ is the repository identifier",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ はリポジトリの識別子に使えません。SecChain が Keychain アイテムに付ける名前では「#」が環境の区切りです。"
+          }
+        }
+      }
+    },
     "%@ cannot be a repository identifier: it is the name SecChain gives the Keychain items of a shared scope." : {
       "comment" : "Error message when a secret is stored. %@ is the repository identifier",
       "localizations" : {
@@ -19,6 +30,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ はリポジトリの識別子に使えません。SecChain が共有 scope の Keychain アイテムに付ける名前です。"
+          }
+        }
+      }
+    },
+    "%@ has the environments %@, so name one with '--env <environment>'." : {
+      "comment" : "Error message when a secret is stored or deleted without an environment. The first %@ is the repository or the scope, the second %@ the comma-separated names of its environments",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ には環境 %@ があるため、「--env <environment>」で環境を指定してください。"
           }
         }
       }
@@ -545,6 +567,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ の値は %@ に保存されていません。「secchain set %@」で保存してください。"
+          }
+        }
+      }
+    },
+    "No value of the environment %@ is stored for %@ in %@. Store it with 'secchain set %@ --env %@'." : {
+      "comment" : "Error message. The first and the last %@ are the environment name, the second and the fourth the secret name, the third the repository or the scopes",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "環境 %@ の %@ の値は %@ に保存されていません。「secchain set %@ --env %@」で保存してください。"
           }
         }
       }
@@ -1335,6 +1368,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "すべてのデバイスの Apple アカウント設定でオンにした iCloud キーチェーン"
+          }
+        }
+      }
+    },
+    "move %@ to the environment %@" : {
+      "comment" : "Reason given to the system authentication prompt; the first %@ is the comma-separated secret names, the second %@ the environment name. macOS puts it into its own sentence (English: “SecChain is trying to move NAMES to the environment ENVIRONMENT.”, Japanese: “SecChainで次の操作を実行しようとしています: …”), so write a short phrase naming the operation, without trailing punctuation",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%1$@ を環境 %2$@ へ移動"
           }
         }
       }

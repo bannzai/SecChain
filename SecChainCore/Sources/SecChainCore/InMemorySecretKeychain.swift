@@ -37,7 +37,7 @@ public final class InMemorySecretKeychain: SecretKeychain, @unchecked Sendable {
             guard let item = items[storedSecret.id] else {
                 throw SecretStoreError.secretNotFound(
                     name: storedSecret.name.value,
-                    repository: storedSecret.scope.description
+                    repository: storedSecret.locationDescription
                 )
             }
             guard item.storedSecret.protectionLevel != .deviceBound || ownerAuthentication != nil else {
@@ -58,7 +58,7 @@ public final class InMemorySecretKeychain: SecretKeychain, @unchecked Sendable {
             guard replacing != nil || items[storedSecret.id] == nil else {
                 throw SecretStoreError.duplicateSecret(
                     name: storedSecret.name.value,
-                    repository: storedSecret.scope.description
+                    repository: storedSecret.locationDescription
                 )
             }
             if let replacing {
@@ -68,6 +68,7 @@ public final class InMemorySecretKeychain: SecretKeychain, @unchecked Sendable {
                 storedSecret: StoredSecret(
                     scope: storedSecret.scope,
                     name: storedSecret.name,
+                    environment: storedSecret.environment,
                     protectionLevel: storedSecret.protectionLevel,
                     isSynchronized: storedSecret.isSynchronized,
                     modificationDate: Date()

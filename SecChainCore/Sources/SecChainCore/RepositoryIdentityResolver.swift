@@ -15,13 +15,17 @@ struct GitCommandResult {
 public enum RepositoryIdentityResolver {
     /// Resolution order: `explicitIdentifier` (`--repository`), folded to lowercase like every
     /// identifier (`RepositoryIdentity.value`), then the normalized `origin` remote. Anything else is
-    /// an error rather than a guess.
+    /// an error rather than a guess. An explicit identifier that contains `#` is refused, because
+    /// `#` separates the environment in the Keychain services (`SecretScope.keychainService(environment:)`).
     ///
     /// Nothing inside the repository takes part (documents/PROJECT.md, design decision 6): the
     /// identity decides which repository's secrets and which shared scopes a command gets, and a
     /// repository's files are written by whoever wrote the repository.
     public static func resolve(directory: URL, explicitIdentifier: String?) throws -> RepositoryIdentity {
-        try explicitIdentifier.flatMap { $0.isEmpty ? nil : RepositoryIdentity(value: $0.lowercased()) }
+        if let explicitIdentifier, explicitIdentifier.contains(SecretEnvironment.keychainServiceSeparator) {
+            throw RepositoryIdentityError.identifierContainsEnvironmentSeparator(identifier: explicitIdentifier)
+        }
+        return try explicitIdentifier.flatMap { $0.isEmpty ? nil : RepositoryIdentity(value: $0.lowercased()) }
             ?? originRemoteIdentity(directory: directory)
     }
 

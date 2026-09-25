@@ -10,7 +10,7 @@ import Testing
 struct SystemSecretKeychainTests {
     /// A device-bound secret of the same name in `scope`, whose queries the tests compare.
     func storedSecret(scope: SecretScope) throws -> StoredSecret {
-        StoredSecret(scope: scope, name: try #require(SecretName(rawName: "YOUTUBE_API_KEY")), protectionLevel: .deviceBound, isSynchronized: false, modificationDate: nil)
+        StoredSecret(scope: scope, name: try #require(SecretName(rawName: "YOUTUBE_API_KEY")), environment: nil, protectionLevel: .deviceBound, isSynchronized: false, modificationDate: nil)
     }
 
     @Test
@@ -46,10 +46,43 @@ struct SystemSecretKeychainTests {
         #expect(storedSecret.scope == .shared(.custom(try #require(CustomScopeName(rawName: "youtube")))))
         #expect(storedSecret.protectionLevel == .confirm)
         #expect(storedSecret.isSynchronized)
+        #expect(storedSecret.environment == nil)
         #expect(
             SystemSecretKeychain.storedSecret(attributes: [
                 kSecAttrService as String: "com.bannzai.SecChain.remoteApproval",
                 kSecAttrAccount as String: "pairing",
+            ]) == nil
+        )
+    }
+
+    /// The item of a secret of an environment is under the scope's service with `#<environment>`,
+    /// its device-bound value under the scope's server with the same suffix, and listing reads both
+    /// the scope and the environment back.
+    @Test
+    func aSecretOfAnEnvironmentIsUnderTheScopesServiceAndServerWithTheEnvironment() throws {
+        let storedSecret = StoredSecret(
+            scope: .repository(RepositoryIdentity(value: "github.com/example/a")),
+            name: try #require(SecretName(rawName: "API_KEY")),
+            environment: SecretEnvironment(rawName: "prod"),
+            protectionLevel: .deviceBound,
+            isSynchronized: false,
+            modificationDate: nil
+        )
+        #expect(SystemSecretKeychain.itemQuery(storedSecret: storedSecret)[kSecAttrService as String] as? String == "com.bannzai.SecChain.repository.github.com/example/a#prod")
+        #expect(SystemSecretKeychain.protectedValueQuery(storedSecret: storedSecret)[kSecAttrServer as String] as? String == "github.com/example/a#prod")
+        #expect(
+            SystemSecretKeychain.storedSecret(attributes: [
+                kSecAttrService as String: "com.bannzai.SecChain.repository.github.com/example/a#prod",
+                kSecAttrAccount as String: "API_KEY",
+                kSecAttrDescription as String: "device-bound",
+                kSecAttrSynchronizable as String: NSNumber(value: false),
+            ]) == storedSecret
+        )
+        // An environment this version does not accept is ignored rather than read as none.
+        #expect(
+            SystemSecretKeychain.storedSecret(attributes: [
+                kSecAttrService as String: "com.bannzai.SecChain.repository.github.com/example/a#Prod",
+                kSecAttrAccount as String: "API_KEY",
             ]) == nil
         )
     }

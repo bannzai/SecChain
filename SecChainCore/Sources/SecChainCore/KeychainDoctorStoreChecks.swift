@@ -34,6 +34,29 @@ extension KeychainDoctor {
         return await runStoreChecks(scope: .repository(storeCheckRepositoryIdentity), label: "repository scope")
             + (await runStoreChecks(scope: .shared(storeCheckScope), label: "custom scope"))
             + [await deviceBoundValuesOfAScopeAndARepositoryAreSeparate(sharedScope: storeCheckScope)]
+            + (await runEnvironmentChecks(scope: .shared(storeCheckScope)))
+    }
+
+    /// What an attribute query finds for the protected value of a device-bound `storedSecret`,
+    /// without being allowed to prompt: a query that matches an access-controlled item fails instead
+    /// of prompting (`listingFailsWhenAnAccessControlledItemMatches`), and the Simulator, which does
+    /// not enforce access control, returns the item. `nil` for any other answer. Neither value can be
+    /// read without a prompt, so the checks ask whether the item exists instead of reading it.
+    static func protectedValueExists(storedSecret: StoredSecret) -> Bool? {
+        let context = LAContext()
+        context.interactionNotAllowed = true
+        var query = SystemSecretKeychain.protectedValueQuery(storedSecret: storedSecret)
+        query[kSecReturnAttributes as String] = true
+        query[kSecUseAuthenticationContext as String] = context
+        var item: CFTypeRef?
+        switch SecItemCopyMatching(query as CFDictionary, &item) {
+        case errSecInteractionNotAllowed, errSecSuccess:
+            return true
+        case errSecItemNotFound:
+            return false
+        default:
+            return nil
+        }
     }
 
     /// The round trip of `runStoreChecks` in one scope. `label` tells the scopes apart in the
@@ -62,34 +85,34 @@ extension KeychainDoctor {
         }
 
         func currentValue() async throws -> SecretValue? {
-            try await store.values(names: [name], scopes: [scope], authenticationReason: "doctor")[name]
+            try await store.values(names: [name], scopes: [scope], environment: nil, authenticationReason: "doctor")[name]
         }
 
-        try? await store.delete(name: name, scope: scope)
+        try? await store.delete(name: name, scope: scope, environment: nil)
 
         await check(stepName: "add a standard, synchronized secret and list it") {
-            try await store.set(name: name, value: firstValue, scope: scope, protectionLevel: nil, isSynchronized: nil)
+            try await store.set(name: name, value: firstValue, scope: scope, environment: nil, protectionLevel: nil, isSynchronized: nil)
             return try effectiveSecret().map { $0.protectionLevel == .standard && $0.isSynchronized } ?? false
         }
         await check(stepName: "read the value back") {
             try await currentValue() == firstValue
         }
         await check(stepName: "update the value in place") {
-            try await store.set(name: name, value: secondValue, scope: scope, protectionLevel: nil, isSynchronized: nil)
+            try await store.set(name: name, value: secondValue, scope: scope, environment: nil, protectionLevel: nil, isSynchronized: nil)
             return try await currentValue() == secondValue
         }
         await check(stepName: "raise to confirm without changing the value") {
-            try await store.changeProtection(name: name, scope: scope, protectionLevel: .confirm, isSynchronized: true)
+            try await store.changeProtection(name: name, scope: scope, environment: nil, protectionLevel: .confirm, isSynchronized: true)
             return try effectiveSecret()?.protectionLevel == .confirm
         }
         await check(stepName: "switch to this device only, leaving a single item") {
-            try await store.changeProtection(name: name, scope: scope, protectionLevel: .confirm, isSynchronized: false)
+            try await store.changeProtection(name: name, scope: scope, environment: nil, protectionLevel: .confirm, isSynchronized: false)
             let variants = try SystemSecretKeychain().storedSecrets(scope: scope)
             let value = try await currentValue()
             return variants.map(\.isSynchronized) == [false] && value == secondValue
         }
         await check(stepName: "make it device-bound; it stays listed without a prompt") {
-            try await store.changeProtection(name: name, scope: scope, protectionLevel: .deviceBound, isSynchronized: false)
+            try await store.changeProtection(name: name, scope: scope, environment: nil, protectionLevel: .deviceBound, isSynchronized: false)
             return try effectiveSecret()?.protectionLevel == .deviceBound
         }
         #if !targetEnvironment(simulator)
@@ -103,12 +126,12 @@ extension KeychainDoctor {
         }
         #endif
         await check(stepName: "overwrite the device-bound secret as standard") {
-            try await store.set(name: name, value: firstValue, scope: scope, protectionLevel: .standard, isSynchronized: true)
+            try await store.set(name: name, value: firstValue, scope: scope, environment: nil, protectionLevel: .standard, isSynchronized: true)
             let value = try await currentValue()
             return try effectiveSecret()?.protectionLevel == .standard && value == firstValue
         }
         await check(stepName: "delete, leaving no item and no scope behind") {
-            try await store.delete(name: name, scope: scope)
+            try await store.delete(name: name, scope: scope, environment: nil)
             return try store.storedSecrets(scope: scope).isEmpty && !store.scopes().contains(scope)
         }
         return checks
@@ -116,8 +139,7 @@ extension KeychainDoctor {
 
     /// A device-bound value of `sharedScope` and one of the doctor's repository, whose identifier is
     /// the scope's name, are two items: deleting the scope's secret leaves the repository's value in
-    /// place. Neither value can be read without a prompt, so the check asks whether each protected
-    /// item exists instead of reading it.
+    /// place.
     static func deviceBoundValuesOfAScopeAndARepositoryAreSeparate(sharedScope: SharedScope) async -> KeychainDoctorCheck {
         let checkName = "store: a device-bound value of a scope and one of a repository of the same name are separate items"
         let store = SecretStore(keychain: SystemSecretKeychain(), ownerAuthenticator: NonInteractiveOwnerAuthenticator())
@@ -126,44 +148,29 @@ extension KeychainDoctor {
         }
         let repositoryScope = SecretScope.repository(storeCheckRepositoryIdentity)
 
-        /// What an attribute query finds for the protected value of the scope's secret, without
-        /// being allowed to prompt: a query that matches an access-controlled item fails instead of
-        /// prompting (`listingFailsWhenAnAccessControlledItemMatches`), and the Simulator, which does
-        /// not enforce access control, returns the item. `nil` for any other answer.
+        /// Whether the protected value of the device-bound secret of `scope` exists.
         func protectedValueExists(scope: SecretScope) -> Bool? {
-            let context = LAContext()
-            context.interactionNotAllowed = true
-            var query = SystemSecretKeychain.protectedValueQuery(
-                storedSecret: StoredSecret(scope: scope, name: name, protectionLevel: .deviceBound, isSynchronized: false, modificationDate: nil)
+            KeychainDoctor.protectedValueExists(
+                storedSecret: StoredSecret(scope: scope, name: name, environment: nil, protectionLevel: .deviceBound, isSynchronized: false, modificationDate: nil)
             )
-            query[kSecReturnAttributes as String] = true
-            query[kSecUseAuthenticationContext as String] = context
-            var item: CFTypeRef?
-            switch SecItemCopyMatching(query as CFDictionary, &item) {
-            case errSecInteractionNotAllowed, errSecSuccess:
-                return true
-            case errSecItemNotFound:
-                return false
-            default:
-                return nil
-            }
         }
 
         do {
             for scope in [repositoryScope, .shared(sharedScope)] {
-                try? await store.delete(name: name, scope: scope)
+                try? await store.delete(name: name, scope: scope, environment: nil)
                 try await store.set(
                     name: name,
                     value: SecretValue(exposingString: "dummy-value-for-doctor-\(scope.name)"),
                     scope: scope,
+                    environment: nil,
                     protectionLevel: .deviceBound,
                     isSynchronized: nil
                 )
             }
-            try await store.delete(name: name, scope: .shared(sharedScope))
+            try await store.delete(name: name, scope: .shared(sharedScope), environment: nil)
             let repositoryValueExists = protectedValueExists(scope: repositoryScope)
             let scopeValueExists = protectedValueExists(scope: .shared(sharedScope))
-            try await store.delete(name: name, scope: repositoryScope)
+            try await store.delete(name: name, scope: repositoryScope, environment: nil)
             return KeychainDoctorCheck(
                 name: checkName,
                 status: errSecSuccess,
@@ -171,8 +178,8 @@ extension KeychainDoctor {
                 detail: "after deleting the scope's secret, the repository's value exists: \(repositoryValueExists.map(String.init) ?? "unknown"), the scope's value exists: \(scopeValueExists.map(String.init) ?? "unknown")"
             )
         } catch {
-            try? await store.delete(name: name, scope: .shared(sharedScope))
-            try? await store.delete(name: name, scope: repositoryScope)
+            try? await store.delete(name: name, scope: .shared(sharedScope), environment: nil)
+            try? await store.delete(name: name, scope: repositoryScope, environment: nil)
             return KeychainDoctorCheck(name: checkName, status: errSecSuccess, passed: false, detail: "\(error)")
         }
     }

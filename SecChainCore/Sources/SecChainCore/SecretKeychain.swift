@@ -7,8 +7,8 @@ import Foundation
 ///
 /// Every method throws `SecretStoreError`.
 public protocol SecretKeychain: Sendable {
-    /// Non-secret attributes of the stored secrets, never prompting. `nil` lists every scope,
-    /// repositories and shared scopes alike.
+    /// Non-secret attributes of the stored secrets of every environment of `scope`, never
+    /// prompting. `nil` lists every scope, repositories and shared scopes alike.
     func storedSecrets(scope: SecretScope?) throws -> [StoredSecret]
 
     /// The value of one secret. `ownerAuthentication` is required for device-bound secrets.

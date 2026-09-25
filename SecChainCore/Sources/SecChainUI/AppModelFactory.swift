@@ -73,6 +73,7 @@ public enum AppModelFactory {
                 storedSecret: StoredSecret(
                     scope: scope,
                     name: name,
+                    environment: nil,
                     protectionLevel: demoSecret.protectionLevel,
                     isSynchronized: demoSecret.isSynchronized,
                     modificationDate: nil

@@ -30,6 +30,12 @@ public enum SecretScope: Hashable, Sendable, CustomStringConvertible {
         }
     }
 
+    /// The scope as messages name it together with an environment: `description`, followed by the
+    /// environment when there is one.
+    public func locationDescription(environment: SecretEnvironment?) -> String {
+        environment.map { "\(description), environment \($0.value)" } ?? description
+    }
+
     /// The repository of a repository scope, `nil` for a shared scope.
     public var repositoryIdentity: RepositoryIdentity? {
         guard case .repository(let repositoryIdentity) = self else {
@@ -46,8 +52,8 @@ public enum SecretScope: Hashable, Sendable, CustomStringConvertible {
         return sharedScope
     }
 
-    /// `kSecAttrService` of every secret of the scope. One service per scope lets a single query
-    /// enumerate the scope's secrets; the secret name is `kSecAttrAccount`.
+    /// `kSecAttrService` of the scope's secrets that have no environment. The secret name is
+    /// `kSecAttrAccount`.
     public var keychainService: String {
         switch self {
         case .repository(let repositoryIdentity):
@@ -57,17 +63,32 @@ public enum SecretScope: Hashable, Sendable, CustomStringConvertible {
         }
     }
 
-    /// Inverse of `keychainService`, used when enumerating every scope known to the Keychain.
-    /// `nil` for services that belong to no scope (the doctor's, the pairing's) and for a scope
-    /// name this version does not accept, which is ignored rather than guessed at.
+    /// `kSecAttrService` of the scope's secrets of `environment`: `keychainService` followed by
+    /// `#<environment>`, or `keychainService` itself for the secrets without an environment. The
+    /// environment goes into the service because the Keychain tells generic passwords apart by
+    /// access group, service, account, and synchronizable flag, and the account has to stay the
+    /// secret name, which is the environment variable `run` sets.
+    public func keychainService(environment: SecretEnvironment?) -> String {
+        environment.map { keychainService + String(SecretEnvironment.keychainServiceSeparator) + $0.value } ?? keychainService
+    }
+
+    /// Inverse of `keychainService(environment:)`, used when enumerating every scope known to the
+    /// Keychain: the scope of a service with or without an environment
+    /// (`SecretEnvironment(keychainService:)` reads the environment). `nil` for services that belong
+    /// to no scope (the doctor's, the pairing's), and for a scope name or an environment name this
+    /// version does not accept, which is ignored rather than guessed at.
     public init?(keychainService: String) {
-        if let repositoryIdentity = RepositoryIdentity(keychainService: keychainService) {
+        let (scopeKeychainService, environmentName) = splitKeychainService(keychainService: keychainService)
+        guard environmentName.map({ SecretEnvironment(rawName: $0) != nil }) ?? true else {
+            return nil
+        }
+        if let repositoryIdentity = RepositoryIdentity(keychainService: scopeKeychainService) {
             self = .repository(repositoryIdentity)
             return
         }
         guard
-            keychainService.hasPrefix(SecChainSharedConfig.scopeKeychainServicePrefix),
-            let sharedScope = SharedScope(name: String(keychainService.dropFirst(SecChainSharedConfig.scopeKeychainServicePrefix.count)))
+            scopeKeychainService.hasPrefix(SecChainSharedConfig.scopeKeychainServicePrefix),
+            let sharedScope = SharedScope(name: String(scopeKeychainService.dropFirst(SecChainSharedConfig.scopeKeychainServicePrefix.count)))
         else {
             return nil
         }
@@ -79,14 +100,25 @@ public enum SecretScope: Hashable, Sendable, CustomStringConvertible {
     /// wrote it. A shared scope uses its whole service instead of its name, so that a repository
     /// whose identifier happens to be a scope's name never shares that item with the scope. The
     /// one repository identifier that could still name it, one that starts like a scope's service,
-    /// is refused (`isRepositoryNamedLikeASharedScope`).
-    var protectedValueServer: String {
-        switch self {
+    /// is refused (`isRepositoryNamedLikeASharedScope`). A secret of an environment appends
+    /// `#<environment>`, the way its service does, so that the value of each environment is an item
+    /// of its own.
+    func protectedValueServer(environment: SecretEnvironment?) -> String {
+        let server = switch self {
         case .repository(let repositoryIdentity):
             repositoryIdentity.value
         case .shared:
             keychainService
         }
+        return environment.map { server + String(SecretEnvironment.keychainServiceSeparator) + $0.value } ?? server
+    }
+
+    /// Whether this is a repository whose identifier contains the separator of an environment
+    /// (`SecretEnvironment.keychainServiceSeparator`). Its secrets would be read back as the secrets
+    /// of an environment of another repository, so nothing is stored for it. Only an identifier
+    /// given by hand (`--repository`, or typed in an app) can be one.
+    var isRepositoryNamedWithAnEnvironmentSeparator: Bool {
+        repositoryIdentity?.value.contains(SecretEnvironment.keychainServiceSeparator) ?? false
     }
 
     /// Whether this is a repository whose identifier is the service of a shared scope, so that its
