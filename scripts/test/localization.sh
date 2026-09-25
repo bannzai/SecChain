@@ -52,14 +52,16 @@ extract_strings macos
 # The deployment target is the one of Package.swift.
 extract_strings ios --triple arm64-apple-ios17.0-simulator --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)"
 
-# One JSON object per localized string of the sources: table, source file, line, and key.
+# One JSON object per localized string of the sources: table, source file, line, and key. The files
+# are collected from the whole work directory because the default build system of SwiftPM 6.4
+# (swiftbuild) ignores `-emit-localized-strings-path` and leaves them next to the object files.
 USAGES="${WORK_DIRECTORY}/usages.jsonl"
-jq -c --arg sources "${REPOSITORY_ROOT}/SecChainCore/Sources/" '
+find "${WORK_DIRECTORY}" -name '*.stringsdata' -print0 | xargs -0 jq -c --arg sources "${REPOSITORY_ROOT}/SecChainCore/Sources/" '
   . as $file
   | select($file.source | startswith($sources))
   | .tables | to_entries[] | .key as $table
   | .value[] | {table: $table, source: $file.source, line: .location.startingLine, key: .key}
-' "${WORK_DIRECTORY}"/strings-*/*.stringsdata > "${USAGES}"
+' > "${USAGES}"
 
 FAILURES="${WORK_DIRECTORY}/failures.txt"
 : > "${FAILURES}"
