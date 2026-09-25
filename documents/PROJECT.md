@@ -133,7 +133,7 @@ YOUTUBE_API_KEY
 - The identifier `@allow` is compared with is the one of "Repository scoping": the Git remote or `--repository`. Nothing in the repository can change it.
 - A second `@scope` for the same scope is an error.
 - The file holds secret names, scope names, and patterns, never a value; a line containing `=` is rejected as in `.secchain`, and so is a pattern that contains one.
-- `secchain set --scope`, `secchain delete --scope`, `secchain scope allow`, and `secchain scope deny` edit the text in place: comments and ordering written by hand survive, and a symbolic link into a dotfiles repository stays a link. An edit is applied to the file as it is when the command writes it, so that a change made while the command waited for a value or an authentication is kept.
+- `secchain set --scope`, `secchain delete --scope`, `secchain scope allow`, `secchain scope deny`, and the passed-scope switches of the macOS app edit the text in place: comments and ordering written by hand survive, and a symbolic link into a dotfiles repository stays a link. An edit is applied to the file as it is when the command writes it, so that a change made while the command waited for a value or an authentication is kept.
 - The `.secchain` of the home directory is this file, and so is the `.secchain` of a dotfiles repository that `~/.secchain` links into. No command reads or writes it as a repository's definition file.
 
 ### Command-line tool
@@ -152,6 +152,8 @@ There is deliberately no command that prints a secret value to standard output. 
 ### macOS app
 
 SwiftUI app with: repository list, per-repository secret list, add / update / delete, choosing the protection level, sync state and the information needed to configure it, and understandable errors when the Keychain cannot be accessed. Secret values are hidden by default; revealing one requires an explicit user action and user authentication.
+
+Shared scopes are listed next to the repositories: the user scope, then the custom scopes of `~/.secchain` and those that only the Keychain holds (a scope created on another Mac arrives through iCloud Keychain alone). A shared scope's secrets are managed on the same screen as a repository's. A custom scope added by name appears before it has a secret, as a repository added by hand does; its first secret keeps it in the Keychain, and `~/.secchain` gets a line of it once a repository is allowed it. A repository's settings switch each shared scope on or off for it by adding or removing the `@allow` line that is exactly its identifier; a scope that a wildcard passes to it is shown as passed and locked, because the wildcard names other repositories too. When `~/.secchain` cannot be read or written, the app says why next to the scopes and keeps working on the Keychain.
 
 ### iOS app
 

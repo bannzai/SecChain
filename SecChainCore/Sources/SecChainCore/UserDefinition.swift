@@ -39,6 +39,15 @@ public struct UserDefinition: Equatable, Sendable {
     public func scopeDefinition(scope: SharedScope) -> ScopeDefinition? {
         ([userScope] + customScopes).first { $0.scope == scope }
     }
+
+    /// Every shared scope the user has: the user scope, the custom scopes in file order, then the
+    /// ones only the Keychain knows (a scope created on another Mac and synchronized, or removed
+    /// from the file), which are passed to no repository on this Mac. `storedScopes` are the
+    /// shared scopes that hold a secret, in the order they are listed after the file's.
+    public func sharedScopes(storedScopes: [SharedScope]) -> [SharedScope] {
+        let definedScopes = ([userScope] + customScopes).map(\.scope)
+        return definedScopes + storedScopes.filter { !definedScopes.contains($0) }
+    }
 }
 
 /// One shared scope as `~/.secchain` defines it.

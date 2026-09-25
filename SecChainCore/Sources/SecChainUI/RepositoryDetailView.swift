@@ -1,13 +1,16 @@
 import SecChainCore
 import SwiftUI
 
-/// The secrets of one repository: names and settings only. Values appear solely in
-/// `RevealedValueView`, after an explicit action and authentication.
+/// The secrets of one scope, a repository or a shared scope: names and settings only. Values
+/// appear solely in `RevealedValueView`, after an explicit action and authentication.
 struct RepositoryDetailView: View {
     let model: AppModel
-    let repositoryIdentity: RepositoryIdentity
+    /// The repository or shared scope whose secrets are shown.
+    let scope: SecretScope
 
     @State private var isAddingSecret = false
+    /// Only a repository has settings, and only on the Mac (`RepositorySettingsView`).
+    @State private var isShowingRepositorySettings = false
     @State private var storedSecretBeingUpdated: StoredSecret?
     @State private var storedSecretBeingProtected: StoredSecret?
     @State private var storedSecretBeingDeleted: StoredSecret?
@@ -25,7 +28,7 @@ struct RepositoryDetailView: View {
     }
 
     var storedSecrets: [StoredSecret] {
-        model.storedSecretsByRepository[repositoryIdentity] ?? []
+        model.storedSecretsByScope[scope] ?? []
     }
 
     var body: some View {
@@ -40,7 +43,7 @@ struct RepositoryDetailView: View {
             secretRows
             #endif
         }
-        .navigationTitle(repositoryIdentity.value)
+        .navigationTitle(scopeTitle(scope: scope))
         #if os(iOS)
         // A repository identifier is too long for a large title on an iPhone and would be cut off.
         .navigationBarTitleDisplayMode(.inline)
@@ -50,11 +53,26 @@ struct RepositoryDetailView: View {
                 ContentUnavailableView(
                     String(localized: "No secrets yet", bundle: .module),
                     systemImage: "key",
-                    description: Text("Add the first secret of this repository", bundle: .module)
+                    description: Text(
+                        scope.repositoryIdentity == nil
+                            ? String(localized: "Add the first secret of this scope", bundle: .module)
+                            : String(localized: "Add the first secret of this repository", bundle: .module)
+                    )
                 )
             }
         }
         .toolbar {
+            #if os(macOS)
+            // Which shared scopes a repository gets is decided by `~/.secchain`, which only the Mac
+            // has.
+            if scope.repositoryIdentity != nil {
+                ToolbarItem {
+                    Button(String(localized: "Repository Settings", bundle: .module), systemImage: "gearshape") {
+                        isShowingRepositorySettings = true
+                    }
+                }
+            }
+            #endif
             ToolbarItem(placement: .primaryAction) {
                 Button(String(localized: "Add Secret", bundle: .module), systemImage: "plus") {
                     isAddingSecret = true
@@ -62,7 +80,12 @@ struct RepositoryDetailView: View {
             }
         }
         .sheet(isPresented: $isAddingSecret) {
-            SecretEditorView(model: model, mode: .add(repositoryIdentity: repositoryIdentity))
+            SecretEditorView(model: model, mode: .add(scope: scope))
+        }
+        .sheet(isPresented: $isShowingRepositorySettings) {
+            if let repositoryIdentity = scope.repositoryIdentity {
+                RepositorySettingsView(model: model, repositoryIdentity: repositoryIdentity)
+            }
         }
         .sheet(item: $storedSecretBeingUpdated) { storedSecret in
             SecretEditorView(model: model, mode: .updateValue(storedSecret: storedSecret))
@@ -152,6 +175,16 @@ struct RepositoryDetailView: View {
                 revealedSecret = RevealedSecret(storedSecret: storedSecret, value: value)
             }
         }
+    }
+}
+
+/// The name a scope is shown with: a repository by its identifier, the built-in user scope in the
+/// app's language, a custom scope by the name the user gave it.
+func scopeTitle(scope: SecretScope) -> String {
+    switch scope {
+    case .repository(let repositoryIdentity): repositoryIdentity.value
+    case .shared(.user): String(localized: "User", bundle: .module)
+    case .shared(.custom(let customScopeName)): customScopeName.value
     }
 }
 

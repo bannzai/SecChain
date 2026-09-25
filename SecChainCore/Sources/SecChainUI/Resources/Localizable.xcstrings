@@ -95,6 +95,17 @@
         }
       }
     },
+    "A custom scope holds secrets that several repositories share" : {
+      "comment" : "Footer of the Add Custom Scope sheet while the name is empty or valid",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カスタム scope には複数のリポジトリで共有する Secret を置きます"
+          }
+        }
+      }
+    },
     "A device-bound secret cannot be synchronized. Choose either device-bound or synchronization." : {
       "localizations" : {
         "ja" : {
@@ -147,6 +158,17 @@
         }
       }
     },
+    "Add Custom Scope" : {
+      "comment" : "Menu item of the add button and title of the sheet that adds a custom scope",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カスタム scope を追加"
+          }
+        }
+      }
+    },
     "Add Repository" : {
       "localizations" : {
         "ja" : {
@@ -183,6 +205,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "このリポジトリに最初の Secret を追加"
+          }
+        }
+      }
+    },
+    "Add the first secret of this scope" : {
+      "comment" : "Description of the empty secret list of a shared scope",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この scope に最初の Secret を追加"
           }
         }
       }
@@ -590,6 +623,28 @@
         }
       }
     },
+    "Passed Scopes" : {
+      "comment" : "Header of the list of shared scopes in the repository settings",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "渡す scope"
+          }
+        }
+      }
+    },
+    "Passed by '@allow %@'. Edit ~/.secchain to change it" : {
+      "comment" : "Below a locked switch of the repository settings. %@ is an @allow pattern ending in *",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「@allow %@」で渡しています。変更するには ~/.secchain を編集してください"
+          }
+        }
+      }
+    },
     "Protection" : {
       "comment" : "Label of the picker that chooses the protection level of a secret",
       "localizations" : {
@@ -687,6 +742,17 @@
         }
       }
     },
+    "Repository Settings" : {
+      "comment" : "Toolbar button of a repository and title of its settings sheet",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リポジトリの設定"
+          }
+        }
+      }
+    },
     "Reveal Value" : {
       "localizations" : {
         "ja" : {
@@ -714,6 +780,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "保存"
+          }
+        }
+      }
+    },
+    "Scopes" : {
+      "comment" : "Header of the sidebar section that lists the shared scopes",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scope"
           }
         }
       }
@@ -1116,6 +1193,28 @@
         }
       }
     },
+    "Use lowercase letters, digits and hyphens, starting with a letter or a digit. 'user' and 'repository' are built in" : {
+      "comment" : "Footer of the Add Custom Scope sheet while the name is not valid",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "英小文字、数字、ハイフンを使い、英小文字か数字で始めてください。「user」と「repository」は組み込みの scope です"
+          }
+        }
+      }
+    },
+    "User" : {
+      "comment" : "Name of the built-in user scope",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ユーザー"
+          }
+        }
+      }
+    },
     "Value" : {
       "comment" : "Label of the secure text field for the value of a secret",
       "localizations" : {
@@ -1281,6 +1380,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "secchain run は毎回 Touch ID またはパスワードでの認証を求めます。Secret は同期もできます。"
+          }
+        }
+      }
+    },
+    "secchain run passes the secrets of the scopes turned on here together with the repository's own. The setting is kept in ~/.secchain on this Mac" : {
+      "comment" : "Footer of the list of shared scopes in the repository settings",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "secchain run はこのリポジトリの Secret と一緒に、ここでオンにした scope の Secret を渡します。設定はこの Mac の ~/.secchain に保存されます"
           }
         }
       }

@@ -6,6 +6,8 @@ import SwiftUI
 public struct RootView: View {
     @State private var model: AppModel
     @State private var isAddingRepository = false
+    /// Shows `AddCustomScopeView`, offered by the Mac's add menu.
+    @State private var isAddingCustomScope = false
     @State private var isShowingSyncInformation = false
     @State private var isShowingRemoteApprovalChecks = false
     #if os(iOS)
@@ -49,7 +51,7 @@ public struct RootView: View {
 
     var navigation: some View {
         NavigationSplitView {
-            List(selection: $model.selectedRepositoryIdentity) {
+            List(selection: $model.selectedScope) {
                 #if os(iOS)
                 Section {
                     repositoryRows
@@ -57,13 +59,31 @@ public struct RootView: View {
                     MacOnlySecretsNote()
                 }
                 #else
-                repositoryRows
+                Section(String(localized: "Repositories", bundle: .module)) {
+                    if model.repositoryIdentities.isEmpty {
+                        // A row instead of the overlay iOS shows: the scopes below keep the list
+                        // from being empty.
+                        Text("Add a repository to store its first secret", bundle: .module)
+                            .foregroundStyle(.secondary)
+                    }
+                    repositoryRows
+                }
+                // Shared scopes come with `~/.secchain`, which only the Mac has; the iOS app gets
+                // them in https://github.com/bannzai/SecChain/issues/59.
+                Section(String(localized: "Scopes", bundle: .module)) {
+                    sharedScopeRows
+                    if let userDefinitionErrorDescription = model.userDefinitionErrorDescription {
+                        Label(userDefinitionErrorDescription, systemImage: "exclamationmark.triangle")
+                            .font(.caption)
+                            .foregroundStyle(.red)
+                    }
+                }
                 #endif
             }
             .navigationTitle(String(localized: "Repositories", bundle: .module))
             #if os(macOS)
             .navigationSplitViewColumnWidth(min: 240, ideal: 280)
-            #endif
+            #else
             .overlay {
                 if model.repositoryIdentities.isEmpty {
                     ContentUnavailableView(
@@ -73,11 +93,23 @@ public struct RootView: View {
                     )
                 }
             }
+            #endif
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
+                    #if os(macOS)
+                    Menu(String(localized: "Add", bundle: .module), systemImage: "plus") {
+                        Button(String(localized: "Add Repository", bundle: .module), systemImage: "folder.badge.plus") {
+                            isAddingRepository = true
+                        }
+                        Button(String(localized: "Add Custom Scope", bundle: .module), systemImage: "square.stack.3d.up") {
+                            isAddingCustomScope = true
+                        }
+                    }
+                    #else
                     Button(String(localized: "Add Repository", bundle: .module), systemImage: "plus") {
                         isAddingRepository = true
                     }
+                    #endif
                 }
                 #if os(macOS)
                 // The sidebar's toolbar is narrow on the Mac: with more than the sidebar toggle and
@@ -95,15 +127,20 @@ public struct RootView: View {
                 #endif
             }
         } detail: {
-            if let selectedRepositoryIdentity = model.selectedRepositoryIdentity {
-                RepositoryDetailView(model: model, repositoryIdentity: selectedRepositoryIdentity)
+            if let selectedScope = model.selectedScope {
+                RepositoryDetailView(model: model, scope: selectedScope)
             } else {
                 ContentUnavailableView(String(localized: "Select a repository", bundle: .module), systemImage: "folder")
             }
         }
         .sheet(isPresented: $isAddingRepository) {
             AddRepositoryView { repositoryIdentity in
-                model.addRepository(repositoryIdentity: repositoryIdentity)
+                model.add(scope: .repository(repositoryIdentity))
+            }
+        }
+        .sheet(isPresented: $isAddingCustomScope) {
+            AddCustomScopeView { customScopeName in
+                model.add(scope: .shared(.custom(customScopeName)))
             }
         }
         .sheet(isPresented: $isShowingSyncInformation) {
@@ -132,7 +169,7 @@ public struct RootView: View {
     /// full identifier follows for disambiguation.
     var repositoryRows: some View {
         ForEach(model.repositoryIdentities, id: \.self) { repositoryIdentity in
-            NavigationLink(value: repositoryIdentity) {
+            NavigationLink(value: SecretScope.repository(repositoryIdentity)) {
                 Label {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(repositoryIdentity.value.split(separator: "/").last.map(String.init) ?? repositoryIdentity.value)
@@ -142,12 +179,31 @@ public struct RootView: View {
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
                             .truncationMode(.head)
-                        Text("^[\(model.storedSecretsByRepository[repositoryIdentity]?.count ?? 0) secret](inflect: true)", bundle: .module)
+                        Text("^[\(model.storedSecretsByScope[.repository(repositoryIdentity)]?.count ?? 0) secret](inflect: true)", bundle: .module)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 } icon: {
                     Image(systemName: "folder")
+                }
+            }
+        }
+    }
+
+    /// One row per shared scope: the user scope first, then the custom scopes (`AppModel.sharedScopes`).
+    var sharedScopeRows: some View {
+        ForEach(model.sharedScopes, id: \.self) { sharedScope in
+            NavigationLink(value: SecretScope.shared(sharedScope)) {
+                Label {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(scopeTitle(scope: .shared(sharedScope)))
+                            .lineLimit(1)
+                        Text("^[\(model.storedSecretsByScope[.shared(sharedScope)]?.count ?? 0) secret](inflect: true)", bundle: .module)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } icon: {
+                    Image(systemName: sharedScope == .user ? "person" : "square.stack.3d.up")
                 }
             }
         }
@@ -177,6 +233,13 @@ public struct RootView: View {
         Button("Show Sample Error", systemImage: "exclamationmark.triangle") {
             model.present(error: SecretStoreError.keychainUnavailable)
         }
+        #if os(macOS)
+        // An unreadable `~/.secchain` otherwise needs a broken file in the home directory of the
+        // Mac the app runs on, which a remote session cannot write.
+        Button("Show Sample ~/.secchain Error", systemImage: "doc.badge.exclamationmark") {
+            model.showSampleUserDefinitionError()
+        }
+        #endif
         // The Secure Enclave and CloudKit behavior that remote approval depends on differs between
         // the Simulator and a device, and neither can be driven by launch arguments remotely.
         Button("Run Remote Approval Checks", systemImage: "list.bullet.clipboard") {

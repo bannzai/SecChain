@@ -48,6 +48,14 @@ struct UserDefinitionTests {
     }
 
     @Test
+    func theSharedScopesAreTheFilesFollowedByTheOnesOnlyTheKeychainHas() throws {
+        let sharedScopes = try UserDefinitionText.parse(text: exampleText)
+            .sharedScopes(storedScopes: [try customScope("video"), try customScope("blog"), .user])
+        #expect(sharedScopes == [.user, try customScope("youtube"), try customScope("video"), try customScope("blog")])
+        #expect(try UserDefinitionText.parse(text: "").sharedScopes(storedScopes: []) == [.user])
+    }
+
+    @Test
     func anEmptyFileDeclaresNothingAndPassesNothing() throws {
         let userDefinition = try UserDefinitionText.parse(text: "")
         #expect(userDefinition.userScope == ScopeDefinition(scope: .user, secretNames: [], allowPatterns: []))

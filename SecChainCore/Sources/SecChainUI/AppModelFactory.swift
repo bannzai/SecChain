@@ -10,12 +10,25 @@ public enum AppModelFactory {
     /// The real Keychain, with authentication reasons in the app's language. A debug build can
     /// switch to demo data later (`AppModel.useDemoStore()`).
     public static func make() -> AppModel {
+        #if os(macOS)
         AppModel(
-            store: SecretStore(
-                keychain: SystemSecretKeychain(),
-                ownerAuthenticator: SystemOwnerAuthenticator(),
-                authenticationReasonBundle: .module
-            )
+            store: systemStore(),
+            readUserDefinitionText: { try UserDefinitionFile.readText(homeDirectory: UserDefinitionFile.homeDirectory) },
+            writeUserDefinitionText: { try UserDefinitionFile.write(text: $0, homeDirectory: UserDefinitionFile.homeDirectory) }
+        )
+        #else
+        // The iOS app has no `~/.secchain`: it never runs a command, so it never needs to know which
+        // scopes a repository gets, and it shows no control that edits the file.
+        AppModel(store: systemStore(), readUserDefinitionText: { nil }, writeUserDefinitionText: { _ in })
+        #endif
+    }
+
+    /// The real Keychain, with authentication reasons in the app's language.
+    static func systemStore() -> SecretStore {
+        SecretStore(
+            keychain: SystemSecretKeychain(),
+            ownerAuthenticator: SystemOwnerAuthenticator(),
+            authenticationReasonBundle: .module
         )
     }
 
@@ -51,21 +64,25 @@ public enum AppModelFactory {
     /// without touching the Keychain and without a signed build.
     static func demoStore() -> SecretStore {
         let keychain = InMemorySecretKeychain()
-        let demoSecrets: [(repository: String, name: String, protectionLevel: ProtectionLevel, isSynchronized: Bool)] = [
-            ("github.com/example/web-app", "OPENAI_API_KEY", .standard, true),
-            ("github.com/example/web-app", "CLOUDFLARE_API_TOKEN", .confirm, true),
-            ("github.com/example/web-app", "DATABASE_URL", .standard, false),
-            ("github.com/example/web-app", "SIGNING_KEY_PASSWORD", .deviceBound, false),
-            ("github.com/example/mobile-app", "FIREBASE_TOKEN", .standard, true),
-            ("my-notes", "BLOG_API_KEY", .standard, true),
+        let demoSecrets: [(scope: SecretScope?, name: String, protectionLevel: ProtectionLevel, isSynchronized: Bool)] = [
+            (.repository(RepositoryIdentity(value: "github.com/example/web-app")), "OPENAI_API_KEY", .standard, true),
+            (.repository(RepositoryIdentity(value: "github.com/example/web-app")), "CLOUDFLARE_API_TOKEN", .confirm, true),
+            (.repository(RepositoryIdentity(value: "github.com/example/web-app")), "DATABASE_URL", .standard, false),
+            (.repository(RepositoryIdentity(value: "github.com/example/web-app")), "SIGNING_KEY_PASSWORD", .deviceBound, false),
+            (.repository(RepositoryIdentity(value: "github.com/example/mobile-app")), "FIREBASE_TOKEN", .standard, true),
+            (.repository(RepositoryIdentity(value: "my-notes")), "BLOG_API_KEY", .standard, true),
+            (.shared(.user), "ANTHROPIC_API_KEY", .standard, true),
+            (SharedScope(name: "youtube").map(SecretScope.shared), "YOUTUBE_API_KEY", .confirm, true),
+            // A scope that only the Keychain knows, as one created on another Mac arrives.
+            (SharedScope(name: "newsletter").map(SecretScope.shared), "NEWSLETTER_API_KEY", .standard, true),
         ]
         for demoSecret in demoSecrets {
-            guard let name = SecretName(rawName: demoSecret.name) else {
+            guard let scope = demoSecret.scope, let name = SecretName(rawName: demoSecret.name) else {
                 continue
             }
             try? keychain.write(
                 storedSecret: StoredSecret(
-                    scope: .repository(RepositoryIdentity(value: demoSecret.repository)),
+                    scope: scope,
                     name: name,
                     protectionLevel: demoSecret.protectionLevel,
                     isSynchronized: demoSecret.isSynchronized,
@@ -78,5 +95,20 @@ public enum AppModelFactory {
         }
         return SecretStore(keychain: keychain, ownerAuthenticator: AlwaysAuthenticatedOwnerAuthenticator())
     }
+
+    /// `~/.secchain` of the demo data: the user scope passed to every example repository through a
+    /// wildcard, a custom scope passed to one of them, and a custom scope that only the file names.
+    static let demoUserDefinitionText = """
+        # user scope
+        ANTHROPIC_API_KEY
+        @allow github.com/example/*
+
+        @scope youtube
+        YOUTUBE_API_KEY
+        @allow github.com/example/web-app
+
+        @scope design
+
+        """
     #endif
 }

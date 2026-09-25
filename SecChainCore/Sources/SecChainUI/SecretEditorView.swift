@@ -6,7 +6,7 @@ struct SecretEditorView: View {
     /// What the sheet edits. One view serves all three because they share the protection and
     /// synchronization controls and their explanations.
     enum Mode {
-        case add(repositoryIdentity: RepositoryIdentity)
+        case add(scope: SecretScope)
         case updateValue(storedSecret: StoredSecret)
         case changeProtection(storedSecret: StoredSecret)
     }
@@ -145,7 +145,7 @@ struct SecretEditorView: View {
         Task {
             let succeeded: Bool
             switch mode {
-            case .add(let repositoryIdentity):
+            case .add(let scope):
                 guard let name = SecretName(rawName: rawName) else {
                     isSaving = false
                     return
@@ -153,7 +153,7 @@ struct SecretEditorView: View {
                 succeeded = await model.save(
                     name: name,
                     value: SecretValue(exposingString: valueText),
-                    scope: .repository(repositoryIdentity),
+                    scope: scope,
                     protectionLevel: protectionLevel,
                     isSynchronized: isSynchronized
                 )
