@@ -71,11 +71,13 @@ func secretStore(
             report: { reportToStandardError(line: $0) }
         ),
         request: RemoteApprovalRequest.filed(
-            // The request has a repository field and no scope field yet, so a shared scope is
-            // shown in the repository's place as `scope <name>`; the command the iPhone shows
-            // carries `--scope <name>` as well.
+            // `set` and `delete` of a shared scope act on no repository, so the scope takes the
+            // repository's place as `scope <name>` (`RemoteApprovalRequest.repositoryIdentity`).
             repositoryIdentity: scope.repositoryIdentity ?? RepositoryIdentity(value: scope.description),
-            secretNames: requestedSecrets.map(\.name),
+            // `requestedSecrets` holds one secret per name, the one the command acts on
+            // (`SecretStore.storedSecrets(scopes:)`); should a name come twice, the first wins, as
+            // it does there.
+            secretScopes: Dictionary(requestedSecrets.map { ($0.name, $0.scope) }, uniquingKeysWith: { first, _ in first }),
             commandArguments: commandArguments,
             requestingDeviceName: thisMacName(),
             now: Date(),

@@ -19,7 +19,7 @@ struct RemoteApprovalInboxTests {
     func fileRequest(clock: ManualClock, secretName: String = "API_TOKEN", commandArguments: [String] = ["npm", "run", "deploy"]) async throws -> RemoteApprovalRequest {
         let request = RemoteApprovalRequest.filed(
             repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
-            secretNames: [SecretName(rawName: secretName)].compactMap { $0 },
+            secretScopes: SecretName(rawName: secretName).map { [$0: SecretScope.shared(.user)] } ?? [:],
             commandArguments: commandArguments,
             requestingDeviceName: "Example Mac",
             now: clock.now,

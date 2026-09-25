@@ -1,10 +1,11 @@
 import CryptoKit
 import Foundation
 
-/// Layout version of the remote approval records, stored in every record and matching the `v1` of
+/// Layout version of the remote approval records, stored in every record and matching the `v2` of
 /// `RemoteApproval.signedMessagePrefix`. A device that reads a record of another version refuses it
-/// instead of guessing what the fields mean.
-public let remoteApprovalSchemaVersion = 1
+/// instead of guessing what the fields mean. Version 2 added the scope of each secret
+/// (https://github.com/bannzai/SecChain/issues/57).
+public let remoteApprovalSchemaVersion = 2
 
 /// Record types of the remote approval protocol in the private database of
 /// `SecChainSharedConfig.cloudKitContainerIdentifier` (documents/remote-approval-records.md).
@@ -31,6 +32,7 @@ public enum RemoteApprovalRecordField {
     public static let expiry = "expiry"
     public static let repositoryIdentity = "repositoryIdentity"
     public static let secretNames = "secretNames"
+    public static let secretScopes = "secretScopes"
     public static let commandArguments = "commandArguments"
     public static let requestingDeviceName = "requestingDeviceName"
     public static let outcome = "outcome"
@@ -78,10 +80,18 @@ public struct RemoteApprovalRequest: Sendable, Equatable {
     public let nonce: Data
     /// The Mac rejects an approval once this moment has passed.
     public let expiry: Date
-    /// Repository whose secrets the command reads.
+    /// Repository the command runs for, which is where the secrets are passed to. `set` and
+    /// `delete` of a shared scope act on no repository and put `scope <name>` here, which is what
+    /// the request showed before it carried the scope of each secret.
     public let repositoryIdentity: RepositoryIdentity
-    /// Names of the secrets the command asks for. Names only; the values stay in the Keychain.
-    public let secretNames: [SecretName]
+    /// The secrets the command asks for, each with the scope it is taken from: a repository's own
+    /// secret or one a shared scope passes to it, which the user has to be able to tell apart
+    /// before approving. Names only; the values stay in the Keychain.
+    ///
+    /// A repository scope here is always the scope of `repositoryIdentity`: the record and the
+    /// signature carry the scope's name only (`SecretScope.name`), so that a repository cannot be
+    /// named twice in one request and disagree with itself.
+    public let secretScopes: [SecretName: SecretScope]
     /// The command the user is about to run, as the words it consists of. `secchain` never accepts
     /// a secret value as an argument (`.claude/rules/secret-handling.md`), so these are safe to
     /// show and to store.
@@ -94,7 +104,7 @@ public struct RemoteApprovalRequest: Sendable, Equatable {
         nonce: Data,
         expiry: Date,
         repositoryIdentity: RepositoryIdentity,
-        secretNames: [SecretName],
+        secretScopes: [SecretName: SecretScope],
         commandArguments: [String],
         requestingDeviceName: String
     ) {
@@ -102,9 +112,15 @@ public struct RemoteApprovalRequest: Sendable, Equatable {
         self.nonce = nonce
         self.expiry = expiry
         self.repositoryIdentity = repositoryIdentity
-        self.secretNames = secretNames
+        self.secretScopes = secretScopes
         self.commandArguments = commandArguments
         self.requestingDeviceName = requestingDeviceName
+    }
+
+    /// Names of the secrets, sorted: the order in which a command lists them does not change what
+    /// is approved, and a sorted list is what the record stores and the screen shows.
+    public var secretNames: [SecretName] {
+        secretScopes.keys.sorted()
     }
 
     /// Number of random bytes in the nonce. 32 bytes is the output size of the SHA-256 the signed
@@ -117,7 +133,7 @@ public struct RemoteApprovalRequest: Sendable, Equatable {
     /// CloudKit and the moment signed cannot disagree.
     public static func filed(
         repositoryIdentity: RepositoryIdentity,
-        secretNames: [SecretName],
+        secretScopes: [SecretName: SecretScope],
         commandArguments: [String],
         requestingDeviceName: String,
         now: Date,
@@ -128,7 +144,7 @@ public struct RemoteApprovalRequest: Sendable, Equatable {
             nonce: Data((0..<nonceByteCount).map { _ in UInt8.random(in: .min ... .max) }),
             expiry: Date(timeIntervalSince1970: (now.timeIntervalSince1970 + expiryInterval).rounded(.down)),
             repositoryIdentity: repositoryIdentity,
-            secretNames: secretNames,
+            secretScopes: secretScopes,
             commandArguments: commandArguments,
             requestingDeviceName: requestingDeviceName
         )

@@ -79,7 +79,7 @@ struct RemoteApprovalOwnerAuthenticatorTests {
     func makeRequest() -> RemoteApprovalRequest {
         RemoteApprovalRequest.filed(
             repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
-            secretNames: [SecretName(rawName: "API_TOKEN")].compactMap { $0 },
+            secretScopes: SecretName(rawName: "API_TOKEN").map { [$0: SecretScope.shared(.user)] } ?? [:],
             commandArguments: ["npm", "run", "deploy"],
             requestingDeviceName: "Example Mac",
             now: startOfWaiting,

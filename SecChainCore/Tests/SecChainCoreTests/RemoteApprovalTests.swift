@@ -14,7 +14,7 @@ struct RemoteApprovalTests {
     func makeRequest(commandArguments: [String] = ["npm", "run", "deploy"], expiry: Date? = nil) -> RemoteApprovalRequest {
         let filed = RemoteApprovalRequest.filed(
             repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
-            secretNames: [SecretName(rawName: "API_TOKEN")].compactMap { $0 },
+            secretScopes: SecretName(rawName: "API_TOKEN").map { [$0: SecretScope.shared(.user)] } ?? [:],
             commandArguments: commandArguments,
             requestingDeviceName: "Example Mac",
             now: now,
@@ -28,7 +28,7 @@ struct RemoteApprovalTests {
             nonce: filed.nonce,
             expiry: expiry,
             repositoryIdentity: filed.repositoryIdentity,
-            secretNames: filed.secretNames,
+            secretScopes: filed.secretScopes,
             commandArguments: filed.commandArguments,
             requestingDeviceName: filed.requestingDeviceName
         )
@@ -107,7 +107,7 @@ struct RemoteApprovalTests {
                 nonce: approvedRequest.nonce,
                 expiry: approvedRequest.expiry,
                 repositoryIdentity: approvedRequest.repositoryIdentity,
-                secretNames: approvedRequest.secretNames,
+                secretScopes: approvedRequest.secretScopes,
                 commandArguments: approvedRequest.commandArguments,
                 requestingDeviceName: approvedRequest.requestingDeviceName
             ),
@@ -117,7 +117,7 @@ struct RemoteApprovalTests {
                 nonce: makeRequest().nonce,
                 expiry: approvedRequest.expiry,
                 repositoryIdentity: approvedRequest.repositoryIdentity,
-                secretNames: approvedRequest.secretNames,
+                secretScopes: approvedRequest.secretScopes,
                 commandArguments: approvedRequest.commandArguments,
                 requestingDeviceName: approvedRequest.requestingDeviceName
             ),
@@ -139,7 +139,7 @@ struct RemoteApprovalTests {
                 nonce: approvedRequest.nonce,
                 expiry: approvedRequest.expiry.addingTimeInterval(3600),
                 repositoryIdentity: approvedRequest.repositoryIdentity,
-                secretNames: approvedRequest.secretNames,
+                secretScopes: approvedRequest.secretScopes,
                 commandArguments: approvedRequest.commandArguments,
                 requestingDeviceName: approvedRequest.requestingDeviceName
             ),
@@ -149,7 +149,7 @@ struct RemoteApprovalTests {
                 nonce: approvedRequest.nonce,
                 expiry: approvedRequest.expiry,
                 repositoryIdentity: approvedRequest.repositoryIdentity,
-                secretNames: approvedRequest.secretNames,
+                secretScopes: approvedRequest.secretScopes,
                 commandArguments: ["env"],
                 requestingDeviceName: approvedRequest.requestingDeviceName
             ),
@@ -159,7 +159,7 @@ struct RemoteApprovalTests {
                 nonce: approvedRequest.nonce,
                 expiry: approvedRequest.expiry,
                 repositoryIdentity: RepositoryIdentity(value: "github.com/example/another-repository"),
-                secretNames: approvedRequest.secretNames,
+                secretScopes: approvedRequest.secretScopes,
                 commandArguments: approvedRequest.commandArguments,
                 requestingDeviceName: approvedRequest.requestingDeviceName
             ),
@@ -168,7 +168,7 @@ struct RemoteApprovalTests {
                 nonce: approvedRequest.nonce,
                 expiry: approvedRequest.expiry,
                 repositoryIdentity: approvedRequest.repositoryIdentity,
-                secretNames: [SecretName(rawName: "ANOTHER_TOKEN")].compactMap { $0 },
+                secretScopes: SecretName(rawName: "ANOTHER_TOKEN").map { [$0: SecretScope.shared(.user)] } ?? [:],
                 commandArguments: approvedRequest.commandArguments,
                 requestingDeviceName: approvedRequest.requestingDeviceName
             ),
@@ -180,23 +180,77 @@ struct RemoteApprovalTests {
         }
     }
 
+    /// A request whose secrets are the keys of `secretScopeNames`, each in the scope its value
+    /// names (`repository`, `user`, or a custom scope). The identifier, nonce, and expiry are fixed,
+    /// so that two requests built here differ only in what the arguments change and a signature of
+    /// one can be checked against the other. The default command is short because no test of the
+    /// scopes depends on it.
+    func makeRequest(secretScopeNames: KeyValuePairs<String, String>, commandArguments: [String] = ["run"]) -> RemoteApprovalRequest {
+        let repositoryIdentity = RepositoryIdentity(value: "github.com/example/repository")
+        return RemoteApprovalRequest(
+            requestIdentifier: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            nonce: Data(),
+            expiry: now,
+            repositoryIdentity: repositoryIdentity,
+            secretScopes: Dictionary(
+                uniqueKeysWithValues: secretScopeNames.compactMap { rawName, rawScopeName in
+                    SecretName(rawName: rawName).map { secretName in
+                        (
+                            secretName,
+                            rawScopeName == SecretScope.repositoryScopeName
+                                ? SecretScope.repository(repositoryIdentity)
+                                : SecretScope.shared(SharedScope(name: rawScopeName)!)
+                        )
+                    }
+                }
+            ),
+            commandArguments: commandArguments,
+            requestingDeviceName: "Example Mac"
+        )
+    }
+
     @Test
     func theContentDigestIgnoresSecretOrderButNotArgumentBoundaries() {
-        func digest(secretNames: [String], commandArguments: [String]) -> Data {
-            RemoteApproval.contentDigest(
-                request: RemoteApprovalRequest(
-                    requestIdentifier: UUID(),
-                    nonce: Data(),
-                    expiry: now,
-                    repositoryIdentity: RepositoryIdentity(value: "github.com/example/repository"),
-                    secretNames: secretNames.compactMap { SecretName(rawName: $0) },
-                    commandArguments: commandArguments,
-                    requestingDeviceName: "Example Mac"
-                )
-            )
+        #expect(
+            RemoteApproval.contentDigest(request: makeRequest(secretScopeNames: ["A": "user", "B": "repository"]))
+                == RemoteApproval.contentDigest(request: makeRequest(secretScopeNames: ["B": "repository", "A": "user"]))
+        )
+        #expect(
+            RemoteApproval.contentDigest(request: makeRequest(secretScopeNames: ["A": "user"], commandArguments: ["rm", "-rf"]))
+                != RemoteApproval.contentDigest(request: makeRequest(secretScopeNames: ["A": "user"], commandArguments: ["rm -rf"]))
+        )
+    }
+
+    /// The scope a secret comes from is part of what the user approves: an approval of a
+    /// repository's own `API_TOKEN` must not pass the one of a shared scope, which reaches the
+    /// repository through `~/.secchain` (https://github.com/bannzai/SecChain/issues/57).
+    @Test
+    func anApprovalDoesNotCoverTheSameNamesFromOtherScopes() throws {
+        let approvedRequest = makeRequest(secretScopeNames: ["API_TOKEN": "repository", "OPENAI_API_KEY": "user"])
+        let signature = try approval(request: approvedRequest, key: pairedKey)
+        try RemoteApproval.verify(signature: signature, request: approvedRequest, publicKey: pairedKey.publicKey, now: now.addingTimeInterval(-1))
+        let requestsWithOtherScopes = [
+            makeRequest(secretScopeNames: ["API_TOKEN": "user", "OPENAI_API_KEY": "user"]),
+            makeRequest(secretScopeNames: ["API_TOKEN": "repository", "OPENAI_API_KEY": "youtube"]),
+            // The same two scopes, each given to the other name.
+            makeRequest(secretScopeNames: ["API_TOKEN": "user", "OPENAI_API_KEY": "repository"]),
+        ]
+        for request in requestsWithOtherScopes {
+            #expect(request.secretNames == approvedRequest.secretNames)
+            #expect(throws: RemoteApprovalVerificationError.signatureMismatch) {
+                try RemoteApproval.verify(signature: signature, request: request, publicKey: pairedKey.publicKey, now: now.addingTimeInterval(-1))
+            }
         }
-        #expect(digest(secretNames: ["A", "B"], commandArguments: ["run"]) == digest(secretNames: ["B", "A"], commandArguments: ["run"]))
-        #expect(digest(secretNames: ["A"], commandArguments: ["rm", "-rf"]) != digest(secretNames: ["A"], commandArguments: ["rm -rf"]))
+    }
+
+    /// Each name and its scope are length-prefixed on their own, so that bytes cannot move between
+    /// a name and the scope next to it.
+    @Test
+    func theContentDigestKeepsTheBoundaryBetweenANameAndItsScope() {
+        #expect(
+            RemoteApproval.contentDigest(request: makeRequest(secretScopeNames: ["A": "user"]))
+                != RemoteApproval.contentDigest(request: makeRequest(secretScopeNames: ["Au": "ser"]))
+        )
     }
 
     @Test
@@ -207,7 +261,7 @@ struct RemoteApprovalTests {
             nonce: request.nonce,
             expiry: Date(timeIntervalSince1970: (request.expiry.timeIntervalSince1970 * 1000).rounded(.down) / 1000 + 0.0004),
             repositoryIdentity: request.repositoryIdentity,
-            secretNames: request.secretNames,
+            secretScopes: request.secretScopes,
             commandArguments: request.commandArguments,
             requestingDeviceName: request.requestingDeviceName
         )
@@ -226,6 +280,6 @@ struct RemoteApprovalTests {
                 + withUnsafeBytes(of: Int64(request.expiry.timeIntervalSince1970).bigEndian) { Data($0) }
                 + RemoteApproval.lengthPrefixed(field: RemoteApproval.contentDigest(request: request))
         )
-        #expect(RemoteApproval.signedMessagePrefix == Data("SecChain remote approval v1\n".utf8))
+        #expect(RemoteApproval.signedMessagePrefix == Data("SecChain remote approval v2\n".utf8))
     }
 }

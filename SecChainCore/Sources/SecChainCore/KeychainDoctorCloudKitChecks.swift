@@ -83,7 +83,7 @@ extension KeychainDoctor {
             nonce: Data((0..<RemoteApprovalRequest.nonceByteCount).map { _ in UInt8.random(in: .min ... .max) }),
             expiry: Date().addingTimeInterval(RemoteApprovalSession.expiryInterval),
             repositoryIdentity: RepositoryIdentity(value: "github.com/bannzai/SecChain"),
-            secretNames: [SecretName(rawName: "DUMMY_NAME_FOR_DOCTOR")].compactMap { $0 },
+            secretScopes: Dictionary(uniqueKeysWithValues: ["DUMMY_NAME_FOR_DOCTOR"].compactMap(SecretName.init(rawName:)).map { ($0, SecretScope.shared(.user)) }),
             commandArguments: ["true"],
             requestingDeviceName: cloudKitDoctorDeviceName
         )
