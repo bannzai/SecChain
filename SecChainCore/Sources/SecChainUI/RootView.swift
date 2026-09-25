@@ -76,7 +76,9 @@ public struct RootView: View {
                         Label(userDefinitionErrorDescription, systemImage: "exclamationmark.triangle")
                             .font(.caption)
                             .foregroundStyle(.red)
-                            // A sidebar row is one line by default, which would cut off the reason.
+                            // A label in the sidebar is one line by default, which would cut off
+                            // the reason.
+                            .lineLimit(nil)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
