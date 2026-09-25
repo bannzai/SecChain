@@ -52,6 +52,18 @@ extract_strings macos
 # The deployment target is the one of Package.swift.
 extract_strings ios --triple arm64-apple-ios17.0-simulator --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)"
 
+# The native build system (the default up to Swift 6.3) writes the files to the path given above.
+# Swift Build (the default from Swift 6.4, Xcode 27) ignores that path and leaves them among the
+# intermediates of the scratch path. Each build system writes to only one of the two places.
+STRINGS_FILES=()
+while IFS= read -r -d '' strings_file; do
+  STRINGS_FILES+=("${strings_file}")
+done < <(find "${WORK_DIRECTORY}" -name '*.stringsdata' -print0)
+if [ "${#STRINGS_FILES[@]}" -eq 0 ]; then
+  echo "FAIL: the builds emitted no .stringsdata file under ${WORK_DIRECTORY}" >&2
+  exit 1
+fi
+
 # One JSON object per localized string of the sources: table, source file, line, and key.
 USAGES="${WORK_DIRECTORY}/usages.jsonl"
 jq -c --arg sources "${REPOSITORY_ROOT}/SecChainCore/Sources/" '
@@ -59,7 +71,7 @@ jq -c --arg sources "${REPOSITORY_ROOT}/SecChainCore/Sources/" '
   | select($file.source | startswith($sources))
   | .tables | to_entries[] | .key as $table
   | .value[] | {table: $table, source: $file.source, line: .location.startingLine, key: .key}
-' "${WORK_DIRECTORY}"/strings-*/*.stringsdata > "${USAGES}"
+' "${STRINGS_FILES[@]}" > "${USAGES}"
 
 FAILURES="${WORK_DIRECTORY}/failures.txt"
 : > "${FAILURES}"
