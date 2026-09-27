@@ -1,9 +1,12 @@
 #!/bin/bash
-# Checks the Claude Code hook that ships with the agent skill (issue #45).
+# Checks the Claude Code hooks that ship with the agent skill: the guard (issue #45) and the Claude
+# Mods plugin that masks values (issue #70).
 #
-# Every case is one hook input on standard input, the way Claude Code sends it, and one assertion
-# about what the hook writes: a `deny` decision, or nothing at all, which leaves the normal
-# permission flow in place. The values in the cases are names, never secret values.
+# Every case of the guard is one hook input on standard input, the way Claude Code sends it, and one
+# assertion about what the hook writes: a `deny` decision, or nothing at all, which leaves the
+# normal permission flow in place. The values in the cases are names, never secret values. The
+# plugin is checked by Claude Code's own `claude plugin validate` and `claude plugin test`, so
+# `claude` must be on PATH.
 #
 # Usage: hooks.sh
 set -euo pipefail
@@ -180,5 +183,26 @@ LAST_STATUS=$?
 set -e
 [ "${LAST_STATUS}" -eq 0 ] || fail "the hook exited with ${LAST_STATUS} for unreadable input"
 [ -z "${OUTPUT}" ] || fail "the hook decided something for unreadable input (${OUTPUT})"
+
+echo "== the calls of the plugin that masks values pass"
+allowed Bash command "printf '%s' \"\$text\" | secchain mask"
+allowed Bash command "secchain mask --count < tool-result.txt"
+
+echo "== the Claude Mods plugin that masks values is one the engine loads"
+# The plugin's checks run in Claude Code itself (issue #70). Function hooks are early access, and
+# `claude plugin test` refuses to run without this switch (Claude Code 2.1.283).
+command -v claude > /dev/null || fail "claude (Claude Code) is not on PATH; the plugin checks need it"
+export CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1
+MODS="${REPOSITORY_ROOT}/skills/secchain/hooks/mods"
+set +e
+VALIDATION="$(claude plugin validate "${MODS}" 2>&1)"
+LAST_STATUS=$?
+set -e
+printf '%s\n' "${VALIDATION}"
+[ "${LAST_STATUS}" -eq 0 ] || fail "claude plugin validate refused the plugin"
+printf '%s' "${VALIDATION}" | grep -q 'hooks: prompt.submit, tool.call' || fail "the plugin does not hook prompt.submit and tool.call"
+
+echo "== the plugin masks prompts, tool results and the engine's texts through secchain mask"
+claude plugin test "${MODS}" || fail "the plugin's tests failed"
 
 echo "PASS (hooks)"

@@ -37,8 +37,9 @@ test:
 check-localization:
 	bash scripts/test/localization.sh
 
-# The Claude Code hook of the agent skill, against the calls it has to stop and the ones it has to
-# let through. It needs no build: the hook reads a tool call on standard input.
+# The Claude Code hooks of the agent skill: the guard, against the calls it has to stop and the ones
+# it has to let through, and the Claude Mods plugin that masks values, through `claude plugin
+# validate` and `claude plugin test`. It needs no build, but it needs `claude` on PATH.
 test-hooks:
 	bash scripts/test/hooks.sh
 

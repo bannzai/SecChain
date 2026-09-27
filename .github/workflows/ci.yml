@@ -27,7 +27,13 @@ jobs:
       - name: Translations of the app texts
         run: make check-localization
 
-      - name: The Claude Code hook of the agent skill
+      # `make test-hooks` checks the Claude Mods plugin with Claude Code itself. Function hooks are
+      # early access and change between releases, so the version is the one the plugin was written
+      # and tested against. The plugin checks need no account: nothing reaches a model.
+      - name: Install Claude Code
+        run: npm install --global @anthropic-ai/claude-code@2.1.283
+
+      - name: The Claude Code hooks of the agent skill
         run: make test-hooks
 
       # The runner has no signing identity, so the app is built unsigned and the embed build phase
