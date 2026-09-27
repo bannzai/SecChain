@@ -157,7 +157,7 @@ Function hooks need `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`. Load the plugin for o
 }
 ```
 
-When a prompt, a file, or a command's output shows `***` where you expected a value, SecChain masked it on purpose. Do not try to recover the value (reading the file another way, printing it in pieces, encoding it): run the command that needs it through `secchain run` instead.
+A tool result that held a value arrives as an error starting with `secchain-mask: the tool ran.`: the tool did run, and what follows is its output. When a prompt, a file, or a command's output shows `***` where you expected a value, SecChain masked it on purpose. Do not try to recover the value (reading the file another way, printing it in pieces, encoding it): run the command that needs it through `secchain run` instead.
 
 ## Checking what is available
 

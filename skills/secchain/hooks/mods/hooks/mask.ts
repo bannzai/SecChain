@@ -94,49 +94,28 @@ async function maskedTexts($: EngineInterface, texts: readonly string[]): Promis
   return masked
 }
 
-/** Every string in a tool's result, in the order `withStrings` puts them back. */
-function stringsOf(value: unknown): string[] {
-  if (typeof value === 'string') {
-    return [value]
-  }
-  if (Array.isArray(value)) {
-    return value.flatMap(stringsOf)
-  }
-  if (value !== null && typeof value === 'object') {
-    return Object.values(value).flatMap(stringsOf)
-  }
-  return []
-}
+/**
+ * Leads a tool result that had to be answered as a refusal, so that the model does not take a call
+ * that ran for one that failed.
+ */
+const MASKED_RESULT_NOTE =
+  'secchain-mask: the tool ran. This is its result as you would have read it, with SecChain secret values replaced by ***; it arrives as an error only because a plugin cannot hand back a changed result any other way.'
 
 /**
- * The parts of a tool's result that `withStrings` cannot rewrite: object keys and numbers, as
- * text. A value found there cannot be hidden by rewriting the record.
+ * Every string and number in a tool's result, with the object keys: what the model could read of a
+ * result that carries no text from the engine (one a hook beneath answered).
  */
-function fixedTextsOf(value: unknown): string[] {
-  if (typeof value === 'number' || typeof value === 'bigint') {
+function textsOf(value: unknown): string[] {
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint') {
     return [String(value)]
   }
   if (Array.isArray(value)) {
-    return value.flatMap(fixedTextsOf)
+    return value.flatMap(textsOf)
   }
   if (value !== null && typeof value === 'object') {
-    return Object.entries(value).flatMap(([key, item]) => [key, ...fixedTextsOf(item)])
+    return Object.entries(value).flatMap(([key, item]) => [key, ...textsOf(item)])
   }
   return []
-}
-
-/** `value` rebuilt with its strings taken from `strings`, in the order `stringsOf` listed them. */
-function withStrings(value: unknown, strings: string[]): unknown {
-  if (typeof value === 'string') {
-    return strings.shift()
-  }
-  if (Array.isArray(value)) {
-    return value.map(item => withStrings(item, strings))
-  }
-  if (value !== null && typeof value === 'object') {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, withStrings(item, strings)]))
-  }
-  return value
 }
 
 /** Whether `masked` differs from `texts` anywhere, which is when an answer has to be rewritten. */
@@ -170,32 +149,17 @@ export const register: Register = on => {
       const deny = await maskedText($, ran.deny)
       return deny === ran.deny ? ran : { deny }
     }
-    const resultStrings = stringsOf(ran.result)
-    const context = ran.context ?? []
-    const fixedTexts = fixedTextsOf(ran.result)
-    const modelTexts = ran.text === undefined ? [] : [ran.text]
-    const texts = [...resultStrings, ...context, ...fixedTexts, ...modelTexts]
+    // What the model reads is the engine's text, not the tool's record: a value only in the record
+    // (the content a Write sent) does not reach it. A record rewritten in place would be mapped to
+    // text again by the tool, which may add words of its own or refuse a field that no longer fits
+    // its schema, so the masked text itself is what the model gets.
+    const texts = [ran.text ?? textsOf(ran.result).join('\n'), ...(ran.context ?? [])]
     const masked = await maskedTexts($, texts)
     if (!hasChanged(texts, masked)) {
       // The engine's own answer, `ref` included, so that it uses its messages as they are.
       return ran
     }
-    const maskedResultStrings = masked.slice(0, resultStrings.length)
-    const maskedContext = masked.slice(resultStrings.length, resultStrings.length + context.length)
-    const hasValueInFixedText = hasChanged(fixedTexts, masked.slice(resultStrings.length + context.length, texts.length - modelTexts.length))
-    const hasValueOnlyInModelText = !hasChanged([...resultStrings, ...context], [...maskedResultStrings, ...maskedContext])
-    if (hasValueInFixedText || hasValueOnlyInModelText) {
-      // Rewriting the record cannot hide a value in a key, a number, or text the tool's mapper adds
-      // on its own, so the model gets the masked text it would have read, as an error.
-      const maskedModelText = modelTexts.length === 1 ? masked[texts.length - 1] : undefined
-      return { deny: maskedModelText ?? 'secchain-mask: the tool result held a SecChain secret value and was withheld.' }
-    }
-    // Without `ref` and `text`, the engine maps the masked record for the model instead of reusing
-    // the messages it made from the original.
-    return {
-      result: withStrings(ran.result, maskedResultStrings),
-      ...(ran.context === undefined ? {} : { context: maskedContext }),
-    }
+    return { deny: [MASKED_RESULT_NOTE, ...masked].join('\n\n') }
   })
 
   on('prompt.section', async ($, e, next) => {

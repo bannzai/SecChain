@@ -88,17 +88,27 @@ describe('prompt.submit', () => {
 })
 
 describe('tool.call', () => {
-  test('a tool result with the value reaches the model masked, as a record of its own', async ($, on) => {
+  /** The refusal a masked tool result arrives as: the note, then the masked texts. */
+  function maskedResult(...texts: string[]): { deny: string } {
+    return {
+      deny: [
+        'secchain-mask: the tool ran. This is its result as you would have read it, with SecChain secret values replaced by ***; it arrives as an error only because a plugin cannot hand back a changed result any other way.',
+        ...texts,
+      ].join('\n\n'),
+    }
+  }
+
+  test('a tool result whose text holds the value reaches the model as that text masked', async ($, on) => {
     const fake = fakeHost(on, { isInstalled: true })
     on('tool.call', () => ({
       ref: 1,
-      text: `token=${DUMMY_VALUE}`,
-      result: { stdout: `token=${DUMMY_VALUE}`, stderr: '', interrupted: false, lines: [`a ${DUMMY_VALUE}`, 'b'] },
+      text: `token=${DUMMY_VALUE}\nsecond ${DUMMY_VALUE}`,
+      result: { stdout: `token=${DUMMY_VALUE}\nsecond ${DUMMY_VALUE}`, stderr: '', interrupted: false },
+      context: [`note ${DUMMY_VALUE}`],
     }))
     const ran = await $.tool.call({ tool: 'Bash', command: 'cat config' })
-    expect(ran).toEqual({ result: { stdout: 'token=***', stderr: '', interrupted: false, lines: ['a ***', 'b'] } })
-    expect(ran).not.toHaveProperty('ref')
-    // Every string of the record went through one secchain mask.
+    expect(ran).toEqual(maskedResult('token=***\nsecond ***', 'note ***'))
+    // The text and the context went through one secchain mask.
     expect(fake.argvs).toHaveLength(1)
   })
 
@@ -109,19 +119,24 @@ describe('tool.call', () => {
     expect(ran).toEqual({ ref: 7, text: 'hello', result: { stdout: 'hello', stderr: '', interrupted: false } })
   })
 
+  test('a value only in the record, which the model does not read, leaves the answer as it was', async ($, on) => {
+    fakeHost(on, { isInstalled: true })
+    on('tool.call', () => ({ ref: 8, text: 'File created successfully at: config.txt', result: { type: 'create', filePath: 'config.txt', content: DUMMY_VALUE } }))
+    const ran = await $.tool.call({ tool: 'Write', file_path: 'config.txt', content: 'x' })
+    expect(ran).toEqual({ ref: 8, text: 'File created successfully at: config.txt', result: { type: 'create', filePath: 'config.txt', content: DUMMY_VALUE } })
+  })
+
+  test('a result a hook beneath answered is judged by its keys, strings and numbers', async ($, on) => {
+    fakeHost(on, { isInstalled: true })
+    on('tool.call', () => ({ result: { [DUMMY_VALUE]: 1 } }))
+    expect(await $.tool.call({ tool: 'mcp__example__lookup' })).toEqual(maskedResult('***\n1'))
+  })
+
   test('an error with the value reaches the model masked, as a refusal', async ($, on) => {
     fakeHost(on, { isInstalled: true })
     on('tool.call', () => ({ isError: true, ref: 2, text: `failed with ${DUMMY_VALUE}`, result: `failed with ${DUMMY_VALUE}` }))
     const ran = await $.tool.call({ tool: 'Bash', command: 'false' })
     expect(ran).toEqual({ deny: 'failed with ***' })
-  })
-
-  test('a string that holds the separator is masked on its own', async ($, on) => {
-    const fake = fakeHost(on, { isInstalled: true })
-    on('tool.call', () => ({ ref: 3, text: '', result: { stdout: `a\u0000${DUMMY_VALUE}`, stderr: DUMMY_VALUE, interrupted: false } }))
-    const ran = await $.tool.call({ tool: 'Bash', command: 'cat binary' })
-    expect(ran).toEqual({ result: { stdout: 'a\u0000***', stderr: '***', interrupted: false } })
-    expect(fake.argvs.length).toBeGreaterThan(1)
   })
 
   test('a refusal from beneath with the value reaches the model masked', async ($, on) => {
@@ -130,18 +145,15 @@ describe('tool.call', () => {
     expect(await $.tool.call({ tool: 'Bash', command: 'true' })).toEqual({ deny: 'refused ***' })
   })
 
-  test('a value in a key of the record is withheld as the masked text the model would read', async ($, on) => {
-    fakeHost(on, { isInstalled: true })
-    on('tool.call', () => ({ ref: 4, text: `${DUMMY_VALUE}: 1`, result: { [DUMMY_VALUE]: 1 } }))
-    expect(await $.tool.call({ tool: 'mcp__example__lookup' })).toEqual({ deny: '***: 1' })
-  })
-
-  test('a value only in the text the model reads is withheld as that text masked', async ($, on) => {
-    fakeHost(on, { isInstalled: true })
-    on('tool.call', () => ({ ref: 5, text: `token=${DUMMY_VALUE}`, result: { count: 2 } }))
-    expect(await $.tool.call({ tool: 'mcp__example__lookup' })).toEqual({ deny: 'token=***' })
+  test('a text that holds the separator is masked on its own', async ($, on) => {
+    const fake = fakeHost(on, { isInstalled: true })
+    on('tool.call', () => ({ ref: 3, text: `a\u0000${DUMMY_VALUE}`, result: { stdout: '', stderr: '', interrupted: false }, context: [DUMMY_VALUE] }))
+    const ran = await $.tool.call({ tool: 'Bash', command: 'cat binary' })
+    expect(ran).toEqual(maskedResult('a\u0000***', '***'))
+    expect(fake.argvs).toHaveLength(2)
   })
 })
+
 
 describe('the texts the engine adds', () => {
   test('a system prompt section is masked', async ($, on) => {
