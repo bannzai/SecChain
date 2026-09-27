@@ -166,9 +166,10 @@ YOUTUBE_API_KEY
 | Run a command with secrets | `secchain run -- <command>` reads the secrets of the scopes passed to the repository and passes them to the child process as environment variables. A subset of secrets can be selected. No plaintext temporary files. |
 | Act on a shared scope | `--scope user` or `--scope <name>` on `set`, `list`, and `delete`. Without it, `set` and `delete` act on the repository scope. `list --scopes` lists the shared scopes with their `@allow` patterns. |
 | Pass a shared scope to repositories | `secchain scope allow <scope> <pattern>` and `secchain scope deny <scope> <pattern>` add and remove an `@allow` line of `~/.secchain`. |
-| Act on an environment | `--env <environment>` on `set`, `delete`, `list`, and `run` (see "Environments"). `list --long` shows the environment of each secret, `-` for none, and `list --envs` the environments of each scope with the number of its secrets without one. `secchain env migrate` moves secrets without an environment into one. |
+| Act on an environment | `--env <environment>` on `set`, `delete`, `list`, `run`, and `mask` (see "Environments"). `list --long` shows the environment of each secret, `-` for none, and `list --envs` the environments of each scope with the number of its secrets without one. `secchain env migrate` moves secrets without an environment into one. |
+| Mask values in a text | `secchain mask` copies standard input to standard output with the values of the *standard* secrets that `run` would pass to the repository replaced by `***`, every environment's without `--env`. It names the secrets of other levels it leaves out on standard error, says nothing about whether the text held a value unless `--count` is given, and copies the text unchanged, with exit status 0, where the repository cannot be identified. Values shorter than 8 characters are not looked for. See design decision 8. |
 
-There is deliberately no command that prints a secret value to standard output. `run` is the primary way to consume secrets, so that shell automation and AI coding agents can use a secret without being able to read it.
+There is deliberately no command that prints a secret value to standard output: `mask` writes back the text it was given, with values taken out. `run` is the primary way to consume secrets, so that shell automation and AI coding agents can use a secret without being able to read it.
 
 ### macOS app
 
@@ -203,7 +204,7 @@ Repository identification, per-repository isolation, scopes (which shared scopes
 ### Documentation and agent skill
 
 - `README.md` covers setup and basic command-line usage.
-- An agent skill (`SKILL.md`) ships in the repository so that AI coding agents use `secchain run` instead of asking for or reading secret values.
+- An agent skill (`SKILL.md`) ships in the repository so that AI coding agents use `secchain run` instead of asking for or reading secret values. Next to it ship a Claude Code hook that stops the calls reaching for a value and a Claude Mods plugin that masks a value in what the model reads (design decision 8).
 
 ## Non-goals
 
@@ -211,7 +212,7 @@ Team vaults, organizations, workspaces, member management, share links, a custom
 
 "Remote approval" does not change this: it uses the user's own CloudKit private database, which SecChain's maintainer cannot read, only to carry approval requests between that user's devices. Secret values keep traveling through iCloud Keychain alone.
 
-Masking secrets before an AI agent reads them (outside of `secchain run`) is not part of this project.
+Masking is limited to what `secchain mask` does for the Claude Code plugin (design decision 8): the texts an agent's model reads in one Claude Code session, matched against the standard secrets of one repository. Masking the output of other tools, other agents, or a whole machine is not part of this project.
 
 ## Design decisions
 
@@ -308,6 +309,19 @@ Decided on 2026-09-26 in https://github.com/bannzai/SecChain/issues/68.
 - **A scope with environments gives `run --env <environment>` the secrets of that environment and nothing else**: neither a secret left without an environment nor one of another environment stands in for a missing one. A value meant for one deployment target reaching another (a development key in a production build, or the other way around) is the failure environments exist to prevent, and a fallback would do exactly that without a message. A missing value is instead reported by `.secchain`, whose declared names `run` checks in the environment it runs with.
 - **Every passed scope is decided on its own**: a scope without environments gives its secrets in every environment, so that a value the same everywhere is stored once, as a shared scope already allows for repositories.
 - Nothing had been released, so there is no compatibility path: an item without an environment keeps the service it always had, and a scope without environments behaves as before.
+
+### 8. Masking what an agent reads: `secchain` matches, the plugin never holds a value
+
+Decided on 2026-09-28 in https://github.com/bannzai/SecChain/issues/70.
+
+The guard hook stops the calls that reach for a value (`skills/secchain/hooks/secchain-guard.py`), but some paths cannot be stopped: a value the user pastes into a prompt, a tool result that happens to contain one, a command that gets past the hook's parsing. Claude Code's function hooks (Claude Mods, early access) can rewrite the texts the model is about to read, so a second line of defence replaces stored values in them.
+
+- **The matching is done by `secchain mask`, and the plugin receives only masked text.** The plugin hands a text to `secchain mask` on standard input and takes back what it writes. A plugin that read the values to match them itself would hold them in a process SecChain does not control, and would need a command that hands values out, which the security invariants rule out. `mask` reads the values through `SecretStore` and keeps them in memory only; input and output never go through a temporary file.
+- **Only *standard* secrets are looked for.** Reading a `confirm` or `device-bound` value asks for authentication, and `mask` runs on every prompt and tool result, so a prompt each time would make the agent unusable. Those secrets are left out and named on standard error, never read. A user who wants a secret masked keeps it *standard*; one who wants it confirmed on every read accepts that the model could see it if it leaked into a text.
+- **What is looked for is what `run` would pass, in every environment.** The repository scope and the shared scopes an `@allow` passes to it; without `--env`, every environment of a scope with environments, because unlike `run` hiding more is the safe side. Where the repository cannot be identified, no `@allow` applies, and `mask` copies the text unchanged with exit status 0 rather than break the hook built on it.
+- **Short values are not looked for.** A value shorter than 8 characters, or one of whitespace alone, occurs in unrelated text often enough that replacing it would corrupt what the model reads. Every occurrence is replaced by the same `***`, and overlapping occurrences of several values become one, so that no part of a value is left and the replacement tells nothing about the length.
+- **`mask` confirms a value guessed whole.** Any process running as the user can pipe a guess into it and see whether it comes back as `***`. It answers nothing about a part of a value, since only complete values are replaced, and whether a text held a value is not reported unless `--count` asks for it.
+- **The plugin fails open.** Where `secchain` is missing or fails, the text reaches the model unchanged and the transcript says so once; the guard hook still stands. A plugin that blocked every prompt would be switched off, which protects nothing.
 
 ## Measured behavior
 

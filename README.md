@@ -85,6 +85,22 @@ secchain run --only OPENAI_API_KEY -- ./scripts/smoke-test.sh
 
 There is deliberately no command that prints a secret value to standard output. `run` is the way a shell script or an AI coding agent consumes a secret without being able to read it — see the [`secchain` agent skill](#ai-agent-skill).
 
+### Mask secret values in a text
+
+```bash
+printf '%s' "$text" | secchain mask                         # the values of this repository's secrets become ***
+printf '%s' "$text" | secchain mask --repository <identifier>
+printf '%s' "$text" | secchain mask --env prod              # only the values run --env prod would get
+printf '%s' "$text" | secchain mask --count                 # also writes "secchain: masked <n>" to standard error
+```
+
+`mask` copies standard input to standard output with every value of the secrets `run` would pass to the repository replaced by `***`: the repository's own and those of the shared scopes allowed for it. Without `--env`, a scope with environments gives the values of all of them, because hiding more is the safe side. A text without a value comes out unchanged, and nothing says whether a value was found unless you ask with `--count`. It exists for the [Claude Mods plugin](#claude-mods-plugin-masking-what-the-model-reads), which passes every text an agent's model is about to read through it.
+
+- Only *standard* secrets are looked for. Reading a `confirm` or `device-bound` value asks for authentication, which on every tool result would make the agent unusable, so `mask` leaves those values in place and writes `secchain: <NAME> is confirm, so mask does not look for its value.` to standard error.
+- Values shorter than 8 characters, and values that are only whitespace, are not looked for: they occur in unrelated text, and replacing them would break it.
+- In a directory whose repository cannot be identified (no Git remote, and no `--repository`), no `@allow` applies, so the text comes out unchanged and standard error says why. The exit status is still 0, so that a hook built on `mask` keeps working.
+- `mask` answers whether a text contains a stored value, so it confirms a value someone guessed whole. It gives nothing for a part of one: only a complete value is replaced.
+
 ### Share secrets between repositories
 
 A secret that several repositories use goes into a shared scope instead of into each repository: the built-in `user` scope for what is the same everywhere, or a custom scope you name for one purpose.
@@ -289,7 +305,36 @@ The hook refuses three kinds of call and answers with the `secchain run -- <comm
 
 It leaves the documented ways of using a secret alone, including piping a value straight into the program that consumes it. The list of what stops and what passes, with examples, is in [the skill](skills/secchain/SKILL.md); `make test-hooks` checks the script against every case of that list. The hook needs `python3`, which comes with the Xcode Command Line Tools. Codex CLI sends the same input and reads the same decision, so the same script runs there from `~/.codex/hooks.json`, but it guards shell commands only: Codex has no `Read` tool, and a file read through an MCP tool arrives under that tool's own name, which this hook does not match. Codex also runs that hook only after the exact definition is trusted with `/hooks` (and trusted again after every change to it), so until that step the guard is configured but inactive.
 
-The hook is a guard against reaching for a secret by habit, not a sandbox. It parses a command the way a shell would without evaluating it, so a path carried through a shell variable gets past it, and a hook configured inside the project runs a script the agent may be able to edit — which is why the skill also describes installing it in `~/.claude/settings.json`. What keeps a value out of a file and out of a terminal is `secchain` itself, which has no command that prints one. Masking secret values in the output of a command an agent runs stays outside SecChain (`documents/PROJECT.md`, "Non-goals").
+The hook is a guard against reaching for a secret by habit, not a sandbox. It parses a command the way a shell would without evaluating it, so a path carried through a shell variable gets past it, and a hook configured inside the project runs a script the agent may be able to edit — which is why the skill also describes installing it in `~/.claude/settings.json`. What keeps a value out of a file and out of a terminal is `secchain` itself, which has no command that prints one. A value that gets past the hook anyway is what the plugin below is for.
+
+### Claude Mods plugin: masking what the model reads
+
+The hook stops the calls that reach for a value. Some paths it cannot stop: a value you paste into a prompt, a tool result that happens to contain one, a command that gets past its parsing. [`skills/secchain/hooks/mods`](skills/secchain/hooks/mods) is a plugin of Claude Code's function hooks (Claude Mods, early access: https://github.com/anthropics/claude-code/issues/91870) that passes the texts the model is about to read through `secchain mask`, so that a stored value in them reaches the model as `***`:
+
+- the prompt you submit (`prompt.submit`), and what you see of it in the transcript with it;
+- the result of every tool call, a subagent's included (`tool.call`): each string of the result, and the error text of a failed call;
+- the texts Claude Code adds itself: the sections of the system prompt (`prompt.section`), the context blocks of the first message such as `CLAUDE.md` (`prompt.context`), and injected messages such as a file you mention with `@` (`prompt.attachment`).
+
+The plugin never holds a value: it hands the text to `secchain mask` on standard input and takes back the masked text, and `secchain` does the matching (`documents/PROJECT.md`, design decision 8). It covers what `mask` covers — the *standard* secrets of the repository the session runs in — and it runs next to the hook, not instead of it. Where `secchain` is not installed (`~/.local/bin/secchain` from `make cli`, or `secchain` on `PATH`), it says so once in the transcript and lets the texts through, leaving the hook as the only guard. It changes what reaches the model, not every file Claude Code writes: with Claude Code 2.1.283, the session's transcript file under `~/.claude/projects` still records a submitted prompt as you typed it once, in the record of the input queue, before the plugin sees it.
+
+Function hooks are off unless `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` is set. Load the plugin for one session with `--plugin-dir`:
+
+```bash
+CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1 claude --plugin-dir ~/.agents/skills/secchain/hooks/mods
+```
+
+or for every session through the `env` block of `~/.claude/settings.json` (`CLAUDE_CODE_PLUGIN_DIRS` is read from there or from the process environment, never from a project's settings):
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1",
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.agents/skills/secchain/hooks/mods"
+  }
+}
+```
+
+Use the path of an installation outside the repository, for the same reason as the hook's. `make test-hooks` checks the plugin with `claude plugin validate` and `claude plugin test`, against a stand-in for `secchain mask`; the plugin was written against Claude Code 2.1.283, and the API may change between releases.
 
 ## Development
 
@@ -300,10 +345,10 @@ Tests are split by what they need to run, so that most of them run anywhere whil
 | Layer | Command | Runs where | Covers |
 | --- | --- | --- | --- |
 | Unit tests | `make test` | Anywhere, including CI on pull requests from forks | Everything that can be decided without the system Keychain: repository identity, the `.secchain` and `~/.secchain` files, which scopes a repository gets and the order a name is taken in, the rules of `SecretStore` (protection levels, authentication, synchronization), the environment `run` builds, the error translation, and the assertions that a value never appears in a description or a log. They run against an in-memory Keychain double (`InMemorySecretKeychain`) and an authenticator double, so no prompt appears |
-| Signed integration tests | `make test-integration` | A Mac with the team's signing identity (not CI, because a runner has none) | The real data protection keychain, exercised by the signed binaries themselves: the app and the embedded tool read and write each other's items, a repository scope and a custom scope go through the same round trip, a device-bound item is refused without user interaction and a scope keeps its device-bound values apart from a repository of the same name, the secrets of an environment are listed, read, and moved into it, and a device-bound one is not moved without user interaction, an unsigned `swift build` product fails with `errSecMissingEntitlement`, the command-line tool end to end including scopes and environments (`scripts/test/cli.sh`), and both binaries reaching SecChain's CloudKit container (the Mac must be signed in to iCloud) |
+| Signed integration tests | `make test-integration` | A Mac with the team's signing identity (not CI, because a runner has none) | The real data protection keychain, exercised by the signed binaries themselves: the app and the embedded tool read and write each other's items, a repository scope and a custom scope go through the same round trip, a device-bound item is refused without user interaction and a scope keeps its device-bound values apart from a repository of the same name, the secrets of an environment are listed, read, and moved into it, and a device-bound one is not moved without user interaction, an unsigned `swift build` product fails with `errSecMissingEntitlement`, the command-line tool end to end including scopes, environments, and `mask` (`scripts/test/cli.sh`), and both binaries reaching SecChain's CloudKit container (the Mac must be signed in to iCloud) |
 | Manual checks | — | Two Macs and an iPhone on one Apple Account | What no automated run can reach: actual iCloud Keychain propagation between devices, and answering a Touch ID / Face ID prompt. Tracked in the pre-release checklist issue |
 
-`make test-integration` builds the app first, then runs `scripts/test/integration.sh` with the embedded tool of that build. It stores only its own throwaway values (`dummy-value-for-…`) under throwaway repository identifiers, a throwaway custom scope, and one throwaway name in the user scope, which never gets an environment, uses a throwaway `~/.secchain`, and deletes them again, so it does not touch secrets you keep.
+`make test-integration` builds the app first, then runs `scripts/test/integration.sh` with the embedded tool of that build. It stores only its own throwaway values (`dummy-value-for-…`) under throwaway repository identifiers, a throwaway custom scope, and one throwaway name in the user scope, which never gets an environment, uses a throwaway `~/.secchain`, and deletes them again, so it does not touch secrets you keep. One of those values is stored at the `confirm` level for `mask`, so deleting it asks for Touch ID or your password (or the paired iPhone) once.
 
 Where each requirement of the project is covered is listed in [`documents/test-coverage.md`](documents/test-coverage.md).
 
