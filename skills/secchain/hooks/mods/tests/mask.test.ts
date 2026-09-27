@@ -139,6 +139,12 @@ describe('tool.call', () => {
     expect(ran).toEqual({ deny: 'failed with ***' })
   })
 
+  test('an error without text is judged by its record and its context', async ($, on) => {
+    fakeHost(on, { isInstalled: true })
+    on('tool.call', () => ({ isError: true, result: 'failed', context: [`note ${DUMMY_VALUE}`] }))
+    expect(await $.tool.call({ tool: 'Bash', command: 'false' })).toEqual({ deny: 'failed\n\nnote ***' })
+  })
+
   test('a refusal from beneath with the value reaches the model masked', async ($, on) => {
     fakeHost(on, { isInstalled: true })
     on('tool.call', () => ({ deny: `refused ${DUMMY_VALUE}` }))

@@ -144,7 +144,7 @@ printf '%s' "$text" | secchain mask             # the repository of the current 
 printf '%s' "$text" | secchain mask --env prod  # only the values of one environment
 ```
 
-`secchain mask` looks only for *standard* secrets, because reading a `confirm` or `device-bound` value asks for authentication, and says on standard error which secrets it leaves out. Values shorter than 8 characters are not looked for. The plugin never holds a value: `secchain` does the matching and hands back the masked text. It runs next to the hook, not instead of it: install both.
+`secchain mask` looks only for *standard* secrets, because reading a `confirm` or `device-bound` value asks for authentication, and says on standard error which secrets it leaves out. Values shorter than 8 characters are not looked for. The plugin never reads a stored value or matches one itself: it hands the text, which may contain a value, to `secchain`, which does the matching and hands back the masked text. It runs next to the hook, not instead of it: install both.
 
 Function hooks need `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`. Load the plugin for one session with `claude --plugin-dir <skill directory>/hooks/mods`, or for every session through the `env` block of `~/.claude/settings.json` (never a project's settings, which Claude Code does not read for this):
 

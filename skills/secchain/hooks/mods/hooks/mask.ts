@@ -138,11 +138,9 @@ export const register: Register = on => {
     const ran = await next(e)
     if (ran.isError === true) {
       // A hook cannot answer an error itself; a deny is what the model reads as one.
-      if (ran.text === undefined) {
-        return ran
-      }
-      const text = await maskedText($, ran.text)
-      return text === ran.text ? ran : { deny: text }
+      const errorTexts = [ran.text ?? textsOf(ran.result).join('\n'), ...(ran.context ?? [])]
+      const maskedErrorTexts = await maskedTexts($, errorTexts)
+      return hasChanged(errorTexts, maskedErrorTexts) ? { deny: maskedErrorTexts.join('\n\n') } : ran
     }
     if (ran.deny !== undefined) {
       // A refusal from beneath reaches the model as an error text too.
