@@ -131,6 +131,34 @@ Where the configuration goes matters for the same reason. A hook in the project'
 
 Codex CLI sends the same hook input and reads the same decision from standard output, so the script runs there too, from `~/.codex/hooks.json` or `<repository>/.codex/hooks.json` (or an inline `[hooks]` table in `config.toml`). What it covers there is narrower: Codex matches a shell call as `Bash` with the command in `tool_input.command`, which is the half of this hook that works, and it has no `Read` tool — a file read goes through an MCP tool under that tool's own name (`mcp__filesystem__read_file`), which this hook neither matches nor knows how to read. On Codex, treat it as a guard on shell commands only ([Codex hooks](https://learn.chatgpt.com/docs/hooks), "Tool coverage"). Codex also runs a hook from any of those files only after it is trusted: it records trust against the hook definition's hash, so a new or changed definition is skipped until it is reviewed with `/hooks` in the CLI, and `<repository>/.codex/hooks.json` loads only when the project's `.codex/` layer is trusted as well. Until that step the guard is configured but inactive ([Codex hooks](https://learn.chatgpt.com/docs/hooks), "Review and trust hooks").
 
+## Masking what the model reads: the Claude Mods plugin
+
+The hook stops the calls that reach for a value; it cannot stop a value the user pastes into a prompt, one that appears in a tool result, or a command that gets past its parsing. `hooks/mods` is a Claude Code plugin of function hooks (Claude Mods, early access) that passes every text the model is about to read through `secchain mask`, which replaces the values of the repository's secrets with `***`:
+
+- the submitted prompt (`prompt.submit`);
+- every tool result, a subagent's included (`tool.call`), and the error text of a failed call;
+- the texts Claude Code adds: system prompt sections (`prompt.section`), the first message's context blocks such as `CLAUDE.md` (`prompt.context`), and injected messages such as an `@`-mentioned file (`prompt.attachment`).
+
+```bash
+printf '%s' "$text" | secchain mask             # the repository of the current directory
+printf '%s' "$text" | secchain mask --env prod  # only the values of one environment
+```
+
+`secchain mask` looks only for *standard* secrets, because reading a `confirm` or `device-bound` value asks for authentication, and says on standard error which secrets it leaves out. Values shorter than 8 characters are not looked for. The plugin never reads a stored value or matches one itself: it hands the text, which may contain a value, to `secchain`, which does the matching and hands back the masked text. It runs next to the hook, not instead of it: install both.
+
+Function hooks need `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1`. Load the plugin for one session with `claude --plugin-dir <skill directory>/hooks/mods`, or for every session through the `env` block of `~/.claude/settings.json` (never a project's settings, which Claude Code does not read for this):
+
+```json
+{
+  "env": {
+    "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1",
+    "CLAUDE_CODE_PLUGIN_DIRS": "~/.agents/skills/secchain/hooks/mods"
+  }
+}
+```
+
+A tool result that held a value arrives as an error starting with `secchain-mask: the tool ran.`: the tool did run, and what follows is its output. When a prompt, a file, or a command's output shows `***` where you expected a value, SecChain masked it on purpose. Do not try to recover the value (reading the file another way, printing it in pieces, encoding it): run the command that needs it through `secchain run` instead.
+
 ## Checking what is available
 
 ```bash

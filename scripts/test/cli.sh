@@ -4,6 +4,8 @@
 # values, and deletes what it stored. The user scope is the real one, because the Keychain is not
 # kept per $HOME: the checks store one throwaway name there, run with '--only' that name while the
 # user scope is allowed, so that no other secret of the user scope is read, and delete it.
+# One secret is stored at the confirm level, for `mask`, and deleting it asks for authentication:
+# the checks need someone at the Mac (or at the paired iPhone) for that one prompt.
 #
 # The value is never echoed by this script: assertions about it run inside the child process or
 # search the captured output for it.
@@ -16,6 +18,7 @@ set -euo pipefail
 SECCHAIN="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
 DUMMY_VALUE="dummy-value-for-cli-test"
 OTHER_DUMMY_VALUE="other-dummy-value-for-cli-test"
+CONFIRM_DUMMY_VALUE="confirm-level-value-for-cli-test"
 WORK_DIRECTORY="$(mktemp -d)"
 CAPTURED_OUTPUT="${WORK_DIRECTORY}/captured-output.log"
 # secchain reads ~/.secchain from $HOME, so the user's own file is never read or changed here.
@@ -45,6 +48,7 @@ cleanup() {
     cd "${REPOSITORY_DIRECTORY}" || exit 0
     "${SECCHAIN}" delete CLI_TEST_KEY
     "${SECCHAIN}" delete CLI_TEST_SHARED_KEY
+    "${SECCHAIN}" delete CLI_TEST_CONFIRM_KEY
     "${SECCHAIN}" delete CLI_TEST_SCOPE_KEY --scope "${SCOPE}"
     "${SECCHAIN}" delete CLI_TEST_SHARED_KEY --scope "${SCOPE}"
     "${SECCHAIN}" delete "${USER_SCOPE_KEY}" --scope user ${USER_SCOPE_ENVIRONMENT_OPTION}
@@ -143,6 +147,18 @@ capture "${SECCHAIN}" run --only CLI_TEST_MISSING_KEY -- true
 [ "${LAST_STATUS}" -ne 0 ] || fail "run --only succeeded for a secret without a value"
 sed -i '' '/^CLI_TEST_MISSING_KEY$/d' .secchain
 
+echo "== mask replaces a standard secret's value in standard input"
+set +e
+MASKED="$(printf 'token=%s;\nnext line' "${DUMMY_VALUE}" | "${SECCHAIN}" mask 2>> "${CAPTURED_OUTPUT}")"
+LAST_STATUS=$?
+set -e
+printf '%s\n' "${MASKED}" >> "${CAPTURED_OUTPUT}"
+[ "${LAST_STATUS}" -eq 0 ] || fail "mask exited with ${LAST_STATUS}"
+[ "${MASKED}" = "token=***;"$'\n'"next line" ] || fail "mask did not replace the value (${#MASKED} characters out)"
+[ "$(printf '%s %s' "${DUMMY_VALUE}" "${DUMMY_VALUE}" | "${SECCHAIN}" mask --count 2>&1 > /dev/null)" = "secchain: masked 2" ] \
+  || fail "mask --count did not report the number of replacements"
+[ "$(printf 'nothing secret' | "${SECCHAIN}" mask 2>> "${CAPTURED_OUTPUT}")" = "nothing secret" ] || fail "mask changed a text without a value"
+
 echo "== .secchain cannot name the repository any more"
 cp .secchain "${WORK_DIRECTORY}/secchain.backup"
 printf '@repository github.com/secchain-cli-test/anything\n' >> .secchain
@@ -225,6 +241,18 @@ printf '%s' "${LAST_OUTPUT}" | grep -q "cannot be a repository identifier" || fa
 echo "== in the home directory, ~/.secchain is not read as a repository's .secchain"
 (cd "${HOME}" && "${SECCHAIN}" run --repository "${REPOSITORY}" -- true) >> "${CAPTURED_OUTPUT}" 2>&1 \
   || fail "run in the home directory read ~/.secchain as the repository's .secchain"
+
+echo "== mask copies the text unchanged where no repository can be identified, and says why"
+set +e
+MASKED="$(cd "${WORK_DIRECTORY}" && printf 'token=%s;' "${DUMMY_VALUE}" | "${SECCHAIN}" mask 2> "${WORK_DIRECTORY}/mask-stderr.log")"
+LAST_STATUS=$?
+set -e
+cat "${WORK_DIRECTORY}/mask-stderr.log" >> "${CAPTURED_OUTPUT}"
+[ "${LAST_STATUS}" -eq 0 ] || fail "mask exited with ${LAST_STATUS} outside a repository"
+[ "${MASKED}" = "token=${DUMMY_VALUE};" ] || fail "mask did not copy the text unchanged outside a repository"
+grep -q "is not inside a Git repository.* Nothing was masked" "${WORK_DIRECTORY}/mask-stderr.log" \
+  || fail "mask did not say why nothing was masked"
+MASKED=""
 
 echo "== --repository in another letter case names the repository its remote identifies"
 # The repository's secret was stored under the lowercase identifier its remote gives it.
@@ -316,6 +344,13 @@ EXPECTED_VALUE="${OTHER_DUMMY_VALUE}" capture "${SECCHAIN}" run --env prod -- sh
 [ "$("${SECCHAIN}" list --env prod | tr '\n' ' ')" = "CLI_TEST_ENV_KEY_A CLI_TEST_ENV_KEY_B " ] || fail "list --env prod did not print the names of prod"
 "${SECCHAIN}" list --envs | grep -qx "repository"$'\t'"local prod"$'\t'"0 without an environment" || fail "list --envs did not show both environments"
 
+echo "== mask looks for every environment's values, and for one environment's with --env"
+# OTHER_DUMMY_VALUE contains DUMMY_VALUE, so the prod value is half hidden by the local one alone.
+[ "$(printf 'a=%s b=%s' "${DUMMY_VALUE}" "${OTHER_DUMMY_VALUE}" | "${SECCHAIN}" mask 2>> "${CAPTURED_OUTPUT}")" = "a=*** b=***" ] \
+  || fail "mask without --env did not hide the values of every environment"
+[ "$(printf 'a=%s b=%s' "${DUMMY_VALUE}" "${OTHER_DUMMY_VALUE}" | "${SECCHAIN}" mask --env local 2>> "${CAPTURED_OUTPUT}")" = "a=*** b=other-***" ] \
+  || fail "mask --env local did not look for the local values alone"
+
 echo "== deleting the value of one environment keeps the declaration the other still needs"
 capture "${SECCHAIN}" delete CLI_TEST_ENV_KEY_A --env prod
 [ "${LAST_STATUS}" -eq 0 ] || fail "delete --env prod exited with ${LAST_STATUS}"
@@ -339,7 +374,24 @@ capture_output "${SECCHAIN}" list --repository "${ENVIRONMENT_REPOSITORY}#prod"
 printf '%s' "${LAST_OUTPUT}" | grep -q "cannot be a repository identifier" || fail "the refusal of '#' did not say why"
 cd "${REPOSITORY_DIRECTORY}"
 
+echo "== mask leaves a confirm secret's value in place and names the secret on standard error"
+# Last, because deleting a confirm secret asks for authentication (Touch ID or the password, or the
+# paired iPhone where that is the default): the one prompt of these checks.
+capture sh -c "printf '%s\n' '${CONFIRM_DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_CONFIRM_KEY --level confirm --no-sync"
+[ "${LAST_STATUS}" -eq 0 ] || fail "set --level confirm exited with ${LAST_STATUS}"
+set +e
+# The unmasked value goes straight into grep, never into a variable or a file.
+printf 'token=%s;' "${CONFIRM_DUMMY_VALUE}" | "${SECCHAIN}" mask 2> "${WORK_DIRECTORY}/mask-stderr.log" | grep -qF "token=${CONFIRM_DUMMY_VALUE};"
+LAST_STATUS=$?
+set -e
+cat "${WORK_DIRECTORY}/mask-stderr.log" >> "${CAPTURED_OUTPUT}"
+[ "${LAST_STATUS}" -eq 0 ] || fail "mask changed the value of a confirm secret, or failed"
+grep -qx "secchain: CLI_TEST_CONFIRM_KEY is confirm, so mask does not look for its value." "${WORK_DIRECTORY}/mask-stderr.log" \
+  || fail "mask did not name the confirm secret it leaves out"
+capture "${SECCHAIN}" delete CLI_TEST_CONFIRM_KEY
+[ "${LAST_STATUS}" -eq 0 ] || fail "delete of the confirm secret exited with ${LAST_STATUS}"
+
 echo "== the values appear in no output and in no file of the working directory or ~/.secchain"
-! grep -rqF -e "${DUMMY_VALUE}" -e "${OTHER_DUMMY_VALUE}" "${WORK_DIRECTORY}" || fail "a value leaked into the captured output or a file"
+! grep -rqF -e "${DUMMY_VALUE}" -e "${OTHER_DUMMY_VALUE}" -e "${CONFIRM_DUMMY_VALUE}" "${WORK_DIRECTORY}" || fail "a value leaked into the captured output or a file"
 
 echo "PASS (cli)"

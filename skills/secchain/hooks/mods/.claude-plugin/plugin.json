@@ -1,0 +1,7 @@
+{
+  "name": "secchain-mask",
+  "version": "0.1.0",
+  "description": "Hides SecChain's secret values in prompts, tool results and instructions before the model reads them, through secchain mask.",
+  "author": { "name": "bannzai" },
+  "license": "MIT"
+}

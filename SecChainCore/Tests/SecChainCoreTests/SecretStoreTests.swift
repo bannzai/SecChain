@@ -128,6 +128,15 @@ struct SecretStoreTests {
     }
 
     @Test
+    func maskReadsOnlyStandardValuesAndNeverAuthenticates() async throws {
+        try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .confirm, isSynchronized: nil)
+        try await store.set(name: try name("B"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .deviceBound, isSynchronized: nil)
+        try await store.set(name: try name("C"), value: otherDummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .standard, isSynchronized: nil)
+        #expect(try store.standardValues(storedSecrets: try store.storedSecrets(scope: .repository(repositoryA))) == [otherDummyValue])
+        #expect(authenticator.reasons.isEmpty)
+    }
+
+    @Test
     func listingNeverAuthenticatesAndCarriesNoValue() async throws {
         try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .deviceBound, isSynchronized: nil)
         try await store.set(name: try name("B"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .confirm, isSynchronized: nil)

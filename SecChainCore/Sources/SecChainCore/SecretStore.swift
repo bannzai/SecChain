@@ -105,6 +105,16 @@ public struct SecretStore: Sendable {
         )
     }
 
+    /// Values for `secchain mask`: those of the `standard` secrets among `storedSecrets`. Never
+    /// authenticates: `mask` runs on every prompt and tool result an agent reads, and a prompt on
+    /// each would make it unusable, so a secret of another level is left out rather than read
+    /// (documents/PROJECT.md, design decision 8).
+    public func standardValues(storedSecrets: [StoredSecret]) throws -> [SecretValue] {
+        try storedSecrets
+            .filter { $0.protectionLevel == .standard }
+            .map { try keychain.value(storedSecret: $0, ownerAuthentication: nil) }
+    }
+
     /// The value for an explicit reveal in an app. Always authenticates, whatever the level,
     /// because putting a value on screen is the most exposed thing SecChain does.
     public func revealedValue(name: SecretName, scope: SecretScope, environment: SecretEnvironment?) async throws -> SecretValue {
