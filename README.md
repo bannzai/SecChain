@@ -26,7 +26,7 @@ ln -sf /Applications/SecChain.app/Contents/Helpers/secchain.app/Contents/MacOS/s
 
 Either way it is a symlink into the app bundle, not a second, separately signed copy of the tool.
 
-The iOS app is distributed through the App Store once published; it manages the same iCloud-synchronized secrets from an iPhone or iPad, answers the authentications of a paired Mac (see "Remote approval"), and has no command-line equivalent.
+The iOS app is distributed through the App Store once published; it manages the same iCloud-synchronized secrets from an iPhone or iPad, answers the authentications of a paired Mac (see "Remote approval"), and has no command-line equivalent. Until then, a developer with the team's signing identity installs a Debug build on a connected iPhone or iPad with `make ios-device` (pass `DEVICE_UDID=<UDID>` when more than one is connected).
 
 ## Initial setup
 
@@ -354,7 +354,7 @@ Where each requirement of the project is covered is listed in [`documents/test-c
 
 ### Verification commands
 
-`AGENTS.md` lists the commands used while changing the project (`make build-macos`, `make build-ios`, `make macos`, `make cli`, and how screens are checked).
+`AGENTS.md` lists the commands used while changing the project (`make build-macos`, `make build-ios`, `make macos`, `make cli`, `make ios-device`, and how screens are checked).
 
 ## More
 

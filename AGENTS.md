@@ -18,6 +18,7 @@ Run these after every change, save the full output under `./tmp/`, and inspect t
 | `make build-macos` | Build the macOS app together with the embedded command-line tool (`-derivedDataPath tmp/DerivedData`) |
 | `make build-ios` | Build the iOS app for the generic iOS Simulator destination |
 | `make ios` | Build, install, and launch the iOS app on the project's simulator (started through `sim-boot`) |
+| `make ios-device` | Build the iOS app for a physical device (`make build-ios-device`), then install and launch it on the connected iPhone or iPad, or on the one passed as `DEVICE_UDID=<UDID>`. Needed for what only a real device reaches: iCloud Keychain sync and answering a remote approval with Face ID |
 | `make test` | Unit tests. They use an in-memory Keychain double and need no signing identity, so they also run in CI |
 | `make check-localization` | Every text of the apps is in the String Catalog (`SecChainCore/Sources/SecChainUI/Resources/Localizable.xcstrings`) with a Japanese translation and is looked up in the right bundle. Also runs in CI |
 | `make test-hooks` | The Claude Code hooks shipped with the agent skill (`skills/secchain/hooks/`): the guard, against the calls it has to stop and the ones it has to let through, and the Claude Mods plugin that masks values, through `claude plugin validate` and `claude plugin test` (needs `claude` on PATH). Also runs in CI |
