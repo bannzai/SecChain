@@ -90,7 +90,7 @@ ios-device:
 	device_udid="$(DEVICE_UDID)"; \
 	if [ -z "$$device_udid" ]; then \
 		devices=$$(xcrun devicectl list devices --quiet --omit-deprecated-fields-in-json --json-output - \
-			| jq -r '.result.devices[] | select(.properties.hardware.reality == "physical" and (.properties.connection.state == "connected" or .properties.connection.state == "available")) | "\(.properties.hardware.udid)\t\(.properties.state.name)"'); \
+			| jq -r '.result.devices[] | select(.properties.hardware.reality == "physical" and (.properties.hardware.deviceType == "iPhone" or .properties.hardware.deviceType == "iPad") and (.properties.connection.state == "connected" or .properties.connection.state == "available")) | "\(.properties.hardware.udid)\t\(.properties.state.name)"'); \
 		case $$(printf '%s' "$$devices" | grep -c .) in \
 		0) echo "Error: no iPhone or iPad is connected. Connect one over USB or Wi-Fi and trust this Mac, or pass DEVICE_UDID=<UDID>" >&2; exit 1 ;; \
 		1) device_udid=$$(printf '%s\n' "$$devices" | cut -f 1) ;; \
