@@ -30,8 +30,12 @@ build-ios:
 	xcodebuild -project $(XCODEPROJ) -scheme SecChainiOS -configuration $(CONFIGURATION) -derivedDataPath $(DERIVED_DATA) -destination 'generic/platform=iOS Simulator' $(IOS_SIGNING_FLAGS) build
 
 # Build the iOS app for a physical iPhone or iPad, signed with the team's development profile.
+# The generic destination lets the build run with no device connected. xcodebuild registers only a
+# destination device, so `ios-device` passes id=<UDID> here to have an unregistered device
+# registered and included in the profile.
+IOS_DEVICE_DESTINATION ?= generic/platform=iOS
 build-ios-device:
-	xcodebuild -project $(XCODEPROJ) -scheme SecChainiOS -configuration $(CONFIGURATION) -derivedDataPath $(DERIVED_DATA) -destination 'generic/platform=iOS' $(SIGNING_FLAGS) build
+	xcodebuild -project $(XCODEPROJ) -scheme SecChainiOS -configuration $(CONFIGURATION) -derivedDataPath $(DERIVED_DATA) -destination '$(IOS_DEVICE_DESTINATION)' $(SIGNING_FLAGS) build
 
 # Unit tests. They use an in-memory Keychain double, so they need no signing identity.
 test:
@@ -75,9 +79,10 @@ ios: build-ios
 	xcrun simctl install "$$simulator_udid" "$(IOS_SIMULATOR_APP)"; \
 	xcrun simctl launch "$$simulator_udid" com.bannzai.SecChain
 
-# Install and launch the iOS app on the connected iPhone or iPad (resolved through devicectl and
-# jq), or on the one passed as DEVICE_UDID=<UDID>.
-ios-device: build-ios-device
+# Build, install, and launch the iOS app on the connected iPhone or iPad (resolved through
+# devicectl and jq), or on the one passed as DEVICE_UDID=<UDID>. The device is resolved before the
+# build because the build takes it as its destination.
+ios-device:
 	@set -e; \
 	device_udid="$(DEVICE_UDID)"; \
 	if [ -z "$$device_udid" ]; then \
@@ -89,6 +94,7 @@ ios-device: build-ios-device
 		*) echo "Error: more than one iPhone or iPad is connected. Pass DEVICE_UDID=<UDID> with one of them:" >&2; printf '%s\n' "$$devices" >&2; exit 1 ;; \
 		esac; \
 	fi; \
+	$(MAKE) build-ios-device IOS_DEVICE_DESTINATION="id=$$device_udid"; \
 	xcrun devicectl device install app --device "$$device_udid" "$(IOS_DEVICE_APP)"; \
 	xcrun devicectl device process launch --device "$$device_udid" com.bannzai.SecChain
 
