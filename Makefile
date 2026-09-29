@@ -14,8 +14,11 @@ LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/Launc
 SIGNING_FLAGS ?= -allowProvisioningUpdates -allowProvisioningDeviceRegistration
 IOS_SIMULATOR_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/SecChainiOS.app
 IOS_DEVICE_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphoneos/SecChainiOS.app
+# The ios-ota-install-tailscale skill of castle, where its installer puts it.
+OTA_SKILL_DIR ?= $(HOME)/.agents/skills/ios-ota-install-tailscale
+OTA_EXPORT_OUTPUT := tmp/ios-ota.out
 
-.PHONY: build-macos build-ios build-ios-device test check-localization test-hooks test-integration macos cli ios ios-device screenshots dmg clean
+.PHONY: build-macos build-ios build-ios-device test check-localization test-hooks test-integration macos cli ios ios-device ios-ota screenshots dmg clean
 
 # Build the macOS app together with the embedded command-line tool.
 build-macos:
@@ -97,6 +100,21 @@ ios-device:
 	$(MAKE) build-ios-device IOS_DEVICE_DESTINATION="id=$$device_udid"; \
 	xcrun devicectl device install app --device "$$device_udid" "$(IOS_DEVICE_APP)"; \
 	xcrun devicectl device process launch --device "$$device_udid" com.bannzai.SecChain
+
+# Archive the iOS app and publish it for over-the-air installation on an iPhone in the same tailnet,
+# through the ios-ota-install-tailscale skill of castle. Starting the server (`ota-serve.sh up`) is
+# the skill's own step, so this target only checks that it is serving. OTA_SLACK_CHANNEL=<channel>
+# also posts the install page to Slack.
+ios-ota:
+	@set -eo pipefail; \
+	[ -d "$(OTA_SKILL_DIR)" ] || { echo "Error: the ios-ota-install-tailscale skill of castle is required, and it was not found at $(OTA_SKILL_DIR) (pass OTA_SKILL_DIR=<path> if it is elsewhere)" >&2; exit 1; }; \
+	serve_status=$$(bash "$(OTA_SKILL_DIR)/scripts/ota-serve.sh" status 2>&1) || { printf '%s\n' "$$serve_status" >&2; echo "Error: the OTA server is not ready. Set it up with the ios-ota-install-tailscale skill (ota-serve.sh up)" >&2; exit 1; }; \
+	mkdir -p $(dir $(OTA_EXPORT_OUTPUT)); \
+	bash "$(OTA_SKILL_DIR)/scripts/ota-export.sh" --project $(XCODEPROJ) --scheme SecChainiOS --slug secchain | tee $(OTA_EXPORT_OUTPUT); \
+	page_url=$$(sed -n 's/^PAGE_URL=//p' $(OTA_EXPORT_OUTPUT)); \
+	[ -n "$$page_url" ] || { echo "Error: ota-export.sh did not print PAGE_URL" >&2; exit 1; }; \
+	[ -z "$(OTA_SLACK_CHANNEL)" ] || bash "$(OTA_SKILL_DIR)/scripts/ota-notify.sh" --url "$$page_url" --channel "$(OTA_SLACK_CHANNEL)"; \
+	grep -E '^(PAGE_URL|INSTALL_URL)=' $(OTA_EXPORT_OUTPUT)
 
 # The App Store screenshots of the iOS app, for every language and device class, into
 # fastlane/screenshots (scripts/generate_screenshots/README.md). Runs simulators, so not in CI.
