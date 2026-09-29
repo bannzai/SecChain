@@ -13,8 +13,9 @@ LSREGISTER := /System/Library/Frameworks/CoreServices.framework/Frameworks/Launc
 # signing settings (see .github/workflows/ci.yml).
 SIGNING_FLAGS ?= -allowProvisioningUpdates -allowProvisioningDeviceRegistration
 IOS_SIMULATOR_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphonesimulator/SecChainiOS.app
+IOS_DEVICE_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphoneos/SecChainiOS.app
 
-.PHONY: build-macos build-ios test check-localization test-hooks test-integration macos cli ios screenshots dmg clean
+.PHONY: build-macos build-ios build-ios-device test check-localization test-hooks test-integration macos cli ios ios-device screenshots dmg clean
 
 # Build the macOS app together with the embedded command-line tool.
 build-macos:
@@ -27,6 +28,10 @@ build-macos:
 IOS_SIGNING_FLAGS ?=
 build-ios:
 	xcodebuild -project $(XCODEPROJ) -scheme SecChainiOS -configuration $(CONFIGURATION) -derivedDataPath $(DERIVED_DATA) -destination 'generic/platform=iOS Simulator' $(IOS_SIGNING_FLAGS) build
+
+# Build the iOS app for a physical iPhone or iPad, signed with the team's development profile.
+build-ios-device:
+	xcodebuild -project $(XCODEPROJ) -scheme SecChainiOS -configuration $(CONFIGURATION) -derivedDataPath $(DERIVED_DATA) -destination 'generic/platform=iOS' $(SIGNING_FLAGS) build
 
 # Unit tests. They use an in-memory Keychain double, so they need no signing identity.
 test:
@@ -69,6 +74,23 @@ ios: build-ios
 	[ -n "$$simulator_udid" ] || { echo "Error: sim-boot could not resolve a simulator (check that sim-boot is on PATH, or pass SIMULATOR_UDID=<UDID>)" >&2; exit 1; }; \
 	xcrun simctl install "$$simulator_udid" "$(IOS_SIMULATOR_APP)"; \
 	xcrun simctl launch "$$simulator_udid" com.bannzai.SecChain
+
+# Install and launch the iOS app on the connected iPhone or iPad (resolved through devicectl and
+# jq), or on the one passed as DEVICE_UDID=<UDID>.
+ios-device: build-ios-device
+	@set -e; \
+	device_udid="$(DEVICE_UDID)"; \
+	if [ -z "$$device_udid" ]; then \
+		devices=$$(xcrun devicectl list devices --quiet --omit-deprecated-fields-in-json --json-output - \
+			| jq -r '.result.devices[] | select(.properties.hardware.reality == "physical" and (.properties.connection.state == "connected" or .properties.connection.state == "available")) | "\(.properties.hardware.udid)\t\(.properties.state.name)"'); \
+		case $$(printf '%s' "$$devices" | grep -c .) in \
+		0) echo "Error: no iPhone or iPad is connected. Connect one over USB or Wi-Fi and trust this Mac, or pass DEVICE_UDID=<UDID>" >&2; exit 1 ;; \
+		1) device_udid=$$(printf '%s\n' "$$devices" | cut -f 1) ;; \
+		*) echo "Error: more than one iPhone or iPad is connected. Pass DEVICE_UDID=<UDID> with one of them:" >&2; printf '%s\n' "$$devices" >&2; exit 1 ;; \
+		esac; \
+	fi; \
+	xcrun devicectl device install app --device "$$device_udid" "$(IOS_DEVICE_APP)"; \
+	xcrun devicectl device process launch --device "$$device_udid" com.bannzai.SecChain
 
 # The App Store screenshots of the iOS app, for every language and device class, into
 # fastlane/screenshots (scripts/generate_screenshots/README.md). Runs simulators, so not in CI.
