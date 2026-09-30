@@ -216,9 +216,14 @@ allowed Bash command "openssl rand -hex 32 | secchain set SESSION_SECRET --level
 # An echo in another pipeline of the line feeds nothing into the set.
 allowed Bash command "echo 'storing'; openssl rand -hex 32 | secchain set SESSION_SECRET"
 allowed Bash command "echo 'storing'"$'\n'"openssl rand -hex 32 | secchain set SESSION_SECRET"
-# The lines after a here-document are commands again.
+# The lines after a here-document are commands again, whatever its delimiter.
 allowed Bash command "cat <<'EOF' > notes.txt"$'\n'"it's \"quoted\""$'\n'"EOF"$'\n'"openssl rand -hex 32 | secchain set SESSION_SECRET"
 denied Bash command "cat <<'EOF' > notes.txt"$'\n'"it's"$'\n'"EOF"$'\n'"cat .env"
+denied Bash command "cat <<EOF-NOTES > notes.txt"$'\n'"it's"$'\n'"EOF-NOTES"$'\n'"cat .env"
+# A shell may run the text of a here-document, so what it would run is checked too.
+denied Bash command "bash <<'EOF'"$'\n'"cat .env"$'\n'"EOF"
+denied Bash command "bash <<'EOF'"$'\n'"echo \"it's"$'\n'"cat .env"$'\n'"EOF"
+denied Bash command "cat <<EOF > notes.txt"$'\n'"\$(cat .env)"$'\n'"EOF"
 # A backslash before the newline continues the command instead of ending it.
 allowed Bash command "op read 'op://vault/item/credential' \\"$'\n'"  | secchain set OPENAI_API_KEY --scope user"
 

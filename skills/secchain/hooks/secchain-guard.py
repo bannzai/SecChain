@@ -24,8 +24,9 @@ import sys
 ENV_FILE_NAME = re.compile(r"^\.env(\..+)?$")
 VARIABLE_REFERENCE = re.compile(r"\$\{?[A-Za-z_][A-Za-z0-9_]*")
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
-# `<<EOF`, `<<-EOF`, `<< 'EOF'`, `<<"EOF"`: a here-document and its delimiter, not a here-string.
-HERE_DOCUMENT = re.compile(r"(?<!<)<<(-?)(?!<)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
+# `<<EOF`, `<<-EOF`, `<< 'EOF'`, `<<"END-OF-NOTES"`: a here-document and its whole delimiter, not a
+# here-string.
+HERE_DOCUMENT = re.compile(r"(?<!<)<<(-?)(?!<)[ \t]*(['\"]?)([^\s'\"<>|&;()]+)\2")
 
 # Commands whose output is the environment itself, so that the value of every secret of the run
 # reaches whoever reads the output.
@@ -98,33 +99,60 @@ class Command:
         return os.path.basename(self.words[0]) if self.words else ""
 
 
-def without_here_document_bodies(line):
-    """The line without the text of its here-documents: that text is data rather than shell syntax,
-    and an unbalanced quote in it would stop the tokenizer. The operator and the delimiter stay, so
-    that the command is still known to read text written in the line."""
+def separate_here_document_bodies(line):
+    """The line without the text of its here-documents, and the lines of that text, or `None` when a
+    here-document has no line that ends it. The operator and the delimiter stay in the line, so that
+    the command is still known to read text written in the line."""
     kept = []
+    body_lines = []
     delimiters = []
     for physical_line in line.split("\n"):
         if delimiters:
             strips_tabs, delimiter = delimiters[0]
             if (physical_line.lstrip("\t") if strips_tabs else physical_line) == delimiter:
                 delimiters.pop(0)
+            else:
+                body_lines.append(physical_line)
             continue
         kept.append(physical_line)
         delimiters = [(match.group(1) == "-", match.group(3)) for match in HERE_DOCUMENT.finditer(physical_line)]
-    return "\n".join(kept)
+    if delimiters:
+        return None
+    return "\n".join(kept), body_lines
+
+
+def lex(text):
+    """The tokens of `text` as `tokenize` describes them. Raises `ValueError` for a quote that is
+    never closed."""
+    lexer = shlex.shlex(text.replace("\\\n", " "), posix=True, punctuation_chars="();<>|&\n")
+    lexer.whitespace_split = True
+    lexer.whitespace = " \t\r"
+    return list(lexer)
 
 
 def tokenize(line):
     """The words and the operators of a shell line, with quotes resolved the way a shell resolves
     them, so that `sh -c '...'` arrives as one token. A newline outside quotes is an operator, which
-    ends a command the way `;` does, and a backslash before one continues the line instead."""
-    lexer = shlex.shlex(
-        without_here_document_bodies(line).replace("\\\n", " "), posix=True, punctuation_chars="();<>|&\n"
-    )
-    lexer.whitespace_split = True
-    lexer.whitespace = " \t\r"
-    return list(lexer)
+    ends a command the way `;` does, and a backslash before one continues the line instead.
+
+    The text of a here-document is read like the rest of the line, one command per line, because a
+    shell may run it (`bash <<EOF`, `$(...)` in it). A quote in it that is never closed, which is
+    fine in a here-document, stops the tokenizer, so then the text is read line by line after the
+    rest of the line, and a line of it that cannot be read is skipped."""
+    try:
+        return lex(line)
+    except ValueError:
+        separated = separate_here_document_bodies(line)
+        if separated is None:
+            raise
+        line_without_bodies, body_lines = separated
+        tokens = lex(line_without_bodies)
+        for body_line in body_lines:
+            try:
+                tokens += ["\n"] + lex(body_line)
+            except ValueError:
+                continue
+        return tokens
 
 
 def split_into_commands(tokens):
