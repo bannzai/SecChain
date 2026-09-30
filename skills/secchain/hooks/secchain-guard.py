@@ -24,6 +24,8 @@ import sys
 ENV_FILE_NAME = re.compile(r"^\.env(\..+)?$")
 VARIABLE_REFERENCE = re.compile(r"\$\{?[A-Za-z_][A-Za-z0-9_]*")
 ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+# `<<EOF`, `<<-EOF`, `<< 'EOF'`, `<<"EOF"`: a here-document and its delimiter, not a here-string.
+HERE_DOCUMENT = re.compile(r"(?<!<)<<(-?)(?!<)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
 
 # Commands whose output is the environment itself, so that the value of every secret of the run
 # reaches whoever reads the output.
@@ -96,11 +98,30 @@ class Command:
         return os.path.basename(self.words[0]) if self.words else ""
 
 
+def without_here_document_bodies(line):
+    """The line without the text of its here-documents: that text is data rather than shell syntax,
+    and an unbalanced quote in it would stop the tokenizer. The operator and the delimiter stay, so
+    that the command is still known to read text written in the line."""
+    kept = []
+    delimiters = []
+    for physical_line in line.split("\n"):
+        if delimiters:
+            strips_tabs, delimiter = delimiters[0]
+            if (physical_line.lstrip("\t") if strips_tabs else physical_line) == delimiter:
+                delimiters.pop(0)
+            continue
+        kept.append(physical_line)
+        delimiters = [(match.group(1) == "-", match.group(3)) for match in HERE_DOCUMENT.finditer(physical_line)]
+    return "\n".join(kept)
+
+
 def tokenize(line):
     """The words and the operators of a shell line, with quotes resolved the way a shell resolves
     them, so that `sh -c '...'` arrives as one token. A newline outside quotes is an operator, which
     ends a command the way `;` does, and a backslash before one continues the line instead."""
-    lexer = shlex.shlex(line.replace("\\\n", " "), posix=True, punctuation_chars="();<>|&\n")
+    lexer = shlex.shlex(
+        without_here_document_bodies(line).replace("\\\n", " "), posix=True, punctuation_chars="();<>|&\n"
+    )
     lexer.whitespace_split = True
     lexer.whitespace = " \t\r"
     return list(lexer)

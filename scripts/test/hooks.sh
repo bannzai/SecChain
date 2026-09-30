@@ -183,6 +183,10 @@ denied_set Bash command "printf '%s' the-value | secchain set OPENAI_API_KEY --s
 denied_set Bash command "secchain set OPENAI_API_KEY <<< the-value"
 denied_set Bash command "secchain set OPENAI_API_KEY <<'EOF'"$'\n'"the-value"$'\n'"EOF"
 denied_set Bash command "cat <<EOF | secchain set OPENAI_API_KEY"$'\n'"the-value"$'\n'"EOF"
+# The text of a here-document is data: a quote in it that a shell would never close is not a reason
+# to let the call through.
+denied_set Bash command "secchain set OPENAI_API_KEY <<'EOF'"$'\n'"the-value\""$'\n'"EOF"
+denied_set Bash command "secchain set OPENAI_API_KEY <<-EOF"$'\n'$'\t'"the-value'"$'\n'$'\t'"EOF"$'\n'"echo done"
 denied_set Bash command "OPENAI_API_KEY=the-value secchain set OPENAI_API_KEY --from-variable"
 denied_set Bash command "env OPENAI_API_KEY=the-value secchain set OPENAI_API_KEY --from-variable"
 denied_set Bash command "export OPENAI_API_KEY=the-value; secchain set OPENAI_API_KEY --from-variable"
@@ -212,6 +216,9 @@ allowed Bash command "openssl rand -hex 32 | secchain set SESSION_SECRET --level
 # An echo in another pipeline of the line feeds nothing into the set.
 allowed Bash command "echo 'storing'; openssl rand -hex 32 | secchain set SESSION_SECRET"
 allowed Bash command "echo 'storing'"$'\n'"openssl rand -hex 32 | secchain set SESSION_SECRET"
+# The lines after a here-document are commands again.
+allowed Bash command "cat <<'EOF' > notes.txt"$'\n'"it's \"quoted\""$'\n'"EOF"$'\n'"openssl rand -hex 32 | secchain set SESSION_SECRET"
+denied Bash command "cat <<'EOF' > notes.txt"$'\n'"it's"$'\n'"EOF"$'\n'"cat .env"
 # A backslash before the newline continues the command instead of ending it.
 allowed Bash command "op read 'op://vault/item/credential' \\"$'\n'"  | secchain set OPENAI_API_KEY --scope user"
 
