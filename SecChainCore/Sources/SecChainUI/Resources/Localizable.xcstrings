@@ -764,6 +764,16 @@
         }
       }
     },
+    "Remove from List" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一覧から外す"
+          }
+        }
+      }
+    },
     "Remove Pairing" : {
       "localizations" : {
         "ja" : {
