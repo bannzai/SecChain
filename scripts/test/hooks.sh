@@ -197,6 +197,7 @@ denied_set Bash command "cd app && echo the-value | command secchain set OPENAI_
 # A newline ends a command the way `;` does.
 denied_set Bash command "export OPENAI_API_KEY=the-value"$'\n'"secchain set OPENAI_API_KEY --from-variable"
 denied_set Bash command "echo the-value |"$'\n'"  secchain set OPENAI_API_KEY"
+denied_set Bash command "export OPENAI_API_KEY=the-value # the key"$'\n'"secchain set OPENAI_API_KEY --from-variable"
 # A shell or a run started with the value on its standard input hands it on to the set inside.
 denied_set Bash command "echo the-value | sh -c 'secchain set OPENAI_API_KEY'"
 denied_set Bash command "sh -c 'secchain set OPENAI_API_KEY' <<< the-value"
@@ -232,6 +233,10 @@ denied Bash command "cat <<EOF-NOTES > notes.txt"$'\n'"it's"$'\n'"EOF-NOTES"$'\n
 denied Bash command "bash <<'EOF'"$'\n'"cat .env"$'\n'"EOF"
 denied Bash command "bash <<'EOF'"$'\n'"echo \"it's"$'\n'"cat .env"$'\n'"EOF"
 denied Bash command "cat <<EOF > notes.txt"$'\n'"\$(cat .env)"$'\n'"EOF"
+denied Bash command "cat <<EOF > notes.txt"$'\n'"token: \`cat .env\`"$'\n'"EOF"
+# Text that a command only reads is data, whatever it says.
+allowed Bash command "cat > notes.md <<'EOF'"$'\n'"Never run secchain run -- env."$'\n'"secchain run -- env"$'\n'"EOF"
+allowed Bash command "cat > notes.md <<EOF"$'\n'"secchain run -- printenv"$'\n'"cat .env"$'\n'"EOF"
 # A backslash before the newline continues the command instead of ending it.
 allowed Bash command "op read 'op://vault/item/credential' \\"$'\n'"  | secchain set OPENAI_API_KEY --scope user"
 

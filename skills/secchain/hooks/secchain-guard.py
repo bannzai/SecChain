@@ -15,6 +15,7 @@ which leaves the normal permission flow in place.
 Usage: secchain-guard.py  (the hook input arrives on standard input)
 """
 
+import io
 import json
 import os
 import re
@@ -27,6 +28,9 @@ ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 # `<<EOF`, `<<-EOF`, `<< 'EOF'`, `<<"END-OF-NOTES"`: a here-document and its whole delimiter, not a
 # here-string.
 HERE_DOCUMENT = re.compile(r"(?<!<)<<(-?)(?!<)[ \t]*(['\"]?)([^\s'\"<>|&;()]+)\2")
+# `$(...)` and backquotes, the parts of a here-document's text that a shell runs when its
+# delimiter is not quoted.
+COMMAND_SUBSTITUTION = re.compile(r"\$\(([^()]*)\)|`([^`]*)`")
 
 # Commands whose output is the environment itself, so that the value of every secret of the run
 # reaches whoever reads the output.
@@ -99,32 +103,62 @@ class Command:
         return os.path.basename(self.words[0]) if self.words else ""
 
 
+def here_document_is_a_script(physical_line, operator_start):
+    """Whether the command that a here-document starting at `operator_start` feeds is a shell, which
+    runs the text instead of reading it as data."""
+    words = re.split(r"[|;&()]", physical_line[:operator_start])[-1].split()
+    return launched_name(words) in SHELLS
+
+
 def separate_here_document_bodies(line):
-    """The line without the text of its here-documents, and the lines of that text, or `None` when a
-    here-document has no line that ends it. The operator and the delimiter stay in the line, so that
-    the command is still known to read text written in the line."""
+    """The line without the text of its here-documents, and the lines of that text a shell runs, or
+    `None` when a here-document has no line that ends it. The operator and the delimiter stay in the
+    line, so that the command is still known to read text written in the line.
+
+    A shell runs every line of a here-document it reads as its script. Any other command reads the
+    text as data, in which only a command substitution runs, and only without quotes around the
+    delimiter."""
     kept = []
-    body_lines = []
-    delimiters = []
+    run_lines = []
+    here_documents = []
     for physical_line in line.split("\n"):
-        if delimiters:
-            strips_tabs, delimiter = delimiters[0]
+        if here_documents:
+            strips_tabs, delimiter, is_quoted, is_a_script = here_documents[0]
             if (physical_line.lstrip("\t") if strips_tabs else physical_line) == delimiter:
-                delimiters.pop(0)
-            else:
-                body_lines.append(physical_line)
+                here_documents.pop(0)
+            elif is_a_script:
+                run_lines.append(physical_line)
+            elif not is_quoted:
+                run_lines.extend(parenthesized or backquoted for parenthesized, backquoted in COMMAND_SUBSTITUTION.findall(physical_line))
             continue
         kept.append(physical_line)
-        delimiters = [(match.group(1) == "-", match.group(3)) for match in HERE_DOCUMENT.finditer(physical_line)]
-    if delimiters:
+        here_documents = [
+            (match.group(1) == "-", match.group(3), match.group(2) != "", here_document_is_a_script(physical_line, match.start()))
+            for match in HERE_DOCUMENT.finditer(physical_line)
+        ]
+    if here_documents:
         return None
-    return "\n".join(kept), body_lines
+    return "\n".join(kept), run_lines
+
+
+class LineEndKeepingStream(io.StringIO):
+    """The text of a shell line for `shlex`, whose comment handling reads to the end of the line
+    with `readline`. This `readline` stops before the newline, so that the newline still ends the
+    command the comment follows."""
+
+    def readline(self, size=-1):
+        text = self.getvalue()
+        start = self.tell()
+        end = text.find("\n", start)
+        end = len(text) if end == -1 else end
+        self.seek(end)
+        return text[start:end]
 
 
 def lex(text):
     """The tokens of `text` as `tokenize` describes them. Raises `ValueError` for a quote that is
     never closed."""
-    lexer = shlex.shlex(text.replace("\\\n", " "), posix=True, punctuation_chars="();<>|&\n")
+    lexer = shlex.shlex(LineEndKeepingStream(text.replace("\\\n", " ")), posix=True, punctuation_chars="();<>|&\n")
     lexer.whitespace_split = True
     lexer.whitespace = " \t\r"
     return list(lexer)
@@ -135,24 +169,21 @@ def tokenize(line):
     them, so that `sh -c '...'` arrives as one token. A newline outside quotes is an operator, which
     ends a command the way `;` does, and a backslash before one continues the line instead.
 
-    The text of a here-document is read like the rest of the line, one command per line, because a
-    shell may run it (`bash <<EOF`, `$(...)` in it). A quote in it that is never closed, which is
-    fine in a here-document, stops the tokenizer, so then the text is read line by line after the
-    rest of the line, and a line of it that cannot be read is skipped."""
-    try:
+    The text of a here-document is left out, apart from what a shell would run of it
+    (`separate_here_document_bodies`), which follows the rest of the line one command per line. A
+    line of that text that cannot be read is skipped, because a quote that is never closed is fine
+    in a here-document."""
+    separated = separate_here_document_bodies(line)
+    if separated is None:
         return lex(line)
-    except ValueError:
-        separated = separate_here_document_bodies(line)
-        if separated is None:
-            raise
-        line_without_bodies, body_lines = separated
-        tokens = lex(line_without_bodies)
-        for body_line in body_lines:
-            try:
-                tokens += ["\n"] + lex(body_line)
-            except ValueError:
-                continue
-        return tokens
+    line_without_bodies, run_lines = separated
+    tokens = lex(line_without_bodies)
+    for run_line in run_lines:
+        try:
+            tokens += ["\n"] + lex(run_line)
+        except ValueError:
+            continue
+    return tokens
 
 
 def split_into_commands(tokens):
