@@ -29,17 +29,21 @@ func thisMacName() -> String {
 /// Where a *confirm* authentication is answered is decided here, because only the command knows
 /// what the iPhone would be shown: the repository, the secret names, and the command the user is
 /// about to run (documents/PROJECT.md, design decision 5). `scope` is what the command acts on: the
-/// repository of `run`, or the scope of `set` / `delete`.
+/// repository of `run`, or the scope of `set` / `delete`. `authenticatesEveryLevel` is `true` for
+/// `set` and `delete`, which authenticate before replacing or removing a stored value whatever its
+/// level (`SecretStore.set`, `SecretStore.delete`), and `false` for the commands that authenticate
+/// only for a secret that is not *standard*.
 ///
-/// The pairing is only read when an authentication can actually happen, so that a repository of
-/// *standard* secrets behaves exactly as before.
+/// The pairing is only read when an authentication can actually happen, so that a command that
+/// asks for none behaves exactly as before.
 func secretStore(
     scope: SecretScope,
     requestedSecrets: [StoredSecret],
+    authenticatesEveryLevel: Bool,
     commandArguments: [String],
     approveRemotely: Bool
 ) throws -> (store: SecretStore, waitsForARemoteApproval: Bool) {
-    guard requestedSecrets.contains(where: { $0.protectionLevel != .standard }) else {
+    guard requestedSecrets.contains(where: { authenticatesEveryLevel || $0.protectionLevel != .standard }) else {
         return (SecretStore.system, false)
     }
     let enrolledPairing = try RemoteApprovalPairingStore.system.enrolledPairing()

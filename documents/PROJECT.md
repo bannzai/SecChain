@@ -35,15 +35,15 @@ User authentication (Touch ID, Apple Watch, or the login password) is opt-in per
 
 | Level | Synchronizes | When authentication is requested | Enforced by |
 | --- | --- | --- | --- |
-| Standard (default) | Yes, or *this device only* if the user turns sync off | Only when a value is revealed in an app | SecChain |
-| Confirm | Yes, or *this device only* | Additionally every time `secchain run` reads the secret, and before update / delete | SecChain (LocalAuthentication prompt shown by the command-line tool itself, or an approval from the user's paired iPhone, see "Remote approval") |
+| Standard (default) | Yes, or *this device only* if the user turns sync off | When a value is revealed in an app, and before an existing value is replaced or deleted. Never when a value is read | SecChain |
+| Confirm | Yes, or *this device only* | Additionally every time `secchain run` reads the secret | SecChain (LocalAuthentication prompt shown by the command-line tool itself, or an approval from the user's paired iPhone, see "Remote approval") |
 | Device-bound | Never | Every read, by any front end | The Keychain (`kSecAttrAccessControl` with user presence and a `ThisDeviceOnly` accessibility class) |
 
 - *Confirm* exists because `secchain run -- env` would otherwise let any process running as the user, including an AI coding agent, print every secret without the user noticing.
 - *Device-bound* is the most robust level and the least convenient: the value does not reach other devices, is not restored onto a replacement Mac from a backup, and prompts on every read.
 - The protection level is stored as a non-secret attribute of the Keychain item, not in a repository file, so that editing a file in the working tree cannot lower it. Lowering a level requires authentication.
 - When one `run` needs several protected secrets, a single authentication covers all of them (one `LAContext` passed through `kSecUseAuthenticationContext`).
-- Updating or deleting a secret that is not *standard* authenticates first. Every way of lowering a level goes through such an update, so lowering always requires authentication.
+- Updating or deleting an existing secret authenticates first, whatever its level: *standard* means that reading needs no authentication, not that any process running as the user, an AI coding agent included, may replace or remove a value the user stored. Deleting is covered too, because deleting and adding again would otherwise replace a value without it. Adding a new secret does not authenticate. Every way of lowering a level goes through such an update, so lowering always requires authentication.
 - A new secret is *standard* and synchronized unless the user chooses otherwise.
 - When a local and a synchronized item of the same name coexist (a copy arrived from another Mac), the local one is the effective secret, and the next write removes the other.
 
@@ -51,7 +51,7 @@ User authentication (Touch ID, Apple Watch, or the login password) is opt-in per
 
 Part of the first release. Tracked in https://github.com/bannzai/SecChain/issues/32; how it is built is fixed in design decision 5.
 
-An authentication that SecChain itself requests on a Mac (the *confirm* level) can be answered on the user's iPhone or iPad instead of at the Mac: the Mac files an approval request, the iOS app shows what is being asked and approves it after Face ID / Touch ID. It serves Macs without Touch ID, sessions where the local prompt cannot be shown (SSH), and commands started by an AI coding agent while the user is away from the Mac.
+An authentication that SecChain itself requests on a Mac (the *confirm* level, and the update or deletion of a stored value at any level) can be answered on the user's iPhone or iPad instead of at the Mac: the Mac files an approval request, the iOS app shows what is being asked and approves it after Face ID / Touch ID. It serves Macs without Touch ID, sessions where the local prompt cannot be shown (SSH), and commands started by an AI coding agent while the user is away from the Mac.
 
 - It is opt-in. The default stays the local prompt.
 - It is another way to answer an existing authentication, not a fourth protection level.
@@ -160,9 +160,9 @@ YOUTUBE_API_KEY
 
 | Operation | Notes |
 | --- | --- |
-| Set / update a secret | The value is read from a hidden terminal prompt or from standard input. It is never accepted as a command-line argument (shell history, process listing). |
+| Set / update a secret | The value is read from a hidden terminal prompt, from standard input, or with `--from-variable [VARIABLE]` from an environment variable of the `secchain` process itself: the one named like the secret, or `VARIABLE`. A variable that is missing or empty is an error that names the variable and never a value. The value is never accepted as a command-line argument (shell history, process listing): `--from-variable` takes the name of a variable, not a value. Updating an existing secret authenticates first (see "Protection levels"). |
 | List secrets | Prints names only: the ones `run` passes to the repository, with the scope of each in the long form, or those of one scope. |
-| Delete a secret | Removes the Keychain item. |
+| Delete a secret | Removes the Keychain item, after an authentication (see "Protection levels"). |
 | Run a command with secrets | `secchain run -- <command>` reads the secrets of the scopes passed to the repository and passes them to the child process as environment variables. A subset of secrets can be selected. No plaintext temporary files. |
 | Act on a shared scope | `--scope user` or `--scope <name>` on `set`, `list`, and `delete`. Without it, `set` and `delete` act on the repository scope. `list --scopes` lists the shared scopes with their `@allow` patterns. |
 | Pass a shared scope to repositories | `secchain scope allow <scope> <pattern>` and `secchain scope deny <scope> <pattern>` add and remove an `@allow` line of `~/.secchain`. |
@@ -195,6 +195,7 @@ Security framework `OSStatus` values are translated into errors a user can act o
 
 - Secret values are never written to stdout, stderr, application logs, debug logs, analytics, crash metadata, or shell history.
 - Secret values are never persisted outside the Keychain: not in `.env`, JSON, plist, SQLite, `UserDefaults`, or any Git-tracked file.
+- A stored value is never replaced or removed without the authentication of the device owner, whatever its protection level. *Standard* only spares the authentication of a read. Adding a new secret is the one write that needs none.
 - Repository-side files contain only secret names. `~/.secchain` contains only secret names, scope names, and patterns (a repository identifier, or the start of one followed by `*`).
 
 ### Tests
@@ -204,7 +205,7 @@ Repository identification, per-repository isolation, scopes (which shared scopes
 ### Documentation and agent skill
 
 - `README.md` covers setup and basic command-line usage.
-- An agent skill (`SKILL.md`) ships in the repository so that AI coding agents use `secchain run` instead of asking for or reading secret values. Next to it ship a Claude Code hook that stops the calls reaching for a value and a Claude Mods plugin that masks a value in what the model reads (design decision 8).
+- An agent skill (`SKILL.md`) ships in the repository so that AI coding agents use `secchain run` instead of asking for or reading secret values, and store a secret only in ways that keep its value out of their view (`secchain set --from-variable`, the output of a command piped straight in, or the hidden prompt left to the user). Next to it ship a Claude Code hook that stops the calls reaching for a value and a Claude Mods plugin that masks a value in what the model reads (design decision 8).
 
 ## Non-goals
 

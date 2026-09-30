@@ -55,10 +55,22 @@ pbpaste | secchain set OPENAI_API_KEY
 op read "op://vault/item/credential" | secchain set OPENAI_API_KEY
 ```
 
+A value your shell or direnv already exports moves into the Keychain with `--from-variable`, which reads the environment `secchain` itself starts with — the variable named like the secret, or the one you name — and neither prompts nor reads standard input:
+
+```bash
+secchain set OPENAI_API_KEY --from-variable               # reads $OPENAI_API_KEY
+secchain set OPENAI_API_KEY --from-variable OPENAI_KEY    # reads $OPENAI_KEY
+direnv exec . secchain set OPENAI_API_KEY --from-variable # a value .envrc exports
+```
+
+A variable that is missing or empty is an error that names the variable, never a value. `--from-variable` takes the name of a variable only, so a value still never appears in `secchain`'s arguments.
+
 ```bash
 secchain set OPENAI_API_KEY --level confirm   # authenticate on every read, not just on reveal
 secchain set OPENAI_API_KEY --no-sync         # this Mac only
 ```
+
+Replacing a value that is already stored asks for Touch ID or your password first, at every protection level, and so does `secchain delete` (see "Protection levels"). Storing a new secret does not.
 
 ### List secrets
 
@@ -181,17 +193,17 @@ User authentication (Touch ID, Apple Watch, or your login password) is opt-in pe
 
 | Level | Synchronizes | When authentication is requested |
 | --- | --- | --- |
-| `standard` (default) | Yes, or this device only if you turn sync off | Only when a value is revealed in an app |
-| `confirm` | Yes, or this device only | Additionally every time `secchain run` reads the secret, and before update / delete |
+| `standard` (default) | Yes, or this device only if you turn sync off | When a value is revealed in an app, and before a stored value is replaced or deleted. Never when a value is read |
+| `confirm` | Yes, or this device only | Additionally every time `secchain run` reads the secret |
 | `device-bound` | Never | Every read, by any front end, enforced by the Keychain itself |
 
-`confirm` exists because `secchain run -- env` would otherwise let any process running as you — including an AI coding agent — print every secret without you noticing. `device-bound` is the most robust and least convenient level: the value never reaches another device and is not restored from a backup onto a replacement Mac.
+`confirm` exists because `secchain run -- env` would otherwise let any process running as you — including an AI coding agent — print every secret without you noticing. The authentication before a replacement or a deletion exists for the same reason at every level: `standard` spares you a prompt when a value is read, not when one you stored is overwritten or removed. `device-bound` is the most robust and least convenient level: the value never reaches another device and is not restored from a backup onto a replacement Mac.
 
 The authentication a `confirm` secret asks for can be answered on your iPhone instead of at the Mac (see "Remote approval"). A `device-bound` secret cannot: the Keychain itself demands user presence on the Mac that holds the value.
 
 ## Remote approval
 
-Your iPhone can answer the authentication that a `confirm` secret asks for: the Mac files the request in your own iCloud, SecChain on the iPhone shows what is being asked, and Face ID signs the approval. It is for Macs without Touch ID, for sessions where no prompt can be shown at all (SSH), and for commands an AI coding agent starts while you are away from the Mac. Nothing changes until you pair a Mac, and SecChain never puts a stored secret value into the request: the iPhone is shown the repository, the secret names with the scope each one comes from, the command as you typed it, and the name of the Mac.
+Your iPhone can answer the authentication that a `confirm` secret asks for, and the one `secchain set` and `secchain delete` ask for before they replace or remove a stored value: the Mac files the request in your own iCloud, SecChain on the iPhone shows what is being asked, and Face ID signs the approval. It is for Macs without Touch ID, for sessions where no prompt can be shown at all (SSH), and for commands an AI coding agent starts while you are away from the Mac. Nothing changes until you pair a Mac, and SecChain never puts a stored secret value into the request: the iPhone is shown the repository, the secret names with the scope each one comes from, the command as you typed it, and the name of the Mac.
 
 Both devices are signed in to the same Apple Account with iCloud on. This uses CloudKit, which is a different setting from the iCloud Keychain that synchronizes the secrets themselves — the records are in your own private database, which nobody else, the author of SecChain included, can read.
 
@@ -279,6 +291,8 @@ If you sign a build with your own Apple Developer Team to test it, it uses your 
 
 SecChain ships an [Agent Skill](https://agentskills.io) at [`skills/secchain/SKILL.md`](skills/secchain/SKILL.md) that tells a coding agent to run secret-dependent commands through `secchain run` instead of asking for, or reading, a secret value.
 
+The skill also lets the agent store a missing secret itself, in the ways that never show it the value: `secchain set NAME --from-variable` for a variable its shell already has, the output of the command that produces the value piped straight in (`op read … | secchain set NAME`, `openssl rand -hex 32 | secchain set NAME`), or `secchain set NAME` started where you type the value at its hidden prompt. Writing the value into the command, reading it from a `.env` file, and asking you for it in the chat stay off limits. When the name already has a value, the replacement waits for your Touch ID, password, or paired iPhone, which is where you decide whether the agent may overwrite it.
+
 To use it in a project, copy the skill folder into that project's skill directory, for example:
 
 ```bash
@@ -297,11 +311,12 @@ mkdir -p .claude
 cp .claude/skills/secchain/hooks/settings.json .claude/settings.json   # a project without other settings
 ```
 
-The hook refuses three kinds of call and answers with the `secchain run -- <command>` that does the same work without exposing a value:
+The hook refuses four kinds of call and answers with the command that does the same work without exposing a value — `secchain run -- <command>`, or for `secchain set` the ways the skill allows:
 
 - reading a `.env` or `.env.*` file — through the `Read` tool, or through a command that reads one (`cat`, `grep`, `source`, an input redirect);
 - printing the environment of a run — `secchain run -- env`, `printenv`, or a shell command under `secchain run` that echoes a variable into the terminal;
-- running a script of another language written on the command line under `secchain run` (`python3 -c …`, `node -e …`), which the hook cannot read while every secret is in its environment. The same script in a file passes.
+- running a script of another language written on the command line under `secchain run` (`python3 -c …`, `node -e …`), which the hook cannot read while every secret is in its environment. The same script in a file passes;
+- writing the value into the command of `secchain set` — `echo` or `printf` piped into it, a here-string or heredoc, or `KEY=value secchain set KEY --from-variable`.
 
 It leaves the documented ways of using a secret alone, including piping a value straight into the program that consumes it. The list of what stops and what passes, with examples, is in [the skill](skills/secchain/SKILL.md); `make test-hooks` checks the script against every case of that list. The hook needs `python3`, which comes with the Xcode Command Line Tools. Codex CLI sends the same input and reads the same decision, so the same script runs there from `~/.codex/hooks.json`, but it guards shell commands only: Codex has no `Read` tool, and a file read through an MCP tool arrives under that tool's own name, which this hook does not match. Codex also runs that hook only after the exact definition is trusted with `/hooks` (and trusted again after every change to it), so until that step the guard is configured but inactive.
 

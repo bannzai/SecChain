@@ -173,6 +173,39 @@ struct SecretStoreTests {
         #expect(authenticator.reasons == ["update A", "delete A"])
     }
 
+    /// `standard` only means that reading needs no authentication: replacing or removing a value the
+    /// user stored is confirmed at every level, so that a command started by someone else (an AI
+    /// coding agent) cannot overwrite it, nor delete it and add it again.
+    @Test
+    func updatingOrDeletingAStandardSecretAuthenticatesFirst() async throws {
+        try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .standard, isSynchronized: nil)
+        try await store.set(name: try name("A"), value: otherDummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: nil, isSynchronized: nil)
+        #expect(authenticator.reasons == ["update A"])
+        try await store.delete(name: try name("A"), scope: .repository(repositoryA), environment: nil)
+        #expect(authenticator.reasons == ["update A", "delete A"])
+    }
+
+    @Test
+    func addingANewSecretOrDeletingANameThatHoldsNothingDoesNotAuthenticate() async throws {
+        try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .standard, isSynchronized: nil)
+        try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: try environment("prod"), protectionLevel: .confirm, isSynchronized: nil)
+        try await store.delete(name: try name("MISSING"), scope: .repository(repositoryB), environment: nil)
+        #expect(authenticator.reasons.isEmpty)
+    }
+
+    @Test
+    func aRefusedAuthenticationLeavesAStandardSecretAsItWas() async throws {
+        try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .standard, isSynchronized: nil)
+        let rejectingStore = SecretStore(keychain: keychain, ownerAuthenticator: CountingOwnerAuthenticator(failure: .authenticationCancelled))
+        await #expect(throws: SecretStoreError.authenticationCancelled) {
+            try await rejectingStore.set(name: try name("A"), value: otherDummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: nil, isSynchronized: nil)
+        }
+        await #expect(throws: SecretStoreError.authenticationCancelled) {
+            try await rejectingStore.delete(name: try name("A"), scope: .repository(repositoryA), environment: nil)
+        }
+        #expect(try await store.values(names: nil, scopes: [.repository(repositoryA)], environment: nil, authenticationReason: "run")[try name("A")] == dummyValue)
+    }
+
     @Test
     func loweringTheLevelRequiresAuthenticationAndIsRefusedWithoutIt() async throws {
         try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .confirm, isSynchronized: nil)

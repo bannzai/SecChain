@@ -66,10 +66,11 @@ struct DeleteCommand: AsyncParsableCommand {
                 }
             }
         }
-        // Deleting a secret that is not standard authenticates first, on the same route as `run`.
+        // Deleting a secret authenticates first, whatever its level, on the same route as `run`.
         let setup = try secretStore(
             scope: scope,
             requestedSecrets: try SecretStore.system.storedSecrets(scope: scope, environment: environment).filter { $0.name == secretName },
+            authenticatesEveryLevel: true,
             commandArguments: ["delete", secretName.value] + scopeArguments(scope: scope) + environmentArguments(environment: environment),
             approveRemotely: remoteApprovalOptions.approveRemotely
         )

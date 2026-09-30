@@ -4,8 +4,9 @@
 # values, and deletes what it stored. The user scope is the real one, because the Keychain is not
 # kept per $HOME: the checks store one throwaway name there, run with '--only' that name while the
 # user scope is allowed, so that no other secret of the user scope is read, and delete it.
-# One secret is stored at the confirm level, for `mask`, and deleting it asks for authentication:
-# the checks need someone at the Mac (or at the paired iPhone) for that one prompt.
+# Deleting or replacing a stored secret asks for authentication at every protection level, so the
+# checks need someone at the Mac (or at the paired iPhone) to answer the prompt of each delete,
+# those of the cleanup included.
 #
 # The value is never echoed by this script: assertions about it run inside the child process or
 # search the captured output for it.
@@ -47,6 +48,7 @@ cleanup() {
   (
     cd "${REPOSITORY_DIRECTORY}" || exit 0
     "${SECCHAIN}" delete CLI_TEST_KEY
+    "${SECCHAIN}" delete CLI_TEST_VARIABLE_KEY
     "${SECCHAIN}" delete CLI_TEST_SHARED_KEY
     "${SECCHAIN}" delete CLI_TEST_CONFIRM_KEY
     "${SECCHAIN}" delete CLI_TEST_SCOPE_KEY --scope "${SCOPE}"
@@ -103,6 +105,21 @@ grep -qx "CLI_TEST_KEY" .secchain || fail "set did not declare the name in .secc
 echo "== a value passed as an argument is rejected"
 capture "${SECCHAIN}" set CLI_TEST_KEY value-given-as-argument
 [ "${LAST_STATUS}" -ne 0 ] || fail "set accepted a value argument"
+
+echo "== set --from-variable reads the value from the environment of the command"
+CLI_TEST_VARIABLE_KEY="${DUMMY_VALUE}" capture "${SECCHAIN}" set CLI_TEST_VARIABLE_KEY --from-variable
+[ "${LAST_STATUS}" -eq 0 ] || fail "set --from-variable exited with ${LAST_STATUS}"
+EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run --only CLI_TEST_VARIABLE_KEY -- sh -c 'test "${CLI_TEST_VARIABLE_KEY}" = "${EXPECTED_VALUE}"'
+[ "${LAST_STATUS}" -eq 0 ] || fail "the value stored from the variable is not the variable's (status ${LAST_STATUS})"
+
+echo "== set --from-variable without the variable fails and names the variable"
+capture_output env -u CLI_TEST_MISSING_VARIABLE "${SECCHAIN}" set CLI_TEST_MISSING_KEY --from-variable CLI_TEST_MISSING_VARIABLE
+[ "${LAST_STATUS}" -ne 0 ] || fail "set --from-variable stored a secret from a variable that is not set"
+printf '%s' "${LAST_OUTPUT}" | grep -q "CLI_TEST_MISSING_VARIABLE is not set in the environment of this command" \
+  || fail "the error does not name the missing variable"
+! grep -qx "CLI_TEST_MISSING_KEY" .secchain || fail "a refused set declared the name in .secchain"
+capture "${SECCHAIN}" delete CLI_TEST_VARIABLE_KEY
+[ "${LAST_STATUS}" -eq 0 ] || fail "delete of the secret stored from a variable exited with ${LAST_STATUS}"
 
 echo "== list prints the name"
 capture "${SECCHAIN}" list
@@ -375,8 +392,7 @@ printf '%s' "${LAST_OUTPUT}" | grep -q "cannot be a repository identifier" || fa
 cd "${REPOSITORY_DIRECTORY}"
 
 echo "== mask leaves a confirm secret's value in place and names the secret on standard error"
-# Last, because deleting a confirm secret asks for authentication (Touch ID or the password, or the
-# paired iPhone where that is the default): the one prompt of these checks.
+# Deleting it asks for authentication, like every delete of a stored secret.
 capture sh -c "printf '%s\n' '${CONFIRM_DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_CONFIRM_KEY --level confirm --no-sync"
 [ "${LAST_STATUS}" -eq 0 ] || fail "set --level confirm exited with ${LAST_STATUS}"
 set +e

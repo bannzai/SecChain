@@ -2,9 +2,10 @@
 """A Claude Code `PreToolUse` hook that keeps an agent from reaching secret values.
 
 SecChain keeps values in the Keychain and hands them to a child process; `secchain` itself has no
-command that prints one. The two ways an agent can still end up with a value in its context are
-reading a `.env` file that predates SecChain, and running a command under `secchain run` whose
-purpose is to print its environment. This hook denies both.
+command that prints one. The ways an agent can still end up with a value in its context are
+reading a `.env` file that predates SecChain, running a command under `secchain run` whose purpose
+is to print its environment, and writing a value into the command line of `secchain set`. This
+hook denies all three.
 
 It reads the hook input as JSON on standard input and, for a call it denies, writes the `PreToolUse`
 decision to standard output and exits 0, as
@@ -14,6 +15,7 @@ which leaves the normal permission flow in place.
 Usage: secchain-guard.py  (the hook input arrives on standard input)
 """
 
+import io
 import json
 import os
 import re
@@ -22,6 +24,13 @@ import sys
 
 ENV_FILE_NAME = re.compile(r"^\.env(\..+)?$")
 VARIABLE_REFERENCE = re.compile(r"\$\{?[A-Za-z_][A-Za-z0-9_]*")
+ASSIGNMENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+# `<<EOF`, `<<-EOF`, `<< 'EOF'`, `<<"END-OF-NOTES"`: a here-document and its whole delimiter, not a
+# here-string.
+HERE_DOCUMENT = re.compile(r"(?<!<)<<(-?)(?!<)[ \t]*(['\"]?)([^\s'\"<>|&;()]+)\2")
+# `$(...)` and backquotes, the parts of a here-document's text that a shell runs when its
+# delimiter is not quoted.
+COMMAND_SUBSTITUTION = re.compile(r"\$\(([^()]*)\)|`([^`]*)`")
 
 # Commands whose output is the environment itself, so that the value of every secret of the run
 # reaches whoever reads the output.
@@ -31,6 +40,8 @@ ENVIRONMENT_DUMPS = frozenset({"env", "printenv"})
 # (`declare -x` prints every exported variable), and the print option prints the value of the names
 # that follow it, so neither a name nor the absence of an option is enough on its own.
 ENVIRONMENT_BUILTINS = frozenset({"export", "declare", "typeset"})
+# Shell builtins that give a variable the value written after its name.
+DECLARATION_BUILTINS = ENVIRONMENT_BUILTINS | {"readonly", "local"}
 # Commands that print their arguments, which exposes a secret only when an argument names one.
 VALUE_PRINTS = frozenset({"echo", "printf"})
 # Commands that hand what they read on to their own output, so piping into one of them still ends
@@ -62,6 +73,13 @@ PRINT_DENIAL = (
     "SecChain hook: this command would print secret values. "
     "Hand them to the program that consumes them instead: `secchain run -- <command>`."
 )
+LITERAL_SET_DENIAL = (
+    "SecChain hook: this would write a secret value into the command line, where it stays in the "
+    "conversation and the shell history. Pipe the command that produces the value straight in "
+    "(`op read ... | secchain set NAME`), use `secchain set NAME --from-variable` for a variable "
+    "your shell already has, or run `secchain set NAME` and let the user type the value at its "
+    "hidden prompt."
+)
 INLINE_SCRIPT_DENIAL = (
     "SecChain hook: this hook cannot read the script of another language, and under `secchain run` "
     "that script has every secret in its environment. Put it in a file and run "
@@ -70,12 +88,14 @@ INLINE_SCRIPT_DENIAL = (
 
 
 class Command:
-    """One simple command of a shell line: its words, the files it reads through a redirect, and
+    """One simple command of a shell line: its words, the files it reads through a redirect,
+    whether its standard input is text written in the line (a here-document or a here-string), and
     the operator that follows it."""
 
     def __init__(self):
         self.words = []
         self.reads = []
+        self.reads_text_of_the_line = False
         self.separator = None
 
     @property
@@ -83,12 +103,87 @@ class Command:
         return os.path.basename(self.words[0]) if self.words else ""
 
 
+def here_document_is_a_script(physical_line, operator_start):
+    """Whether the command that a here-document starting at `operator_start` feeds is a shell, which
+    runs the text instead of reading it as data."""
+    words = re.split(r"[|;&()]", physical_line[:operator_start])[-1].split()
+    return launched_name(words) in SHELLS
+
+
+def separate_here_document_bodies(line):
+    """The line without the text of its here-documents, and the lines of that text a shell runs, or
+    `None` when a here-document has no line that ends it. The operator and the delimiter stay in the
+    line, so that the command is still known to read text written in the line.
+
+    A shell runs every line of a here-document it reads as its script. Any other command reads the
+    text as data, in which only a command substitution runs, and only without quotes around the
+    delimiter."""
+    kept = []
+    run_lines = []
+    here_documents = []
+    for physical_line in line.split("\n"):
+        if here_documents:
+            strips_tabs, delimiter, is_quoted, is_a_script = here_documents[0]
+            if (physical_line.lstrip("\t") if strips_tabs else physical_line) == delimiter:
+                here_documents.pop(0)
+            elif is_a_script:
+                run_lines.append(physical_line)
+            elif not is_quoted:
+                run_lines.extend(parenthesized or backquoted for parenthesized, backquoted in COMMAND_SUBSTITUTION.findall(physical_line))
+            continue
+        kept.append(physical_line)
+        here_documents = [
+            (match.group(1) == "-", match.group(3), match.group(2) != "", here_document_is_a_script(physical_line, match.start()))
+            for match in HERE_DOCUMENT.finditer(physical_line)
+        ]
+    if here_documents:
+        return None
+    return "\n".join(kept), run_lines
+
+
+class LineEndKeepingStream(io.StringIO):
+    """The text of a shell line for `shlex`, whose comment handling reads to the end of the line
+    with `readline`. This `readline` stops before the newline, so that the newline still ends the
+    command the comment follows."""
+
+    def readline(self, size=-1):
+        text = self.getvalue()
+        start = self.tell()
+        end = text.find("\n", start)
+        end = len(text) if end == -1 else end
+        self.seek(end)
+        return text[start:end]
+
+
+def lex(text):
+    """The tokens of `text` as `tokenize` describes them. Raises `ValueError` for a quote that is
+    never closed."""
+    lexer = shlex.shlex(LineEndKeepingStream(text.replace("\\\n", " ")), posix=True, punctuation_chars="();<>|&\n")
+    lexer.whitespace_split = True
+    lexer.whitespace = " \t\r"
+    return list(lexer)
+
+
 def tokenize(line):
     """The words and the operators of a shell line, with quotes resolved the way a shell resolves
-    them, so that `sh -c '...'` arrives as one token."""
-    lexer = shlex.shlex(line, posix=True, punctuation_chars=True)
-    lexer.whitespace_split = True
-    return list(lexer)
+    them, so that `sh -c '...'` arrives as one token. A newline outside quotes is an operator, which
+    ends a command the way `;` does, and a backslash before one continues the line instead.
+
+    The text of a here-document is left out, apart from what a shell would run of it
+    (`separate_here_document_bodies`), which follows the rest of the line one command per line. A
+    line of that text that cannot be read is skipped, because a quote that is never closed is fine
+    in a here-document."""
+    separated = separate_here_document_bodies(line)
+    if separated is None:
+        return lex(line)
+    line_without_bodies, run_lines = separated
+    tokens = lex(line_without_bodies)
+    for run_line in run_lines:
+        try:
+            tokens += ["\n"] + lex(run_line)
+        except ValueError:
+            continue
+    return tokens
 
 
 def split_into_commands(tokens):
@@ -100,9 +195,16 @@ def split_into_commands(tokens):
                 commands[-1].reads.append(token)
             redirect = None
             continue
-        is_operator = token and not set(token) - set("<>&|;()")
+        is_operator = token and not set(token) - set("<>&|;()\n")
+        if is_operator and "\n" in token:
+            # A newline on its own ends the command; after another operator (`|`, `&&`) the command
+            # goes on in the next line, and the operator is what counts.
+            token = token.replace("\n", "") or ";"
         if is_operator and ("<" in token or ">" in token):
             redirect = token
+            # `<<` and `<<<` feed the command the text that follows them in the line.
+            if token.startswith("<<"):
+                commands[-1].reads_text_of_the_line = True
             continue
         if is_operator and token in SEPARATORS:
             commands[-1].separator = token
@@ -176,58 +278,138 @@ def print_denial(command, reaches_terminal):
     return None
 
 
-def scan_line(line, under_run):
+def assigns_variable(command):
+    """Whether the command gives a variable a value written in the line: in front of the command or
+    of a launcher (`KEY=value cmd`, `env KEY=value cmd`), on its own (`KEY=value`), or through a
+    declaration builtin (`export KEY=value`)."""
+    words = launched_words(command.words)
+    prefix = command.words[: len(command.words) - len(words)]
+    return (
+        any(ASSIGNMENT.match(word) for word in prefix)
+        or bool(command.words and ASSIGNMENT.match(command.words[0]))
+        or (launched_name(command.words) in DECLARATION_BUILTINS and any(ASSIGNMENT.match(word) for word in words[1:]))
+    )
+
+
+def reads_text_written_in_the_line(pipeline, index, stdin_is_written_in_the_line):
+    """Whether the standard input of `pipeline[index]` is text written in the line: a here-document
+    or a here-string, `echo` or `printf` earlier in the pipeline, or, through
+    `stdin_is_written_in_the_line`, the standard input of the shell or run that starts the line.
+    That one is taken for every command of the line, the safe side, rather than worked out."""
+    return (
+        stdin_is_written_in_the_line
+        or pipeline[index].reads_text_of_the_line
+        or any(feeder.reads_text_of_the_line or prints_text_written_in_the_line(feeder.words) for feeder in pipeline[:index])
+    )
+
+
+def prints_text_written_in_the_line(words):
+    """Whether a command writes text of the line to its standard output: `echo` or `printf`, or a
+    shell whose script runs one of them."""
+    words = launched_words(words)
+    name = os.path.basename(words[0]) if words else ""
+    if name in VALUE_PRINTS:
+        return True
+    body = option_value(words, "-c") if name in SHELLS else None
+    if not body:
+        return False
+    try:
+        return any(prints_text_written_in_the_line(command.words) for command in split_into_commands(tokenize(body)))
+    except ValueError:
+        # A script the tokenizer cannot read is not one a shell would run either.
+        return False
+
+
+def literal_set_denial(pipeline, index, assigned, stdin_is_written_in_the_line):
+    """The denial for `secchain set` at `pipeline[index]` when the line writes the value it stores:
+    printed into its standard input, fed as a here-document or here-string, or assigned to the
+    variable that `--from-variable` reads. `assigned` says whether the line assigns any variable;
+    which one `--from-variable` reads is not worked out, because any assignment on the same line as
+    it is the value written out."""
+    words = launched_words(pipeline[index].words)
+    if not (words and os.path.basename(words[0]) == "secchain" and words[1:2] == ["set"]):
+        return None
+    if reads_text_written_in_the_line(pipeline, index, stdin_is_written_in_the_line):
+        return LITERAL_SET_DENIAL
+    if assigned and any(word == "--from-variable" or word.startswith("--from-variable=") for word in words[2:]):
+        return LITERAL_SET_DENIAL
+    return None
+
+
+def scan_line(line, under_run, assigned=False, stdin_is_written_in_the_line=False):
     """The denial for a shell line, or None. `under_run` says whether the line runs with the
-    repository's secrets in its environment, which is what makes printing the environment a leak."""
+    repository's secrets in its environment, which is what makes printing the environment a leak.
+    `assigned` says whether the line that runs this one assigns a variable itself, and
+    `stdin_is_written_in_the_line` whether it feeds this one text written in it."""
     try:
         commands = split_into_commands(tokenize(line))
     except ValueError:
         # An unbalanced quote is not a command a shell would run either; deciding nothing here
         # leaves the call to the normal permission flow.
         return None
-    return scan_pipelines(commands, under_run)
+    return scan_pipelines(commands, under_run, assigned, stdin_is_written_in_the_line)
 
 
-def scan_pipelines(commands, under_run):
+def scan_pipelines(commands, under_run, assigned=False, stdin_is_written_in_the_line=False):
+    assigned = assigned or any(assigns_variable(command) for command in commands if command.words)
     for pipeline in pipelines(commands):
         last = pipeline[-1]
-        for command in pipeline:
+        for index, command in enumerate(pipeline):
             if not command.words:
                 continue
             denial = env_file_denial(command)
+            if denial is None:
+                denial = literal_set_denial(pipeline, index, assigned, stdin_is_written_in_the_line)
             if denial is None and under_run:
                 # A pipeline ends in the terminal unless its last command consumes what it reads.
                 denial = print_denial(command, command is last or last.name in PASS_THROUGH)
             if denial is None:
-                denial = scan_nested(command, under_run)
+                denial = scan_nested(
+                    command, under_run, assigned, reads_text_written_in_the_line(pipeline, index, stdin_is_written_in_the_line)
+                )
             if denial:
                 return denial
     return None
 
 
 def launched_words(words):
-    """What a line really runs, with the launchers that only prepare its environment removed. Left
-    as it is when nothing follows the launcher, because a bare `env` prints the environment."""
+    """What a line really runs, with the assignments and the launchers that only prepare its
+    environment removed. Left as it is when nothing follows them, because a bare `env` prints the
+    environment."""
     index = 0
-    while index < len(words) and os.path.basename(words[index]) in LAUNCHERS:
+    while index < len(words) and ASSIGNMENT.match(words[index]):
         index += 1
+    while index < len(words):
+        if os.path.basename(words[index]) in LAUNCHERS:
+            index += 1
+        # `direnv exec <directory> <command>` loads the directory's `.envrc` and runs the command.
+        elif os.path.basename(words[index]) == "direnv" and words[index + 1 : index + 2] == ["exec"]:
+            index += 3
+        else:
+            break
         while index < len(words) and (words[index].startswith("-") or "=" in words[index]):
             index += 1
     return words[index:] if index < len(words) else words
 
 
-def scan_nested(command, under_run):
+def launched_name(words):
+    """The name of the command that `launched_words` finds, empty for an empty command."""
+    words = launched_words(words)
+    return os.path.basename(words[0]) if words else ""
+
+
+def scan_nested(command, under_run, assigned, stdin_is_written_in_the_line):
     """The denial for the commands this one starts: the child of `secchain run`, which receives the
-    secrets, and the script of a shell."""
+    secrets, and the script of a shell. Both read the standard input of this command."""
     words = launched_words(command.words)
     name = os.path.basename(words[0]) if words else ""
     if name == "secchain" and words[1:2] == ["run"] and "--" in words:
         child = Command()
         child.words = words[words.index("--") + 1 :]
-        return scan_pipelines([child], under_run=True)
+        return scan_pipelines([child], True, assigned, stdin_is_written_in_the_line)
     if name in SHELLS:
         body = option_value(words, "-c")
-        return scan_line(body, under_run) if body else None
+        return scan_line(body, under_run, assigned, stdin_is_written_in_the_line) if body else None
     if under_run and name in INTERPRETERS and any(word in INLINE_SCRIPT_OPTIONS for word in words[1:]):
         return INLINE_SCRIPT_DENIAL
     return None

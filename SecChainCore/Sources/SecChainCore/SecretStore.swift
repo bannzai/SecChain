@@ -143,8 +143,10 @@ public struct SecretStore: Sendable {
 
     /// Adds the secret, or updates it when the name exists in the environment. `nil` for
     /// `protectionLevel` / `isSynchronized` keeps the existing setting; a new secret defaults to
-    /// `standard` and synchronized. Updating a secret that is not `standard` authenticates first,
-    /// which also covers every way of lowering a level.
+    /// `standard` and synchronized. Updating an existing secret authenticates first, whatever its
+    /// level: `standard` means that reading needs no authentication, not that anyone who can run a
+    /// command may replace a value the user stored. This also covers every way of lowering a level.
+    /// Adding a new secret does not authenticate, because it replaces nothing.
     ///
     /// Nothing is stored for a repository named like a shared scope's service
     /// (`SecretScope.isRepositoryNamedLikeASharedScope`). Every item of a scope comes from here, so
@@ -173,7 +175,7 @@ public struct SecretStore: Sendable {
         try checkEnvironmentIsNamed(scope: scope, environment: environment)
         let variants = try keychain.storedSecrets(scope: scope).filter { $0.name == name && $0.environment == environment }
         let existing = Self.effectiveSecrets(storedSecrets: variants).first
-        // `standard`: a secret asks for authentication only when the user opted in.
+        // `standard`: reading a secret asks for authentication only when the user opted in.
         let targetProtectionLevel = protectionLevel ?? existing?.protectionLevel ?? .standard
         guard !(targetProtectionLevel == .deviceBound && isSynchronized == true) else {
             throw SecretStoreError.deviceBoundCannotSynchronize
@@ -188,7 +190,7 @@ public struct SecretStore: Sendable {
             isSynchronized: targetProtectionLevel == .deviceBound ? false : (isSynchronized ?? existing?.isSynchronized ?? true),
             modificationDate: nil
         )
-        let ownerAuthentication = (existing.map { $0.protectionLevel != .standard } ?? false)
+        let ownerAuthentication = existing != nil
             ? try await ownerAuthenticator.authenticate(reason: String(localized: "update \(name.value)", bundle: authenticationReasonBundle))
             : nil
         // A non-effective variant (for example a synchronized copy that arrived from another Mac
@@ -242,8 +244,10 @@ public struct SecretStore: Sendable {
         return target
     }
 
-    /// Deletes every variant of the name in the environment. Authenticates first when the secret is
-    /// not `standard`. Deleting a name that does not exist succeeds (idempotent), except without an
+    /// Deletes every variant of the name in the environment. Authenticates first whenever there is
+    /// something to delete, whatever its level, for the reason of `set`: deleting and adding again
+    /// would otherwise replace a value without the authentication an update asks for. Deleting a
+    /// name that does not exist succeeds without authenticating (idempotent), except without an
     /// environment in a scope that has environments: there, only a secret left without an
     /// environment is deleted, and a name that has none is `environmentRequired`, because the
     /// command most likely meant one of the environments.
@@ -252,7 +256,7 @@ public struct SecretStore: Sendable {
         if variants.isEmpty {
             try checkEnvironmentIsNamed(scope: scope, environment: environment)
         }
-        if variants.contains(where: { $0.protectionLevel != .standard }) {
+        if !variants.isEmpty {
             _ = try await ownerAuthenticator.authenticate(reason: String(localized: "delete \(name.value)", bundle: authenticationReasonBundle))
         }
         for variant in variants {

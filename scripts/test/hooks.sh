@@ -1,6 +1,6 @@
 #!/bin/bash
-# Checks the Claude Code hooks that ship with the agent skill: the guard (issue #45) and the Claude
-# Mods plugin that masks values (issue #70).
+# Checks the Claude Code hooks that ship with the agent skill: the guard (issue #45, and its rules for
+# `secchain set` from issue #76) and the Claude Mods plugin that masks values (issue #70).
 #
 # Every case of the guard is one hook input on standard input, the way Claude Code sends it, and one
 # assertion about what the hook writes: a `deny` decision, or nothing at all, which leaves the
@@ -31,15 +31,28 @@ run_hook() {
   [ "${LAST_STATUS}" -eq 0 ] || fail "the hook exited with ${LAST_STATUS} for: $3"
 }
 
-denied() {
+# denied_saying <text the reason has to contain> <tool name> <field of tool_input> <value>
+denied_saying() {
+  local expected_reason="$1"
+  shift
   run_hook "$@"
   [ -n "${OUTPUT}" ] || fail "not denied: $3"
   [ "$(printf '%s' "${OUTPUT}" | jq -r '.hookSpecificOutput.hookEventName')" = "PreToolUse" ] \
     || fail "the decision does not name the event: $3"
   [ "$(printf '%s' "${OUTPUT}" | jq -r '.hookSpecificOutput.permissionDecision')" = "deny" ] \
     || fail "the decision is not a denial: $3"
-  printf '%s' "${OUTPUT}" | jq -r '.hookSpecificOutput.permissionDecisionReason' | grep -q 'secchain run -- <' \
-    || fail "the reason does not say how to run the command instead: $3"
+  printf '%s' "${OUTPUT}" | jq -r '.hookSpecificOutput.permissionDecisionReason' | grep -qF -e "${expected_reason}" \
+    || fail "the reason does not say how to do it instead (${expected_reason}): $3"
+}
+
+# A call that reaches for a value: the reason names the run that uses the value instead.
+denied() {
+  denied_saying 'secchain run -- <' "$@"
+}
+
+# A `secchain set` that writes the value into the line: the reason names the ways that do not.
+denied_set() {
+  denied_saying 'secchain set NAME --from-variable' "$@"
 }
 
 allowed() {
@@ -79,6 +92,7 @@ denied Bash command "secchain run -- sh -c 'echo \$OPENAI_API_KEY | cat'"
 denied Bash command "secchain run -- sh -c 'npm run build && echo \$OPENAI_API_KEY'"
 denied Bash command "secchain run -- sh -c 'env > /tmp/environment.txt'"
 denied Bash command "cd app && secchain run -- env"
+denied Bash command "secchain run -- sh -c 'npm run build"$'\n'"env'"
 denied Bash command "bash -c 'secchain run -- printenv'"
 # A shell builtin with nothing to set prints the same environment. `declare -x` and `typeset -x`
 # list every exported variable with its value, so an option alone is not a reason to pass.
@@ -160,6 +174,71 @@ allowed Bash command "secchain run --env prod --only CLOUDFLARE_API_TOKEN -- ./s
 # The environment does not change what the child of a run may do.
 denied Bash command "secchain run --env prod -- env"
 denied Bash command "secchain run --env prod -- sh -c 'echo \$OPENAI_API_KEY'"
+
+echo "== a secchain set that writes the value into the line is denied"
+# `the-value` stands for a value written out; the cases never hold a real one.
+denied_set Bash command "printf 'the-value' | secchain set OPENAI_API_KEY"
+denied_set Bash command "echo the-value | secchain set OPENAI_API_KEY"
+denied_set Bash command "printf '%s' the-value | secchain set OPENAI_API_KEY --scope user --env prod"
+denied_set Bash command "secchain set OPENAI_API_KEY <<< the-value"
+denied_set Bash command "secchain set OPENAI_API_KEY <<'EOF'"$'\n'"the-value"$'\n'"EOF"
+denied_set Bash command "cat <<EOF | secchain set OPENAI_API_KEY"$'\n'"the-value"$'\n'"EOF"
+# The text of a here-document is data: a quote in it that a shell would never close is not a reason
+# to let the call through.
+denied_set Bash command "secchain set OPENAI_API_KEY <<'EOF'"$'\n'"the-value\""$'\n'"EOF"
+denied_set Bash command "secchain set OPENAI_API_KEY <<-EOF"$'\n'$'\t'"the-value'"$'\n'$'\t'"EOF"$'\n'"echo done"
+denied_set Bash command "OPENAI_API_KEY=the-value secchain set OPENAI_API_KEY --from-variable"
+denied_set Bash command "env OPENAI_API_KEY=the-value secchain set OPENAI_API_KEY --from-variable"
+denied_set Bash command "export OPENAI_API_KEY=the-value; secchain set OPENAI_API_KEY --from-variable"
+denied_set Bash command "OTHER_KEY=the-value && secchain set OPENAI_API_KEY --from-variable OTHER_KEY"
+denied_set Bash command "export OPENAI_API_KEY=the-value; sh -c 'secchain set OPENAI_API_KEY --from-variable'"
+denied_set Bash command "bash -c 'echo the-value | secchain set OPENAI_API_KEY'"
+denied_set Bash command "cd app && echo the-value | command secchain set OPENAI_API_KEY"
+# A newline ends a command the way `;` does.
+denied_set Bash command "export OPENAI_API_KEY=the-value"$'\n'"secchain set OPENAI_API_KEY --from-variable"
+denied_set Bash command "echo the-value |"$'\n'"  secchain set OPENAI_API_KEY"
+denied_set Bash command "export OPENAI_API_KEY=the-value # the key"$'\n'"secchain set OPENAI_API_KEY --from-variable"
+# A shell or a run started with the value on its standard input hands it on to the set inside.
+denied_set Bash command "echo the-value | sh -c 'secchain set OPENAI_API_KEY'"
+denied_set Bash command "sh -c 'secchain set OPENAI_API_KEY' <<< the-value"
+denied_set Bash command "echo the-value | secchain run -- secchain set OTHER_KEY"
+# A shell that prints the value is the same as printing it.
+denied_set Bash command "sh -c 'printf %s the-value' | secchain set OPENAI_API_KEY"
+denied_set Bash command "bash -c 'cd app && echo the-value' | secchain set OPENAI_API_KEY"
+# direnv exec runs the set it is given, so the set is checked as if it ran alone.
+denied_set Bash command "OPENAI_API_KEY=the-value direnv exec . secchain set OPENAI_API_KEY --from-variable"
+denied_set Bash command "printf the-value | direnv exec . secchain set OPENAI_API_KEY"
+# Reading the value out of a .env file is refused like any other read of one.
+denied Bash command "secchain set OPENAI_API_KEY < .env.local"
+denied Bash command "grep OPENAI_API_KEY .env | cut -d= -f2 | secchain set OPENAI_API_KEY"
+denied Bash command "source .env && secchain set OPENAI_API_KEY --from-variable"
+
+echo "== a secchain set whose value the agent never sees passes"
+allowed Bash command "secchain set OPENAI_API_KEY --from-variable"
+allowed Bash command "secchain set OPENAI_API_KEY --from-variable OPENAI_KEY --scope user --env prod"
+allowed Bash command "direnv exec . secchain set OPENAI_API_KEY --from-variable"
+allowed Bash command "direnv exec ../app secchain set OPENAI_API_KEY --from-variable --scope user"
+allowed Bash command "sh -c 'op read op://vault/item/credential' | secchain set OPENAI_API_KEY"
+allowed Bash command "op read 'op://vault/item/credential' | secchain set OPENAI_API_KEY"
+allowed Bash command "gh api repos/owner/repo/actions/secrets/public-key --jq .key | secchain set GITHUB_PUBLIC_KEY"
+allowed Bash command "openssl rand -hex 32 | secchain set SESSION_SECRET --level confirm"
+# An echo in another pipeline of the line feeds nothing into the set.
+allowed Bash command "echo 'storing'; openssl rand -hex 32 | secchain set SESSION_SECRET"
+allowed Bash command "echo 'storing'"$'\n'"openssl rand -hex 32 | secchain set SESSION_SECRET"
+# The lines after a here-document are commands again, whatever its delimiter.
+allowed Bash command "cat <<'EOF' > notes.txt"$'\n'"it's \"quoted\""$'\n'"EOF"$'\n'"openssl rand -hex 32 | secchain set SESSION_SECRET"
+denied Bash command "cat <<'EOF' > notes.txt"$'\n'"it's"$'\n'"EOF"$'\n'"cat .env"
+denied Bash command "cat <<EOF-NOTES > notes.txt"$'\n'"it's"$'\n'"EOF-NOTES"$'\n'"cat .env"
+# A shell may run the text of a here-document, so what it would run is checked too.
+denied Bash command "bash <<'EOF'"$'\n'"cat .env"$'\n'"EOF"
+denied Bash command "bash <<'EOF'"$'\n'"echo \"it's"$'\n'"cat .env"$'\n'"EOF"
+denied Bash command "cat <<EOF > notes.txt"$'\n'"\$(cat .env)"$'\n'"EOF"
+denied Bash command "cat <<EOF > notes.txt"$'\n'"token: \`cat .env\`"$'\n'"EOF"
+# Text that a command only reads is data, whatever it says.
+allowed Bash command "cat > notes.md <<'EOF'"$'\n'"Never run secchain run -- env."$'\n'"secchain run -- env"$'\n'"EOF"
+allowed Bash command "cat > notes.md <<EOF"$'\n'"secchain run -- printenv"$'\n'"cat .env"$'\n'"EOF"
+# A backslash before the newline continues the command instead of ending it.
+allowed Bash command "op read 'op://vault/item/credential' \\"$'\n'"  | secchain set OPENAI_API_KEY --scope user"
 
 echo "== calls that have nothing to do with secrets pass"
 allowed Read file_path "/Users/someone/project/.secchain"

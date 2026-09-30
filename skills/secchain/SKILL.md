@@ -52,15 +52,32 @@ That is progress, not an error: the user is being asked on their phone right now
 - Do not read a secret value from an existing `.env`, config file, or shell profile on the user's behalf — SecChain exists specifically to keep those values out of files an agent can read.
 - Do not run a command whose purpose is to print a secret value, such as `secchain run -- env`, `secchain run -- printenv`, or `secchain run -- sh -c 'echo $NAME'`. `secchain` itself has no command that prints a value; do not work around that by piping a secret-bearing command's output back into your own context.
 
-## Rule: when a secret is missing, ask the user to set it — do not collect the value yourself
+## Rule: store a secret only in a way that never shows you its value
 
-If `secchain run` fails because a required secret has no stored value, tell the user which name is missing and ask them to run:
+When `secchain run` fails because a required secret has no stored value, or the task is to move a project's secrets into SecChain, you may run `secchain set` yourself, in these forms only:
 
 ```bash
-secchain set <NAME>
+secchain set <NAME> --from-variable                          # the variable <NAME> your shell already has
+secchain set <NAME> --from-variable <VARIABLE>               # another variable your shell already has
+op read "op://vault/item/credential" | secchain set <NAME>   # the output of the command that produces the value
+gh api <endpoint> --jq '.token' | secchain set <NAME>
+openssl rand -hex 32 | secchain set <NAME>                   # a new random value
+secchain set <NAME>                                          # the user types the value at the hidden prompt
 ```
 
-They run this themselves, in their own terminal, because the prompt reads the value with a hidden `readpassphrase` prompt or from standard input — never as a command-line argument. Do not offer to run `secchain set` for them with the value inline, and do not ask them to tell you the value so that you can run it. A value that several repositories share goes into a shared scope with `secchain set <NAME> --scope user` (or `--scope <name>`); which one is the user's choice.
+- `--from-variable` reads the environment `secchain` itself was started with, so it works where your shell already has the variable, for example one that direnv exports from `.envrc` (`direnv exec . secchain set <NAME> --from-variable`). Where it is not set, `secchain` fails with `<VARIABLE> is not set in the environment of this command`; ask the user then, and do not go looking for the value. Do not use it under `secchain run`: the values `run` passes are already stored, and setting them again would at best change nothing and at worst copy a value into another scope without the user deciding it.
+- Pipe the command that produces the value straight into `secchain set`, with nothing in between that prints it.
+- For the hidden prompt, start `secchain set <NAME>` where the user can type into it (a terminal they see, such as a tmux pane you share), tell them it is waiting for the value, and wait. Never type into that prompt yourself.
+
+Never store a value in any other way:
+
+- with the value written into the command: `printf 'value' | secchain set <NAME>`, `echo value | secchain set <NAME>`, `secchain set <NAME> <<< value`, a heredoc, `KEY=value secchain set KEY --from-variable`, or `export KEY=value` earlier in the same command;
+- with the value read from a file: `secchain set <NAME> < .env`, `grep KEY .env | cut -d= -f2 | secchain set <NAME>`, `source .env && secchain set <NAME> --from-variable`;
+- by asking the user to tell you the value in the chat.
+
+When the name already has a value, `secchain set` asks for authentication — Touch ID, the login password, or an approval on the user's paired iPhone — before it replaces the value, whatever the protection level; `secchain delete` does the same before it removes one. That prompt is the user confirming the change, not an error: wait for it the way you wait for the confirmation of `secchain run`. A refused or cancelled authentication is the user's answer: say so and ask how to proceed instead of trying again.
+
+A value that several repositories share goes into a shared scope with `secchain set <NAME> --scope user` (or `--scope <name>`); which one is the user's choice.
 
 ## Rule: leave the choice of shared scopes to the user
 
@@ -83,7 +100,7 @@ secchain run --env prod -- npm run build
 
 - Use the environment the task names (a deploy to production runs with `--env prod`). When the task does not say which one and `secchain run` refuses with `... has the environments local, prod, so name the one to run with`, ask the user instead of picking one: running against the wrong deployment target is not a detail to guess.
 - `secchain list --envs` shows each scope's environments; `secchain list --env <environment>` shows the names `run --env <environment>` passes.
-- When a value is missing in one environment, ask the user to run `secchain set <NAME> --env <environment>`, following the rule above on missing secrets.
+- When a value is missing in one environment, store it with `secchain set <NAME> --env <environment>`, following the rule above on storing a secret.
 - `secchain env migrate` moves existing secrets into an environment, and the first secret moved makes `--env` necessary for every `run` in that repository — for a shared scope, in every repository it is passed to. That is the user's decision: tell them what the warning or the error says, and let them run it.
 
 The steps the user follows to give an existing repository environments:
@@ -111,19 +128,20 @@ cp .claude/skills/secchain/hooks/settings.json .claude/settings.json
 
 For every project instead of one, put the same `hooks` key into `~/.claude/settings.json` and replace `${CLAUDE_PROJECT_DIR}/.claude/skills/secchain` in the path with the directory the skill is installed in, such as `$HOME/.agents/skills/secchain`. The hook runs `python3`, which macOS provides with the Xcode Command Line Tools.
 
-What it refuses, with a message that names `secchain run -- <command>` as the way to do the same thing:
+What it refuses, with a message that names the way to do the same thing without exposing a value — `secchain run -- <command>`, or for `secchain set` the forms of the rule on storing a secret:
 
 | Call | Example |
 | --- | --- |
 | Reading a `.env` or `.env.*` file with the `Read` tool | `Read .env.local` |
 | A command that reads one | `cat .env`, `grep TOKEN .env.production`, `source .env`, `secchain set NAME < .env` |
+| `secchain set` with the value written into the command | `printf 'value' \| secchain set NAME`, `echo value \| secchain set NAME`, `secchain set NAME <<< value`, a heredoc, `KEY=value secchain set KEY --from-variable` |
 | A command under `secchain run` that prints the environment | `secchain run -- env`, `secchain run -- printenv NAME`, `secchain run -- sh -c 'env \| grep API'` |
 | A command under `secchain run` that prints a value | `secchain run -- sh -c 'echo $OPENAI_API_KEY'`, the same piped into `cat` or `tee` |
 | A script of another language written on the command line, under `secchain run` | `secchain run -- python3 -c '…'`, `secchain run -- node -e '…'`. Put the script in a file and run `secchain run -- python3 script.py` |
 
 A launcher in front of any of these does not hide it: `env secchain run -- env` and `nohup secchain run -- printenv` are refused too.
 
-It lets through everything these rules describe as the way to work, including piping a value straight into the program that consumes it (`printf … \| curl -H @-`), `env NAME=value <command>` under `secchain run`, running a script file with any interpreter, and naming a `.env` file in a command that does not read it (`rm .env`, `echo '.env' >> .gitignore`). A `.env.example` is refused like any other `.env.*` file: nothing in the name tells the hook that the file holds no real value.
+It lets through everything these rules describe as the way to work, including piping a value straight into the program that consumes it (`printf … \| curl -H @-`), `env NAME=value <command>` under `secchain run`, `secchain set NAME --from-variable`, the output of a command piped straight into `secchain set` (`op read … \| secchain set NAME`), running a script file with any interpreter, and naming a `.env` file in a command that does not read it (`rm .env`, `echo '.env' >> .gitignore`). A `.env.example` is refused like any other `.env.*` file: nothing in the name tells the hook that the file holds no real value. `--from-variable` in a command that assigns any variable is refused too, because the hook does not work out which variable it reads.
 
 The hook reads a command the way a shell parses it, and it does not evaluate the command. A value carried through a shell variable (`SECRET_FILE=.env; cat "$SECRET_FILE"`) therefore gets past it. It is a guard against reaching for a secret by habit, not a sandbox: what keeps a value out of a file and out of the terminal is `secchain` itself, which has no command that prints one.
 
@@ -169,6 +187,6 @@ secchain list --envs   # the environments of each scope passed to this repositor
 secchain doctor        # whether this binary can use SecChain's shared Keychain access group at all
 ```
 
-Use `secchain list` to check whether a secret already exists before asking the user to set it.
+Use `secchain list` to check whether a secret already exists before storing it or asking the user to.
 
 `secchain doctor` only tells you whether this binary can use SecChain's Keychain access group at all — an unsigned or wrongly signed binary fails every command immediately with a code-signing error, not a "not found" one, so you would not need `doctor` to notice that case. `doctor` passing does **not** mean a specific secret is reachable: a binary signed by a different Apple Developer Team also passes `doctor` (it can use its own access group), while reading and writing a Keychain vault separate from the official app's — so a secret the user says exists can still come back "not found". When that happens, do not conclude the binary is broken; ask the user to check, in order: the repository identifier (`secchain list --repositories`), whether the secret is in a shared scope that is not allowed for this repository (`secchain list --scopes`), whether this is the official, team-signed installation, and — if the secret was set on another Mac — the iCloud Keychain sync conditions. See the repository's `README.md` ("Check the installation") for the full explanation.
