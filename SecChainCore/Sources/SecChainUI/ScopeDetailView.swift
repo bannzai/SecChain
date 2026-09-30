@@ -52,15 +52,24 @@ struct ScopeDetailView: View {
         #endif
         .overlay {
             if storedSecrets.isEmpty {
-                ContentUnavailableView(
-                    String(localized: "No secrets yet", bundle: .module),
-                    systemImage: "key",
-                    description: Text(
+                ContentUnavailableView {
+                    Label(String(localized: "No secrets yet", bundle: .module), systemImage: "key")
+                } description: {
+                    Text(
                         scope.repositoryIdentity != nil
                             ? String(localized: "Add the first secret of this repository", bundle: .module)
                             : String(localized: "Add the first secret of this scope", bundle: .module)
                     )
-                )
+                } actions: {
+                    // A scope added by hand stays listed without a secret, so a mistaken one needs
+                    // a way out of the list. Only an empty one is offered it: one with secrets
+                    // would stay listed anyway.
+                    if model.isRemovableFromList(scope: scope) {
+                        Button(String(localized: "Remove from List", bundle: .module)) {
+                            model.removeFromList(scope: scope)
+                        }
+                    }
+                }
             }
         }
         .toolbar {

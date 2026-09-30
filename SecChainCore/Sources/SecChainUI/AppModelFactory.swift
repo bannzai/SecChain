@@ -13,11 +13,17 @@ public enum AppModelFactory {
         #if os(macOS)
         AppModel(
             store: systemStore(),
+            readAddedScopes: { addedScopes(userDefaults: .standard) },
+            writeAddedScopes: { writeAddedScopes(scopes: $0, userDefaults: .standard) },
             readUserDefinitionText: { try UserDefinitionFile.readText(homeDirectory: UserDefinitionFile.homeDirectory) },
             writeUserDefinitionText: { try UserDefinitionFile.write(text: $0, homeDirectory: UserDefinitionFile.homeDirectory) }
         )
         #else
-        AppModel(store: systemStore())
+        AppModel(
+            store: systemStore(),
+            readAddedScopes: { addedScopes(userDefaults: .standard) },
+            writeAddedScopes: { writeAddedScopes(scopes: $0, userDefaults: .standard) }
+        )
         #endif
     }
 

@@ -8,6 +8,11 @@ import SecChainCore
 public final class AppModel {
     /// Where secrets are read and written. Only a debug build replaces it (`useDemoStore()`).
     private(set) var store: SecretStore
+    /// Reads the repositories and shared scopes added by hand on this device (`addedScopes`).
+    /// Injected, like `store`, so that the tests and the demo data never touch the user's list.
+    private var readAddedScopes: () -> [SecretScope]
+    /// Replaces the repositories and shared scopes added by hand on this device.
+    private var writeAddedScopes: ([SecretScope]) -> Void
     /// Reads `~/.secchain`, `nil` when the file does not exist. The function itself is `nil` in the
     /// iOS app, which has no such file. Injected, like `store`, so that the tests and the demo data
     /// never touch the user's file.
@@ -16,9 +21,13 @@ public final class AppModel {
     private var writeUserDefinitionText: ((String) throws -> Void)?
 
     /// Scopes that have secrets on this device, the ones `~/.secchain` names on a Mac, and the ones
-    /// added in this session that have none yet: the repositories first, then the user scope, then
-    /// the custom scopes.
+    /// added by hand on this device: the repositories first, then the user scope, then the custom
+    /// scopes.
     public private(set) var scopes: [SecretScope] = []
+    /// The repositories and shared scopes added by hand on this device, as last read. They stay
+    /// listed without a secret, after a restart and after their last secret is deleted, until they
+    /// are removed from the list (`removeFromList`).
+    public private(set) var addedScopes: [SecretScope] = []
     /// Secrets of the scopes loaded so far.
     public private(set) var storedSecretsByScope: [SecretScope: [StoredSecret]] = [:]
     /// What `~/.secchain` declares. `nil` in the iOS app and while the file cannot be read, so that
@@ -36,19 +45,18 @@ public final class AppModel {
     /// operation pointless and gets a dedicated screen instead of an alert.
     public private(set) var isKeychainUnreachable = false
 
-    /// Scopes the user added before storing a first secret. They exist nowhere else, so they are
-    /// gone after a restart unless a secret was stored (or, for a custom scope, `~/.secchain` got a
-    /// line of it).
-    private var scopesWithoutSecrets: [SecretScope] = []
-
     // No `~/.secchain` by default: that is the iOS app, which never runs a command and so never
     // needs to know which scopes a repository gets. The macOS app passes both functions.
     public init(
         store: SecretStore,
+        readAddedScopes: @escaping () -> [SecretScope],
+        writeAddedScopes: @escaping ([SecretScope]) -> Void,
         readUserDefinitionText: (() throws -> String?)? = nil,
         writeUserDefinitionText: ((String) throws -> Void)? = nil
     ) {
         self.store = store
+        self.readAddedScopes = readAddedScopes
+        self.writeAddedScopes = writeAddedScopes
         self.readUserDefinitionText = readUserDefinitionText
         self.writeUserDefinitionText = writeUserDefinitionText
     }
@@ -63,16 +71,16 @@ public final class AppModel {
         scopes.compactMap(\.sharedScope)
     }
 
-    /// Reloads everything from the Keychain and `~/.secchain`. Safe to call at any time
-    /// (idempotent).
+    /// Reloads everything from the Keychain, `~/.secchain`, and the scopes added by hand. Safe to
+    /// call at any time (idempotent).
     public func reload() {
         reloadUserDefinition()
+        addedScopes = readAddedScopes()
         do {
             // A scope another Mac created arrives through the Keychain alone, and one written in
-            // `~/.secchain` may have no secret yet, so the list is the union of both.
-            let knownScopes = try store.scopes() + definedScopes
-            scopesWithoutSecrets.removeAll(where: knownScopes.contains)
-            scopes = Array(Set(knownScopes + scopesWithoutSecrets))
+            // `~/.secchain` or added by hand may have no secret yet, so the list is the union of all
+            // three.
+            scopes = Array(Set(try store.scopes() + definedScopes + addedScopes))
                 .sorted { listOrder(scope: $0) < listOrder(scope: $1) }
             storedSecretsByScope = try Dictionary(
                 uniqueKeysWithValues: scopes.map { ($0, try store.storedSecrets(scope: $0)) }
@@ -110,12 +118,18 @@ public final class AppModel {
     }
 
     #if DEBUG
-    /// Replaces the Keychain with demo data, and on a Mac `~/.secchain` too. A build without
-    /// SecChain's signature cannot reach the Keychain, and a remote session (simtunnel) cannot pass
-    /// launch arguments, so the switch is offered on screen. Calling it again starts over from the
-    /// same demo data (idempotent).
+    /// Replaces the Keychain with demo data, and the scopes added by hand and on a Mac `~/.secchain`
+    /// too. A build without SecChain's signature cannot reach the Keychain, and a remote session
+    /// (simtunnel) cannot pass launch arguments, so the switch is offered on screen. Calling it
+    /// again starts over from the same demo data (idempotent).
     func useDemoStore() {
         store = AppModelFactory.demoStore()
+        // Scopes added or removed on the demo screens stay in memory, so that they never reach the
+        // user's list. The demo starts with none, so that the repository list of the App Store
+        // screenshots stays the demo Keychain's.
+        var demoAddedScopes: [SecretScope] = []
+        readAddedScopes = { demoAddedScopes }
+        writeAddedScopes = { demoAddedScopes = $0 }
         if readUserDefinitionText != nil {
             // Edits made on the demo screens stay in memory, so that they never reach the user's
             // file.
@@ -123,7 +137,6 @@ public final class AppModel {
             readUserDefinitionText = { demoUserDefinitionText }
             writeUserDefinitionText = { demoUserDefinitionText = $0 }
         }
-        scopesWithoutSecrets = []
         selectedScope = nil
         reload()
     }
@@ -137,13 +150,31 @@ public final class AppModel {
     #endif
 
     /// Makes a repository or a shared scope appear in the list so that its first secret can be
-    /// added.
+    /// added, and keeps it there on this device while it has none (`addedScopes`). Adding it again
+    /// changes nothing (idempotent).
     public func addScope(scope: SecretScope) {
-        if !scopes.contains(scope) {
-            scopesWithoutSecrets.append(scope)
+        let currentAddedScopes = readAddedScopes()
+        if !currentAddedScopes.contains(scope) {
+            writeAddedScopes(currentAddedScopes + [scope])
         }
         reload()
         selectedScope = scope
+    }
+
+    /// Whether the scope is in the list only because it was added by hand, so that removing it from
+    /// `addedScopes` takes it out of the list. One with secrets, or one `~/.secchain` names, would
+    /// stay listed anyway.
+    public func isRemovableFromList(scope: SecretScope) -> Bool {
+        addedScopes.contains(scope)
+            && (storedSecretsByScope[scope] ?? []).isEmpty
+            && !definedScopes.contains(scope)
+    }
+
+    /// Takes a scope added by hand out of the list. Deletes nothing from the Keychain or
+    /// `~/.secchain`. Removing one that is not in `addedScopes` changes nothing (idempotent).
+    public func removeFromList(scope: SecretScope) {
+        writeAddedScopes(readAddedScopes().filter { $0 != scope })
+        reload()
     }
 
     /// Returns whether the operation succeeded, so that a sheet knows whether to close.

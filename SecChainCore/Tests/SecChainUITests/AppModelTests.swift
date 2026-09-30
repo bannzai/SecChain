@@ -40,10 +40,29 @@ final class InMemoryUserDefinitionFile {
     }
 }
 
+/// Double of the scopes added by hand that the apps keep in `UserDefaults`.
+final class InMemoryAddedScopes {
+    /// The list as written last.
+    var scopes: [SecretScope] = []
+
+    /// Stands in for `addedScopes(userDefaults:)`.
+    func read() -> [SecretScope] {
+        scopes
+    }
+
+    /// Stands in for `writeAddedScopes(scopes:userDefaults:)`.
+    func write(scopes: [SecretScope]) {
+        self.scopes = scopes
+    }
+}
+
 @MainActor
 @Suite
 struct AppModelTests {
     let keychain = InMemorySecretKeychain()
+    /// The scopes added by hand that every model of this suite reads and writes, as the models of
+    /// one device share them across restarts.
+    let addedScopes = InMemoryAddedScopes()
     /// The `~/.secchain` every model of `makeMacModel` reads and writes.
     let userDefinitionFile = InMemoryUserDefinitionFile()
     let repositoryIdentity = RepositoryIdentity(value: "github.com/example/a")
@@ -51,13 +70,19 @@ struct AppModelTests {
 
     /// A model without `~/.secchain`, as the iOS app has it.
     func makeModel(authenticationFailure: SecretStoreError?) -> AppModel {
-        AppModel(store: SecretStore(keychain: keychain, ownerAuthenticator: FixedOwnerAuthenticator(failure: authenticationFailure)))
+        AppModel(
+            store: SecretStore(keychain: keychain, ownerAuthenticator: FixedOwnerAuthenticator(failure: authenticationFailure)),
+            readAddedScopes: addedScopes.read,
+            writeAddedScopes: addedScopes.write(scopes:)
+        )
     }
 
     /// A model with `~/.secchain`, as the macOS app has it.
     func makeMacModel() -> AppModel {
         AppModel(
             store: SecretStore(keychain: keychain, ownerAuthenticator: FixedOwnerAuthenticator(failure: nil)),
+            readAddedScopes: addedScopes.read,
+            writeAddedScopes: addedScopes.write(scopes:),
             readUserDefinitionText: userDefinitionFile.read,
             writeUserDefinitionText: userDefinitionFile.write(text:)
         )
@@ -240,6 +265,68 @@ struct AppModelTests {
         #expect(model.repositoryIdentities.isEmpty)
         #expect(model.selectedScope == youtubeScope)
         #expect(model.storedSecretsByScope[youtubeScope] == [])
+    }
+
+    @Test
+    func aRepositoryAddedInTheAppIsStillListedAfterARestart() {
+        makeMacModel().addScope(scope: .repository(repositoryIdentity))
+        makeMacModel().addScope(scope: .repository(repositoryIdentity))
+        #expect(addedScopes.scopes == [.repository(repositoryIdentity)])
+        // What the app does after it starts again.
+        let restartedModel = makeMacModel()
+        restartedModel.reload()
+        #expect(restartedModel.repositoryIdentities == [repositoryIdentity])
+        #expect(restartedModel.storedSecretsByScope[.repository(repositoryIdentity)] == [])
+    }
+
+    @Test
+    func aScopeAddedInTheAppStaysListedAfterItsLastSecretIsDeleted() async throws {
+        let model = makeModel(authenticationFailure: nil)
+        model.addScope(scope: .repository(repositoryIdentity))
+        #expect(await model.save(name: try #require(SecretName(rawName: "A")), value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: .standard, isSynchronized: true))
+        #expect(!model.isRemovableFromList(scope: .repository(repositoryIdentity)))
+        #expect(await model.delete(storedSecret: try #require(model.storedSecretsByScope[.repository(repositoryIdentity)]?.first)))
+        #expect(model.repositoryIdentities == [repositoryIdentity])
+        #expect(model.selectedScope == .repository(repositoryIdentity))
+        #expect(model.isRemovableFromList(scope: .repository(repositoryIdentity)))
+    }
+
+    @Test
+    func removingAScopeFromTheListDeletesNothingElse() async throws {
+        let model = makeModel(authenticationFailure: nil)
+        let otherRepositoryIdentity = RepositoryIdentity(value: "github.com/example/b")
+        #expect(await model.save(name: try #require(SecretName(rawName: "A")), value: dummyValue, scope: .repository(otherRepositoryIdentity), protectionLevel: .standard, isSynchronized: true))
+        model.addScope(scope: .repository(repositoryIdentity))
+        model.removeFromList(scope: .repository(repositoryIdentity))
+        model.removeFromList(scope: .repository(repositoryIdentity))
+        #expect(model.repositoryIdentities == [otherRepositoryIdentity])
+        #expect(model.selectedScope == nil)
+        #expect(addedScopes.scopes.isEmpty)
+        #expect(model.storedSecretsByScope[.repository(otherRepositoryIdentity)]?.map(\.name.value) == ["A"])
+    }
+
+    @Test
+    func aScopeThatWouldStayListedIsNotOfferedRemoval() throws {
+        userDefinitionFile.text = "@scope youtube\n"
+        let model = makeMacModel()
+        model.addScope(scope: .shared(try customScope("youtube")))
+        #expect(!model.isRemovableFromList(scope: .shared(try customScope("youtube"))))
+        // Listed only because `~/.secchain` names it, not because it was added by hand.
+        #expect(!model.isRemovableFromList(scope: .shared(.user)))
+    }
+
+    @Test
+    func demoDataNeverReachesTheUsersAddedScopes() {
+        makeModel(authenticationFailure: nil).addScope(scope: .repository(repositoryIdentity))
+        let model = makeModel(authenticationFailure: nil)
+        model.useDemoStore()
+        #expect(!model.repositoryIdentities.contains(repositoryIdentity))
+        let demoRepositoryIdentity = RepositoryIdentity(value: "github.com/example/new")
+        model.addScope(scope: .repository(demoRepositoryIdentity))
+        #expect(model.repositoryIdentities.contains(demoRepositoryIdentity))
+        #expect(addedScopes.scopes == [.repository(repositoryIdentity)])
+        model.useDemoStore()
+        #expect(!model.repositoryIdentities.contains(demoRepositoryIdentity))
     }
 
     @Test
