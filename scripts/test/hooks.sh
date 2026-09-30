@@ -92,6 +92,7 @@ denied Bash command "secchain run -- sh -c 'echo \$OPENAI_API_KEY | cat'"
 denied Bash command "secchain run -- sh -c 'npm run build && echo \$OPENAI_API_KEY'"
 denied Bash command "secchain run -- sh -c 'env > /tmp/environment.txt'"
 denied Bash command "cd app && secchain run -- env"
+denied Bash command "secchain run -- sh -c 'npm run build"$'\n'"env'"
 denied Bash command "bash -c 'secchain run -- printenv'"
 # A shell builtin with nothing to set prints the same environment. `declare -x` and `typeset -x`
 # list every exported variable with its value, so an option alone is not a reason to pass.
@@ -189,6 +190,13 @@ denied_set Bash command "OTHER_KEY=the-value && secchain set OPENAI_API_KEY --fr
 denied_set Bash command "export OPENAI_API_KEY=the-value; sh -c 'secchain set OPENAI_API_KEY --from-variable'"
 denied_set Bash command "bash -c 'echo the-value | secchain set OPENAI_API_KEY'"
 denied_set Bash command "cd app && echo the-value | command secchain set OPENAI_API_KEY"
+# A newline ends a command the way `;` does.
+denied_set Bash command "export OPENAI_API_KEY=the-value"$'\n'"secchain set OPENAI_API_KEY --from-variable"
+denied_set Bash command "echo the-value |"$'\n'"  secchain set OPENAI_API_KEY"
+# A shell or a run started with the value on its standard input hands it on to the set inside.
+denied_set Bash command "echo the-value | sh -c 'secchain set OPENAI_API_KEY'"
+denied_set Bash command "sh -c 'secchain set OPENAI_API_KEY' <<< the-value"
+denied_set Bash command "echo the-value | secchain run -- secchain set OTHER_KEY"
 # Reading the value out of a .env file is refused like any other read of one.
 denied Bash command "secchain set OPENAI_API_KEY < .env.local"
 denied Bash command "grep OPENAI_API_KEY .env | cut -d= -f2 | secchain set OPENAI_API_KEY"
@@ -203,6 +211,9 @@ allowed Bash command "gh api repos/owner/repo/actions/secrets/public-key --jq .k
 allowed Bash command "openssl rand -hex 32 | secchain set SESSION_SECRET --level confirm"
 # An echo in another pipeline of the line feeds nothing into the set.
 allowed Bash command "echo 'storing'; openssl rand -hex 32 | secchain set SESSION_SECRET"
+allowed Bash command "echo 'storing'"$'\n'"openssl rand -hex 32 | secchain set SESSION_SECRET"
+# A backslash before the newline continues the command instead of ending it.
+allowed Bash command "op read 'op://vault/item/credential' \\"$'\n'"  | secchain set OPENAI_API_KEY --scope user"
 
 echo "== calls that have nothing to do with secrets pass"
 allowed Read file_path "/Users/someone/project/.secchain"
