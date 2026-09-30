@@ -268,8 +268,25 @@ def reads_text_written_in_the_line(pipeline, index, stdin_is_written_in_the_line
     return (
         stdin_is_written_in_the_line
         or pipeline[index].reads_text_of_the_line
-        or any(feeder.reads_text_of_the_line or launched_name(feeder.words) in VALUE_PRINTS for feeder in pipeline[:index])
+        or any(feeder.reads_text_of_the_line or prints_text_written_in_the_line(feeder.words) for feeder in pipeline[:index])
     )
+
+
+def prints_text_written_in_the_line(words):
+    """Whether a command writes text of the line to its standard output: `echo` or `printf`, or a
+    shell whose script runs one of them."""
+    words = launched_words(words)
+    name = os.path.basename(words[0]) if words else ""
+    if name in VALUE_PRINTS:
+        return True
+    body = option_value(words, "-c") if name in SHELLS else None
+    if not body:
+        return False
+    try:
+        return any(prints_text_written_in_the_line(command.words) for command in split_into_commands(tokenize(body)))
+    except ValueError:
+        # A script the tokenizer cannot read is not one a shell would run either.
+        return False
 
 
 def literal_set_denial(pipeline, index, assigned, stdin_is_written_in_the_line):
@@ -331,8 +348,14 @@ def launched_words(words):
     index = 0
     while index < len(words) and ASSIGNMENT.match(words[index]):
         index += 1
-    while index < len(words) and os.path.basename(words[index]) in LAUNCHERS:
-        index += 1
+    while index < len(words):
+        if os.path.basename(words[index]) in LAUNCHERS:
+            index += 1
+        # `direnv exec <directory> <command>` loads the directory's `.envrc` and runs the command.
+        elif os.path.basename(words[index]) == "direnv" and words[index + 1 : index + 2] == ["exec"]:
+            index += 3
+        else:
+            break
         while index < len(words) and (words[index].startswith("-") or "=" in words[index]):
             index += 1
     return words[index:] if index < len(words) else words
