@@ -67,6 +67,7 @@ struct EnvMigrateCommand: AsyncParsableCommand {
         let setup = try secretStore(
             scope: scope,
             requestedSecrets: movingSecrets,
+            authenticatesEveryLevel: false,
             commandArguments: ["env", "migrate", secretEnvironment.value] + (secretNames?.map(\.value) ?? []) + scopeArguments(scope: scope),
             approveRemotely: remoteApprovalOptions.approveRemotely
         )

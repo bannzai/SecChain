@@ -8,9 +8,16 @@ extension ProtectionLevel: ExpressibleByArgument {}
 struct SetCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "set",
-        abstract: "Store or update a secret. The value is read from a hidden prompt, or from standard input when piped.",
+        abstract: "Store or update a secret. The value is read from a hidden prompt, from standard input when piped, or from an environment variable with --from-variable.",
         discussion: """
             The value is never accepted as an argument, so it cannot end up in the shell history or the process list.
+
+            Updating a secret that already has a value asks for authentication (Touch ID, the \
+            password, or the paired iPhone), whatever its protection level. Storing a new one does not.
+
+            With --from-variable, the value is the one of an environment variable this command \
+            received: the one named like the secret, or the VARIABLE given. It moves a value that the \
+            shell or direnv already exported into the Keychain without typing or piping it again.
 
             With --scope, the secret goes to a shared scope and its name is declared in that scope of \
             ~/.secchain, which gets the scope if it has none yet. Which repositories receive the scope \
@@ -38,6 +45,23 @@ struct SetCommand: AsyncParsableCommand {
         help: "Synchronize through iCloud Keychain, or keep the secret on this Mac only. Keeps the current setting when omitted; a new secret synchronizes."
     )
     var sync: Bool?
+
+    /// What `--from-variable` holds when no variable follows it: the variable named like the secret.
+    /// Not a valid variable name, so that it is never mistaken for one that was typed.
+    static let variableNamedLikeTheSecret = "<NAME>"
+
+    @Option(
+        name: .customLong("from-variable"),
+        defaultAsFlag: SetCommand.variableNamedLikeTheSecret,
+        // `.next` rather than the default `.scanningForValue`, which reads ahead past the options
+        // that follow for a value to take.
+        parsing: .next,
+        help: ArgumentHelp(
+            "Read the value from an environment variable of this command: the one named like the secret, or VARIABLE. Neither the prompt nor standard input is read.",
+            valueName: "VARIABLE"
+        )
+    )
+    var fromVariable: String?
 
     @OptionGroup
     var scopeOptions: ScopeOptions
@@ -91,16 +115,20 @@ struct SetCommand: AsyncParsableCommand {
         if let environment {
             try warnAboutSecretsWithoutEnvironment(scope: scope, environment: environment, remainingSecretNames: nil)
         }
-        // Updating a secret that is not standard authenticates first, and that authentication takes
+        // Updating a secret authenticates first, whatever its level, and that authentication takes
         // the same route as the one of `run`. The name is what the iPhone is shown; the value is
-        // read from standard input and never leaves this process.
+        // read from standard input or the environment and never leaves this process.
         let setup = try secretStore(
             scope: scope,
             requestedSecrets: try SecretStore.system.storedSecrets(scope: scope, environment: environment).filter { $0.name == secretName },
-            commandArguments: ["set", secretName.value] + scopeArguments(scope: scope) + environmentArguments(environment: environment),
+            authenticatesEveryLevel: true,
+            commandArguments: ["set", secretName.value]
+                + scopeArguments(scope: scope)
+                + environmentArguments(environment: environment)
+                + (valueVariableName(secretName: secretName).map { ["--from-variable", $0] } ?? []),
             approveRemotely: remoteApprovalOptions.approveRemotely
         )
-        let value = try SecretInput.read(secretName: secretName)
+        let value = try secretValue(secretName: secretName, environment: ProcessInfo.processInfo.environment)
         let storedSecret = try await withInterruptCancellingWhileWaiting(waitsForARemoteApproval: setup.waitsForARemoteApproval) {
             try await setup.store.set(
                 name: secretName,
@@ -113,6 +141,29 @@ struct SetCommand: AsyncParsableCommand {
         }
         try writeDefinition()
         print("Stored \(secretName.value) for \(storedSecret.locationDescription) (\(storedSecret.protectionLevel.rawValue), \(storedSecret.isSynchronized ? "synchronized" : "this Mac only")).")
+    }
+
+    /// Refuses a `--from-variable` name that is not a variable name before anything else runs, and
+    /// without repeating it: what was typed there may be the value itself, and the command is what
+    /// the paired iPhone is shown.
+    func validate() throws {
+        if let fromVariable, fromVariable != Self.variableNamedLikeTheSecret, !isValidSecretName(name: fromVariable) {
+            throw ValidationError("The name given to --from-variable is not an environment variable name. Use letters, digits and underscores, not starting with a digit.")
+        }
+    }
+
+    /// The environment variable that `--from-variable` reads, `nil` without the option.
+    func valueVariableName(secretName: SecretName) -> String? {
+        fromVariable.map { $0 == Self.variableNamedLikeTheSecret ? secretName.value : $0 }
+    }
+
+    /// The value to store: the one of the variable `--from-variable` names in `environment`, and
+    /// otherwise the one typed at the hidden prompt or piped to standard input.
+    func secretValue(secretName: SecretName, environment: [String: String]) throws -> SecretValue {
+        guard let variableName = valueVariableName(secretName: secretName) else {
+            return try SecretInput.read(secretName: secretName)
+        }
+        return try SecretInput.readFromVariable(variableName: variableName, environment: environment)
     }
 }
 

@@ -67,6 +67,7 @@ struct RunCommand: AsyncParsableCommand {
         let setup = try secretStore(
             scope: .repository(context.repositoryIdentity),
             requestedSecrets: requestedSecrets,
+            authenticatesEveryLevel: false,
             commandArguments: command,
             approveRemotely: remoteApprovalOptions.approveRemotely
         )

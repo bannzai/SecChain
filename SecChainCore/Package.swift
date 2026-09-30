@@ -45,5 +45,12 @@ let package = Package(
         ),
         .testTarget(name: "SecChainCoreTests", dependencies: ["SecChainCore"]),
         .testTarget(name: "SecChainUITests", dependencies: ["SecChainUI"]),
+        .testTarget(
+            name: "SecChainCLITests",
+            dependencies: [
+                "SecChainCLI",
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ]
+        ),
     ]
 )
