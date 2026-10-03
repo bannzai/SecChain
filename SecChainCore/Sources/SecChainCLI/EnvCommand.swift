@@ -75,9 +75,9 @@ struct EnvMigrateCommand: AsyncParsableCommand {
             try await setup.store.moveToEnvironment(names: secretNames, scope: scope, environment: secretEnvironment)
         }
         guard !movedSecrets.isEmpty else {
-            print("Nothing to move: \(secretNames.map { "\($0.map(\.value).joined(separator: ", ")) of " } ?? "")\(scope.description) has no secret without an environment.")
+            writeToStandardOutput(line: "Nothing to move: \(secretNames.map { "\($0.map(\.value).joined(separator: ", ")) of " } ?? "")\(scope.description) has no secret without an environment.")
             return
         }
-        print("Moved \(movedSecrets.map(\.name.value).joined(separator: ", ")) of \(scope.description) to the environment \(secretEnvironment.value).")
+        writeToStandardOutput(line: "Moved \(movedSecrets.map(\.name.value).joined(separator: ", ")) of \(scope.description) to the environment \(secretEnvironment.value).")
     }
 }
