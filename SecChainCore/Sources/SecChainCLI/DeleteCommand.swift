@@ -80,6 +80,6 @@ struct DeleteCommand: AsyncParsableCommand {
         if try !SecretStore.system.storedSecrets(scope: scope).contains(where: { $0.name == secretName }) {
             try writeDefinition()
         }
-        print("Deleted \(secretName.value) from \(scope.locationDescription(environment: environment)).")
+        writeToStandardOutput(line: "Deleted \(secretName.value) from \(scope.locationDescription(environment: environment)).")
     }
 }

@@ -39,7 +39,7 @@ struct ListCommand: ParsableCommand {
     func run() throws {
         if repositories {
             for repositoryIdentity in try SecretStore.system.repositoryIdentities() {
-                print(repositoryIdentity.value)
+                writeToStandardOutput(line: repositoryIdentity.value)
             }
             return
         }
@@ -93,12 +93,12 @@ struct ListCommand: ParsableCommand {
             printNames(storedSecrets: storedSecrets)
             return
         }
-        print("# \(scope.locationDescription(environment: environment))")
+        writeToStandardOutput(line: "# \(scope.locationDescription(environment: environment))")
         for storedSecret in storedSecrets {
-            print("\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))")
+            writeToStandardOutput(line: "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))")
         }
         for declaredSecretName in declaredSecretNames where !storedSecrets.contains(where: { $0.name == declaredSecretName }) {
-            print("\(declaredSecretName.value)\tno value stored (declared in \(definitionFileName))")
+            writeToStandardOutput(line: "\(declaredSecretName.value)\tno value stored (declared in \(definitionFileName))")
         }
     }
 
@@ -122,13 +122,13 @@ struct ListCommand: ParsableCommand {
             printNames(storedSecrets: passedSecrets)
             return
         }
-        print("# \(context.repositoryIdentity.value) (\(passedScopes.map(\.name).joined(separator: ", ")))\(environment.map { ", environment \($0.value)" } ?? "")")
+        writeToStandardOutput(line: "# \(context.repositoryIdentity.value) (\(passedScopes.map(\.name).joined(separator: ", ")))\(environment.map { ", environment \($0.value)" } ?? "")")
         for storedSecret in passedSecrets {
             let overriddenScopeNames = offeredSecrets
                 .filter { $0.scope != storedSecret.scope && $0.name == storedSecret.name }
                 .map(\.scope.name)
-            print(
-                "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))\t\(storedSecret.scope.name)"
+            writeToStandardOutput(
+                line: "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))\t\(storedSecret.scope.name)"
                     + (overriddenScopeNames.isEmpty ? "" : "\t(also in \(overriddenScopeNames.joined(separator: ", ")))")
             )
         }
@@ -137,7 +137,7 @@ struct ListCommand: ParsableCommand {
                 definition: definition,
                 storedSecretNames: Set(passedSecrets.map(\.name))
             ) {
-                print("\(missingSecretName.value)\tno value stored (declared in .secchain)")
+                writeToStandardOutput(line: "\(missingSecretName.value)\tno value stored (declared in .secchain)")
             }
         }
     }
@@ -149,16 +149,16 @@ struct ListCommand: ParsableCommand {
             printNames(storedSecrets: storedSecrets)
             return
         }
-        print("# \(context.repositoryIdentity.value) (\(passedScopes.map(\.name).joined(separator: ", "))), every environment; 'secchain list --env <environment>' shows what 'secchain run --env <environment>' passes")
+        writeToStandardOutput(line: "# \(context.repositoryIdentity.value) (\(passedScopes.map(\.name).joined(separator: ", "))), every environment; 'secchain list --env <environment>' shows what 'secchain run --env <environment>' passes")
         for storedSecret in storedSecrets.sorted(by: { $0.name < $1.name }) {
-            print("\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))\t\(storedSecret.scope.name)")
+            writeToStandardOutput(line: "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))\t\(storedSecret.scope.name)")
         }
         if let definition = context.definition {
             for missingSecretName in SecretDefinitionText.missingSecretNames(
                 definition: definition,
                 storedSecretNames: Set(storedSecrets.map(\.name))
             ) {
-                print("\(missingSecretName.value)\tno value stored (declared in .secchain)")
+                writeToStandardOutput(line: "\(missingSecretName.value)\tno value stored (declared in .secchain)")
             }
         }
     }
@@ -169,7 +169,7 @@ struct ListCommand: ParsableCommand {
         for scope in scopes {
             let environments = try SecretStore.system.environments(scope: scope)
             let secretsWithoutEnvironmentCount = try SecretStore.system.storedSecrets(scope: scope, environment: nil).count
-            print("\(scope.name)\t\(environments.isEmpty ? "-" : environments.map(\.value).joined(separator: " "))\t\(secretsWithoutEnvironmentCount) without an environment")
+            writeToStandardOutput(line: "\(scope.name)\t\(environments.isEmpty ? "-" : environments.map(\.value).joined(separator: " "))\t\(secretsWithoutEnvironmentCount) without an environment")
         }
     }
 
@@ -177,7 +177,7 @@ struct ListCommand: ParsableCommand {
     /// one environment variable.
     func printNames(storedSecrets: [StoredSecret]) {
         for secretName in Set(storedSecrets.map(\.name)).sorted() {
-            print(secretName.value)
+            writeToStandardOutput(line: secretName.value)
         }
     }
 
@@ -192,7 +192,7 @@ struct ListCommand: ParsableCommand {
         let userDefinition = try readUserDefinition().definition
         for sharedScope in userDefinition.sharedScopes(storedScopes: try SecretStore.system.scopes().compactMap(\.sharedScope)) {
             let allowPatterns = userDefinition.scopeDefinition(scope: sharedScope)?.allowPatterns ?? []
-            print("\(sharedScope.name)\t\(allowPatterns.isEmpty ? "(passed to no repository)" : allowPatterns.joined(separator: " "))")
+            writeToStandardOutput(line: "\(sharedScope.name)\t\(allowPatterns.isEmpty ? "(passed to no repository)" : allowPatterns.joined(separator: " "))")
         }
     }
 }

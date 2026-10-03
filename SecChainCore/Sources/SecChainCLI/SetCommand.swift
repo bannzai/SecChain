@@ -140,7 +140,7 @@ struct SetCommand: AsyncParsableCommand {
             )
         }
         try writeDefinition()
-        print("Stored \(secretName.value) for \(storedSecret.locationDescription) (\(storedSecret.protectionLevel.rawValue), \(storedSecret.isSynchronized ? "synchronized" : "this Mac only")).")
+        writeToStandardOutput(line: "Stored \(secretName.value) for \(storedSecret.locationDescription) (\(storedSecret.protectionLevel.rawValue), \(storedSecret.isSynchronized ? "synchronized" : "this Mac only")).")
     }
 
     /// Refuses a `--from-variable` name that is not a variable name before anything else runs, and
