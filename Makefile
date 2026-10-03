@@ -130,3 +130,22 @@ dmg:
 
 clean:
 	rm -rf $(DERIVED_DATA)
+
+# Install the Debug build over the Release one at /Applications/SecChain.app. This is a temporary
+# install for operations that only the Debug build has (developer menus and the like) against the
+# data in everyday use; run `make macos` afterwards to go back to the Release build.
+# It does not launch the app, so that it also works over ssh.
+.PHONY: macos-debug
+
+macos-debug:
+	xcodebuild -project 'SecChain.xcodeproj' -scheme 'SecChain' \
+		-configuration Debug \
+		-destination 'platform=macOS' \
+		-derivedDataPath 'tmp/DerivedData' \
+		-allowProvisioningUpdates -allowProvisioningDeviceRegistration \
+		build
+	rm -rf $(INSTALL_APP)
+	ditto 'tmp/DerivedData/Build/Products/Debug/SecChain.app' $(INSTALL_APP)
+	$(LSREGISTER) -f $(INSTALL_APP)
+	@echo "To launch: open $(INSTALL_APP)"
+	@echo "To go back to the Release build: make macos"
