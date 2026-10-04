@@ -142,15 +142,16 @@ struct SecretEditorView: View {
         }
     }
 
-    /// The note as entered, `nil` for a field left empty, which removes the note. Whitespace around
-    /// it is dropped, so that a note of spaces alone counts as empty rather than invalid.
+    /// The note as entered, `nil` for a field left empty or holding whitespace alone, which removes
+    /// the note. The text is kept as typed, so that saving a note unchanged stores the same note,
+    /// as `secchain note` does.
     var enteredNote: SecretNote? {
-        SecretNote(rawNote: noteText.trimmingCharacters(in: .whitespacesAndNewlines))
+        SecretNote(rawNote: noteText)
     }
 
-    /// Whether the field holds a note `SecretNote` accepts, or nothing.
+    /// Whether the field holds a note `SecretNote` accepts, or nothing but whitespace.
     var isNoteAcceptable: Bool {
-        noteText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || enteredNote != nil
+        noteText.allSatisfy(\.isWhitespace) || enteredNote != nil
     }
 
     var title: String {

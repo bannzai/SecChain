@@ -22,9 +22,14 @@ public struct SecretNote: Hashable, Sendable, CustomStringConvertible {
     }
 }
 
-/// Whether `note` can be a `SecretNote`: something other than whitespace, and no control character
-/// or line separator (line breaks and tabs included).
+/// Whether `note` can be a `SecretNote`: something other than whitespace, and no control character,
+/// line separator (line breaks and tabs included), or bidirectional control, which would make a
+/// terminal show the row of `secchain list --long` in another order than the characters it holds.
+/// Other format characters stay allowed, because the zero width joiner is part of emoji sequences.
 public func isValidSecretNote(note: String) -> Bool {
     !note.allSatisfy(\.isWhitespace)
-        && !note.unicodeScalars.contains { [.control, .lineSeparator, .paragraphSeparator].contains($0.properties.generalCategory) }
+        && !note.unicodeScalars.contains { scalar in
+            [.control, .lineSeparator, .paragraphSeparator].contains(scalar.properties.generalCategory)
+                || scalar.properties.isBidiControl
+        }
 }

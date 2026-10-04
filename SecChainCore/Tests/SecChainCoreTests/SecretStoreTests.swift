@@ -495,6 +495,7 @@ struct SecretStoreTests {
         try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .deviceBound, isSynchronized: nil)
         let noted = try store.setNote(name: try name("A"), scope: .repository(repositoryA), environment: nil, note: try note("signing key"))
         #expect(noted.note == (try note("signing key")))
+        #expect(noted.modificationDate != nil)
         try store.setNote(name: try name("A"), scope: .repository(repositoryA), environment: nil, note: try note("signing key"))
         #expect(try storedNote(rawName: "A") == (try note("signing key")))
         try store.setNote(name: try name("A"), scope: .repository(repositoryA), environment: nil, note: nil)

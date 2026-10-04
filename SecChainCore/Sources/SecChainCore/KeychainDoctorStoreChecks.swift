@@ -63,12 +63,11 @@ extension KeychainDoctor {
     /// check names.
     static func runStoreChecks(scope: SecretScope, label: String) async -> [KeychainDoctorCheck] {
         let store = SecretStore(keychain: SystemSecretKeychain(), ownerAuthenticator: NonInteractiveOwnerAuthenticator())
-        guard let name = SecretName(rawName: "DOCTOR_SECRET") else {
+        guard let name = SecretName(rawName: "DOCTOR_SECRET"), let note = SecretNote(rawNote: "note written by secchain doctor") else {
             return []
         }
         let firstValue = SecretValue(exposingString: "dummy-value-for-doctor-1")
         let secondValue = SecretValue(exposingString: "dummy-value-for-doctor-2")
-        let note = SecretNote(rawNote: "note written by secchain doctor")
         var checks: [KeychainDoctorCheck] = []
 
         /// Runs one step and records whether `expectation` held, or the error it threw.

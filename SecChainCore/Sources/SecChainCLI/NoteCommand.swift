@@ -65,4 +65,4 @@ struct NoteCommand: ParsableCommand {
 
 /// The usage error for a note that `SecretNote` refuses. The note is not repeated: it is shown by
 /// `secchain list --long`, whose rows it would break.
-let invalidNoteMessage = "A note is one line of text: no line breaks, tabs, or other control characters, and not whitespace alone. Use 'secchain note NAME --remove' to remove one."
+let invalidNoteMessage = "A note is one line of text: no line breaks, tabs, other control characters, or bidirectional controls, and not whitespace alone. Use 'secchain note NAME --remove' to remove one."

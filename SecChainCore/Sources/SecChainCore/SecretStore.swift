@@ -262,15 +262,8 @@ public struct SecretStore: Sendable {
             throw Self.notFoundError(name: name, location: scope.description, environment: environment)
         }
         try keychain.writeNote(storedSecret: existing, note: note)
-        return StoredSecret(
-            scope: existing.scope,
-            name: existing.name,
-            environment: existing.environment,
-            protectionLevel: existing.protectionLevel,
-            isSynchronized: existing.isSynchronized,
-            modificationDate: nil,
-            note: note
-        )
+        // Read back rather than built here, so that the modification date is the one of the write.
+        return try existingSecret(name: name, scope: scope, environment: environment)
     }
 
     /// Deletes every variant of the name in the environment. Authenticates first whenever there is

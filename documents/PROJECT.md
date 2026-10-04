@@ -337,7 +337,7 @@ A secret can carry a note, such as "the API key for video generation", so that a
 - **The note lives and dies with the item.** Deleting a secret deletes its note; a change of protection or synchronization and a move into an environment, which write another item, carry it over. Nothing has to be cleaned up after a secret deleted on another Mac.
 - **Each item has its own note.** The secret of each environment is an item of its own, so `prod` and `local` have separate notes.
 - **Writing or removing a note does not authenticate**, whatever the level: a note is not a value, and the authentication of an update protects the values the user stored. Any process running as the user can therefore change a note, as it can read one.
-- **A note is shown everywhere a secret is listed**, by both apps and by `secchain list --long`, so it must never hold a value; the apps and the agent skill say so. A note is one line without tabs or other control characters, because it is a column of `list --long`.
+- **A note is shown everywhere a secret is listed**, by both apps and by `secchain list --long`, so it must never hold a value; the apps and the agent skill say so. A note is one line without tabs, other control characters, or bidirectional controls, because it is a column of `list --long` and a terminal must show it in the order it is stored.
 - `SecItemUpdate` cannot take an attribute away, so a removed note is an empty comment, which is read back as no note.
 
 ## Measured behavior
