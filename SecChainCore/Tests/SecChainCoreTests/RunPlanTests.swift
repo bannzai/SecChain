@@ -115,7 +115,7 @@ struct RunPlanTests {
         let video = SecretScope.shared(.custom(try #require(CustomScopeName(rawName: "video"))))
         let passedScopes: [SecretScope] = [.repository(repositoryIdentity), youtube, video, .shared(.user)]
         func storedSecret(scope: SecretScope, rawName: String) throws -> StoredSecret {
-            StoredSecret(scope: scope, name: try #require(SecretName(rawName: rawName)), environment: nil, protectionLevel: .confirm, isSynchronized: true, modificationDate: nil)
+            StoredSecret(scope: scope, name: try #require(SecretName(rawName: rawName)), environment: nil, protectionLevel: .confirm, isSynchronized: true, modificationDate: nil, note: nil)
         }
         #expect(
             RunPlan.authenticationReason(
@@ -156,7 +156,8 @@ struct RunPlanTests {
             environment: try rawEnvironment.map { try #require(SecretEnvironment(rawName: $0)) },
             protectionLevel: .standard,
             isSynchronized: true,
-            modificationDate: nil
+            modificationDate: nil,
+            note: nil
         )
     }
 

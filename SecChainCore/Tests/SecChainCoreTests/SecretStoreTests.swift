@@ -249,8 +249,8 @@ struct SecretStoreTests {
 
     @Test
     func theLocalVariantWinsOverASynchronizedOneAndSetRemovesTheStaleVariant() async throws {
-        let local = StoredSecret(scope: .repository(repositoryA), name: try name("A"), environment: nil, protectionLevel: .standard, isSynchronized: false, modificationDate: nil)
-        let synchronized = StoredSecret(scope: .repository(repositoryA), name: try name("A"), environment: nil, protectionLevel: .standard, isSynchronized: true, modificationDate: nil)
+        let local = StoredSecret(scope: .repository(repositoryA), name: try name("A"), environment: nil, protectionLevel: .standard, isSynchronized: false, modificationDate: nil, note: nil)
+        let synchronized = StoredSecret(scope: .repository(repositoryA), name: try name("A"), environment: nil, protectionLevel: .standard, isSynchronized: true, modificationDate: nil, note: nil)
         try keychain.write(storedSecret: local, value: dummyValue, replacing: nil, ownerAuthentication: nil)
         try keychain.write(storedSecret: synchronized, value: otherDummyValue, replacing: nil, ownerAuthentication: nil)
 
@@ -449,6 +449,83 @@ struct SecretStoreTests {
         }
         #expect(try keychain.storedSecrets(scope: .repository(repositoryA)).allSatisfy { $0.environment == nil })
         #expect(try store.environments(scope: .repository(repositoryA)).isEmpty)
+    }
+
+    // MARK: - Notes
+
+    /// The note `rawNote`, which the test expects to be valid.
+    func note(_ rawNote: String) throws -> SecretNote {
+        // The label is omitted because every call site passes a literal note.
+        try #require(SecretNote(rawNote: rawNote))
+    }
+
+    /// The note of the effective secret of `rawName` in repository A without an environment.
+    func storedNote(rawName: String) throws -> SecretNote? {
+        try store.storedSecrets(scope: .repository(repositoryA), environment: nil).first { $0.name.value == rawName }?.note
+    }
+
+    @Test
+    func aNoteIsStoredWithTheSecretAndKeptWhenTheValueIsReplaced() async throws {
+        let stored = try await store.set(name: try name("API_KEY"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: nil, isSynchronized: nil, note: try note("The API key for video generation"))
+        #expect(stored.note == (try note("The API key for video generation")))
+        #expect(try storedNote(rawName: "API_KEY") == (try note("The API key for video generation")))
+        try await store.set(name: try name("API_KEY"), value: otherDummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: nil, isSynchronized: nil)
+        #expect(try storedNote(rawName: "API_KEY") == (try note("The API key for video generation")))
+        try await store.set(name: try name("API_KEY"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: nil, isSynchronized: nil, note: try note("Rotated"))
+        #expect(try storedNote(rawName: "API_KEY") == (try note("Rotated")))
+    }
+
+    /// Changing the protection or the synchronization writes another item (copy-then-delete), and
+    /// moving to an environment writes the item of the environment: the note goes with each.
+    @Test
+    func aNoteFollowsTheSecretToAnotherItem() async throws {
+        try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .standard, isSynchronized: true, note: try note("note of A"))
+        try await store.changeProtection(name: try name("A"), scope: .repository(repositoryA), environment: nil, protectionLevel: .deviceBound, isSynchronized: false)
+        #expect(try keychain.storedSecrets(scope: .repository(repositoryA)).map(\.note) == [try note("note of A")])
+        try await store.changeProtection(name: try name("A"), scope: .repository(repositoryA), environment: nil, protectionLevel: .standard, isSynchronized: true)
+        #expect(try keychain.storedSecrets(scope: .repository(repositoryA)).map(\.note) == [try note("note of A")])
+        try await store.moveToEnvironment(names: nil, scope: .repository(repositoryA), environment: try environment("local"))
+        #expect(try store.storedSecrets(scope: .repository(repositoryA), environment: try environment("local")).map(\.note) == [try note("note of A")])
+    }
+
+    /// A note is not a value: writing and removing one asks for no authentication at any level, and
+    /// leaves the value as it was.
+    @Test
+    func aNoteIsWrittenAndRemovedWithoutAuthenticationAndWithoutTouchingTheValue() async throws {
+        try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .deviceBound, isSynchronized: nil)
+        let noted = try store.setNote(name: try name("A"), scope: .repository(repositoryA), environment: nil, note: try note("signing key"))
+        #expect(noted.note == (try note("signing key")))
+        try store.setNote(name: try name("A"), scope: .repository(repositoryA), environment: nil, note: try note("signing key"))
+        #expect(try storedNote(rawName: "A") == (try note("signing key")))
+        try store.setNote(name: try name("A"), scope: .repository(repositoryA), environment: nil, note: nil)
+        #expect(try storedNote(rawName: "A") == nil)
+        #expect(authenticator.reasons.isEmpty)
+        #expect(try await store.revealedValue(name: try name("A"), scope: .repository(repositoryA), environment: nil) == dummyValue)
+    }
+
+    @Test
+    func aNoteOfASecretThatIsNotStoredIsRefused() async throws {
+        #expect(throws: SecretStoreError.secretNotFound(name: "MISSING", repository: repositoryA.value)) {
+            try store.setNote(name: try name("MISSING"), scope: .repository(repositoryA), environment: nil, note: try note("note"))
+        }
+        try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: try environment("prod"), protectionLevel: nil, isSynchronized: nil)
+        #expect(throws: SecretStoreError.environmentRequired(repository: repositoryA.value, environments: ["prod"])) {
+            try store.setNote(name: try name("A"), scope: .repository(repositoryA), environment: nil, note: try note("note"))
+        }
+        #expect(throws: SecretStoreError.secretNotFoundInEnvironment(name: "A", repository: repositoryA.value, environment: "local")) {
+            try store.setNote(name: try name("A"), scope: .repository(repositoryA), environment: try environment("local"), note: try note("note"))
+        }
+    }
+
+    /// The secret of each environment is an item of its own, with a note of its own.
+    @Test
+    func eachEnvironmentHasANoteOfItsOwn() async throws {
+        for rawEnvironment in ["local", "prod"] {
+            try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: try environment(rawEnvironment), protectionLevel: nil, isSynchronized: nil)
+        }
+        try store.setNote(name: try name("A"), scope: .repository(repositoryA), environment: try environment("prod"), note: try note("production key"))
+        #expect(try store.storedSecrets(scope: .repository(repositoryA), environment: try environment("prod")).map(\.note) == [try note("production key")])
+        #expect(try store.storedSecrets(scope: .repository(repositoryA), environment: try environment("local")).map(\.note) == [nil])
     }
 
     // MARK: - Failures of the Keychain

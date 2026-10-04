@@ -154,7 +154,8 @@ struct SecretMaskTests {
             environment: environment.flatMap(SecretEnvironment.init(rawName:)),
             protectionLevel: .standard,
             isSynchronized: true,
-            modificationDate: nil
+            modificationDate: nil,
+            note: nil
         )
     }
 }
