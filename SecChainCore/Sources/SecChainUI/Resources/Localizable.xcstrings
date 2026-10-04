@@ -466,6 +466,17 @@
         }
       }
     },
+    "Edit Note" : {
+      "comment" : "Menu item that opens the sheet for writing the note of a secret",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メモを編集"
+          }
+        }
+      }
+    },
     "Hidden again after 30 seconds" : {
       "localizations" : {
         "ja" : {
@@ -541,6 +552,17 @@
         }
       }
     },
+    "Never write a value here: every app and secchain list show the note" : {
+      "comment" : "Footer of the note field: the note is not a secret and is shown everywhere",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "値は書かないでください（メモはすべてのアプリと secchain list に表示されます）"
+          }
+        }
+      }
+    },
     "No Mac is waiting for an approval" : {
       "localizations" : {
         "ja" : {
@@ -589,6 +611,28 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "環境 %@ の %@ の値は %@ に保存されていません。「secchain set %@ --env %@」で保存してください。"
+          }
+        }
+      }
+    },
+    "Note" : {
+      "comment" : "Label of the field for the user's note about a secret, such as what it is for",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "メモ"
+          }
+        }
+      }
+    },
+    "Note of %@" : {
+      "comment" : "Title of the sheet that edits the note of the secret %@",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%@ のメモ"
           }
         }
       }
@@ -1267,6 +1311,17 @@
         }
       }
     },
+    "Use one line without tabs" : {
+      "comment" : "Shown under the note field when the note has a line break or a tab",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "改行やタブを含めず1行で入力してください"
+          }
+        }
+      }
+    },
     "User" : {
       "comment" : "Name of the built-in scope shared by every repository the user allows",
       "localizations" : {
@@ -1306,6 +1361,17 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "同期に必要なもの"
+          }
+        }
+      }
+    },
+    "What the secret is for" : {
+      "comment" : "Placeholder of the note field of a secret",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このシークレットの用途"
           }
         }
       }

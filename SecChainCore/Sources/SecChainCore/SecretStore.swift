@@ -142,8 +142,8 @@ public struct SecretStore: Sendable {
     }
 
     /// Adds the secret, or updates it when the name exists in the environment. `nil` for
-    /// `protectionLevel` / `isSynchronized` keeps the existing setting; a new secret defaults to
-    /// `standard` and synchronized. Updating an existing secret authenticates first, whatever its
+    /// `protectionLevel` / `isSynchronized` / `note` keeps the existing setting; a new secret defaults
+    /// to `standard`, synchronized, and without a note. Updating an existing secret authenticates first, whatever its
     /// level: `standard` means that reading needs no authentication, not that anyone who can run a
     /// command may replace a value the user stored. This also covers every way of lowering a level.
     /// Adding a new secret does not authenticate, because it replaces nothing.
@@ -161,7 +161,10 @@ public struct SecretStore: Sendable {
         scope: SecretScope,
         environment: SecretEnvironment?,
         protectionLevel: ProtectionLevel?,
-        isSynchronized: Bool?
+        isSynchronized: Bool?,
+        // `nil` keeps the note the secret has, which is what every caller that does not edit notes
+        // means, so that only the front ends that offer a note field have to pass one.
+        note: SecretNote? = nil
     ) async throws -> StoredSecret {
         guard !value.isEmpty else {
             throw SecretStoreError.emptyValue
@@ -188,7 +191,8 @@ public struct SecretStore: Sendable {
             // Synchronized by default: following the user across their Macs is the point of
             // SecChain. A device-bound secret can never synchronize.
             isSynchronized: targetProtectionLevel == .deviceBound ? false : (isSynchronized ?? existing?.isSynchronized ?? true),
-            modificationDate: nil
+            modificationDate: nil,
+            note: note ?? existing?.note
         )
         let ownerAuthentication = existing != nil
             ? try await ownerAuthenticator.authenticate(reason: String(localized: "update \(name.value)", bundle: authenticationReasonBundle))
@@ -227,7 +231,8 @@ public struct SecretStore: Sendable {
             environment: environment,
             protectionLevel: protectionLevel,
             isSynchronized: isSynchronized,
-            modificationDate: nil
+            modificationDate: nil,
+            note: existing.note
         )
         let value = try keychain.value(storedSecret: existing, ownerAuthentication: ownerAuthentication)
         // Same reason as in `set`: a non-effective variant must not collide with the target.
@@ -242,6 +247,23 @@ public struct SecretStore: Sendable {
             ownerAuthentication: ownerAuthentication
         )
         return target
+    }
+
+    /// Replaces the note of the secret, `nil` removing it, and returns the secret as it is now. Never
+    /// authenticates, whatever the level: a note is not a value, and editing one replaces nothing the
+    /// user stored as a secret (documents/PROJECT.md, design decision 9). Writing the note the secret
+    /// already has changes nothing (idempotent). A name the scope does not hold in the environment is
+    /// `secretNotFound`, because a note belongs to a stored secret, or `environmentRequired` without
+    /// an environment in a scope that has environments, as for `delete`.
+    @discardableResult
+    public func setNote(name: SecretName, scope: SecretScope, environment: SecretEnvironment?, note: SecretNote?) throws -> StoredSecret {
+        guard let existing = try storedSecrets(scope: scope, environment: environment).first(where: { $0.name == name }) else {
+            try checkEnvironmentIsNamed(scope: scope, environment: environment)
+            throw Self.notFoundError(name: name, location: scope.description, environment: environment)
+        }
+        try keychain.writeNote(storedSecret: existing, note: note)
+        // Read back rather than built here, so that the modification date is the one of the write.
+        return try existingSecret(name: name, scope: scope, environment: environment)
     }
 
     /// Deletes every variant of the name in the environment. Authenticates first whenever there is
@@ -304,7 +326,8 @@ public struct SecretStore: Sendable {
                 environment: environment,
                 protectionLevel: movingSecret.protectionLevel,
                 isSynchronized: movingSecret.isSynchronized,
-                modificationDate: nil
+                modificationDate: nil,
+                note: movingSecret.note
             )
         }
         if let occupiedTarget = targets.first(where: { target in

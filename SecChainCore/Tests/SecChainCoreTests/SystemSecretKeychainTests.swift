@@ -10,7 +10,7 @@ import Testing
 struct SystemSecretKeychainTests {
     /// A device-bound secret of the same name in `scope`, whose queries the tests compare.
     func storedSecret(scope: SecretScope) throws -> StoredSecret {
-        StoredSecret(scope: scope, name: try #require(SecretName(rawName: "YOUTUBE_API_KEY")), environment: nil, protectionLevel: .deviceBound, isSynchronized: false, modificationDate: nil)
+        StoredSecret(scope: scope, name: try #require(SecretName(rawName: "YOUTUBE_API_KEY")), environment: nil, protectionLevel: .deviceBound, isSynchronized: false, modificationDate: nil, note: nil)
     }
 
     @Test
@@ -55,6 +55,26 @@ struct SystemSecretKeychainTests {
         )
     }
 
+    /// The note is the item's comment. A removed note is written as an empty comment, which is read
+    /// back as no note, and so is a comment that no note can be.
+    @Test
+    func theCommentOfAnItemIsTheNoteOfTheSecret() throws {
+        /// The note listing reads from an item of the user scope whose comment is `comment`.
+        func note(comment: String?) -> SecretNote? {
+            var attributes: [String: Any] = [
+                kSecAttrService as String: "com.bannzai.SecChain.scope.user",
+                kSecAttrAccount as String: "API_KEY",
+            ]
+            attributes[kSecAttrComment as String] = comment
+            return SystemSecretKeychain.storedSecret(attributes: attributes)?.note
+        }
+        #expect(note(comment: "The API key for video generation")?.value == "The API key for video generation")
+        #expect(note(comment: SystemSecretKeychain.commentAttribute(note: nil)) == nil)
+        #expect(note(comment: nil) == nil)
+        #expect(note(comment: "two\nlines") == nil)
+        #expect(SystemSecretKeychain.commentAttribute(note: SecretNote(rawNote: "a note")) == "a note")
+    }
+
     /// The item of a secret of an environment is under the scope's service with `#<environment>`,
     /// its device-bound value under the scope's server with the same suffix, and listing reads both
     /// the scope and the environment back.
@@ -66,7 +86,8 @@ struct SystemSecretKeychainTests {
             environment: SecretEnvironment(rawName: "prod"),
             protectionLevel: .deviceBound,
             isSynchronized: false,
-            modificationDate: nil
+            modificationDate: nil,
+            note: nil
         )
         #expect(SystemSecretKeychain.itemQuery(storedSecret: storedSecret)[kSecAttrService as String] as? String == "com.bannzai.SecChain.repository.github.com/example/a#prod")
         #expect(SystemSecretKeychain.protectedValueQuery(storedSecret: storedSecret)[kSecAttrServer as String] as? String == "github.com/example/a#prod")

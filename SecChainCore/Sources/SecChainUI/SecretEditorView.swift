@@ -1,14 +1,16 @@
 import SecChainCore
 import SwiftUI
 
-/// Sheet for adding a secret, replacing a value, or changing how a secret is protected.
+/// Sheet for adding a secret, replacing a value, changing how a secret is protected, or writing its
+/// note.
 struct SecretEditorView: View {
-    /// What the sheet edits. One view serves all three because they share the protection and
-    /// synchronization controls and their explanations.
+    /// What the sheet edits. One view serves all four because adding a secret shows the controls of
+    /// each of the others, with their explanations.
     enum Mode {
         case add(scope: SecretScope)
         case updateValue(storedSecret: StoredSecret)
         case changeProtection(storedSecret: StoredSecret)
+        case editNote(storedSecret: StoredSecret)
     }
 
     let model: AppModel
@@ -19,6 +21,7 @@ struct SecretEditorView: View {
     @State private var valueText = ""
     @State private var protectionLevel = ProtectionLevel.standard
     @State private var isSynchronized = true
+    @State private var noteText = ""
     @State private var isSaving = false
 
     var body: some View {
@@ -47,7 +50,7 @@ struct SecretEditorView: View {
                         .foregroundStyle(rawName.isEmpty || isValidSecretName(name: rawName) ? Color.secondary : Color.red)
                     }
                 }
-                if !isChangingProtection {
+                if showsValue {
                     Section {
                         SecureField(text: $valueText) {
                             Text("Value", bundle: .module)
@@ -58,7 +61,7 @@ struct SecretEditorView: View {
                         Text("The value is stored in the Keychain only", bundle: .module)
                     }
                 }
-                if !isUpdatingValue {
+                if showsProtection {
                     Section {
                         Picker(String(localized: "Protection", bundle: .module), selection: $protectionLevel) {
                             ForEach(ProtectionLevel.allCases, id: \.self) { protectionLevel in
@@ -69,6 +72,21 @@ struct SecretEditorView: View {
                             .disabled(protectionLevel == .deviceBound)
                     } footer: {
                         Text(protectionLevelExplanation(protectionLevel: protectionLevel))
+                    }
+                }
+                if showsNote {
+                    Section {
+                        TextField(text: $noteText, prompt: Text("What the secret is for", bundle: .module)) {
+                            Text("Note", bundle: .module)
+                                .font(.body)
+                        }
+                    } footer: {
+                        Text(
+                            isNoteAcceptable
+                                ? String(localized: "Never write a value here: every app and secchain list show the note", bundle: .module)
+                                : String(localized: "Use one line without tabs", bundle: .module)
+                        )
+                        .foregroundStyle(isNoteAcceptable ? Color.secondary : Color.red)
                     }
                 }
             }
@@ -100,18 +118,40 @@ struct SecretEditorView: View {
         #endif
     }
 
-    var isChangingProtection: Bool {
-        if case .changeProtection = mode {
-            return true
+    /// Whether the sheet asks for a value: when adding a secret and when replacing its value.
+    var showsValue: Bool {
+        switch mode {
+        case .add, .updateValue: true
+        case .changeProtection, .editNote: false
         }
-        return false
     }
 
-    var isUpdatingValue: Bool {
-        if case .updateValue = mode {
-            return true
+    /// Whether the sheet offers the protection level and synchronization.
+    var showsProtection: Bool {
+        switch mode {
+        case .add, .changeProtection: true
+        case .updateValue, .editNote: false
         }
-        return false
+    }
+
+    /// Whether the sheet offers the note. Replacing a value or changing the protection keeps it.
+    var showsNote: Bool {
+        switch mode {
+        case .add, .editNote: true
+        case .updateValue, .changeProtection: false
+        }
+    }
+
+    /// The note as entered, `nil` for a field left empty or holding whitespace alone, which removes
+    /// the note. The text is kept as typed, so that saving a note unchanged stores the same note,
+    /// as `secchain note` does.
+    var enteredNote: SecretNote? {
+        SecretNote(rawNote: noteText)
+    }
+
+    /// Whether the field holds a note `SecretNote` accepts, or nothing but whitespace.
+    var isNoteAcceptable: Bool {
+        noteText.allSatisfy(\.isWhitespace) || enteredNote != nil
     }
 
     var title: String {
@@ -119,14 +159,16 @@ struct SecretEditorView: View {
         case .add: String(localized: "Add Secret", bundle: .module)
         case .updateValue(let storedSecret): String(localized: "Update \(storedSecret.name.value)", bundle: .module)
         case .changeProtection(let storedSecret): String(localized: "Protection of \(storedSecret.name.value)", bundle: .module)
+        case .editNote(let storedSecret): String(localized: "Note of \(storedSecret.name.value)", bundle: .module)
         }
     }
 
     var canSave: Bool {
         switch mode {
-        case .add: isValidSecretName(name: rawName) && !valueText.isEmpty
+        case .add: isValidSecretName(name: rawName) && !valueText.isEmpty && isNoteAcceptable
         case .updateValue: !valueText.isEmpty
         case .changeProtection: true
+        case .editNote: isNoteAcceptable
         }
     }
 
@@ -137,6 +179,8 @@ struct SecretEditorView: View {
         case .updateValue(let storedSecret), .changeProtection(let storedSecret):
             protectionLevel = storedSecret.protectionLevel
             isSynchronized = storedSecret.isSynchronized
+        case .editNote(let storedSecret):
+            noteText = storedSecret.note?.value ?? ""
         }
     }
 
@@ -155,7 +199,8 @@ struct SecretEditorView: View {
                     value: SecretValue(exposingString: valueText),
                     scope: scope,
                     protectionLevel: protectionLevel,
-                    isSynchronized: isSynchronized
+                    isSynchronized: isSynchronized,
+                    note: enteredNote
                 )
             case .updateValue(let storedSecret):
                 succeeded = await model.save(
@@ -163,7 +208,8 @@ struct SecretEditorView: View {
                     value: SecretValue(exposingString: valueText),
                     scope: storedSecret.scope,
                     protectionLevel: storedSecret.protectionLevel,
-                    isSynchronized: storedSecret.isSynchronized
+                    isSynchronized: storedSecret.isSynchronized,
+                    note: nil
                 )
             case .changeProtection(let storedSecret):
                 succeeded = await model.changeProtection(
@@ -171,6 +217,8 @@ struct SecretEditorView: View {
                     protectionLevel: protectionLevel,
                     isSynchronized: isSynchronized
                 )
+            case .editNote(let storedSecret):
+                succeeded = await model.saveNote(storedSecret: storedSecret, note: enteredNote)
             }
             isSaving = false
             if succeeded {

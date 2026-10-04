@@ -17,6 +17,8 @@ public struct StoredSecret: Hashable, Sendable, Identifiable {
     public let isSynchronized: Bool
     /// Last modification (from `kSecAttrModificationDate`), `nil` for a secret not yet written.
     public let modificationDate: Date?
+    /// The user's note about the secret (from `kSecAttrComment`), `nil` for a secret without one.
+    public let note: SecretNote?
 
     public init(
         scope: SecretScope,
@@ -24,7 +26,8 @@ public struct StoredSecret: Hashable, Sendable, Identifiable {
         environment: SecretEnvironment?,
         protectionLevel: ProtectionLevel,
         isSynchronized: Bool,
-        modificationDate: Date?
+        modificationDate: Date?,
+        note: SecretNote?
     ) {
         self.scope = scope
         self.name = name
@@ -32,6 +35,7 @@ public struct StoredSecret: Hashable, Sendable, Identifiable {
         self.protectionLevel = protectionLevel
         self.isSynchronized = isSynchronized
         self.modificationDate = modificationDate
+        self.note = note
     }
 
     /// `kSecAttrService` of the item: the scope's service for the environment.

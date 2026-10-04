@@ -15,6 +15,7 @@ struct ScopeDetailView: View {
     @State private var isShowingRepositorySettings = false
     @State private var storedSecretBeingUpdated: StoredSecret?
     @State private var storedSecretBeingProtected: StoredSecret?
+    @State private var storedSecretBeingNoted: StoredSecret?
     @State private var storedSecretBeingDeleted: StoredSecret?
     @State private var revealedSecret: RevealedSecret?
 
@@ -104,6 +105,9 @@ struct ScopeDetailView: View {
         .sheet(item: $storedSecretBeingProtected) { storedSecret in
             SecretEditorView(model: model, mode: .changeProtection(storedSecret: storedSecret))
         }
+        .sheet(item: $storedSecretBeingNoted) { storedSecret in
+            SecretEditorView(model: model, mode: .editNote(storedSecret: storedSecret))
+        }
         .sheet(item: $revealedSecret) { revealedSecret in
             RevealedValueView(storedSecret: revealedSecret.storedSecret, value: revealedSecret.value)
         }
@@ -135,13 +139,19 @@ struct ScopeDetailView: View {
         }
     }
 
-    /// One row per secret: its name and settings, with the actions in a menu.
+    /// One row per secret: its name, its note, and its settings, with the actions in a menu.
     var secretRows: some View {
         ForEach(storedSecrets) { storedSecret in
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(storedSecret.name.value)
                         .font(.body.monospaced())
+                    if let note = storedSecret.note {
+                        Text(note.value)
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(2)
+                    }
                     HStack(spacing: 12) {
                         Label(protectionLevelTitle(protectionLevel: storedSecret.protectionLevel), systemImage: protectionLevelSymbol(protectionLevel: storedSecret.protectionLevel))
                         Label(
@@ -164,6 +174,9 @@ struct ScopeDetailView: View {
                     }
                     Button(String(localized: "Change Protection", bundle: .module), systemImage: "lock.shield") {
                         storedSecretBeingProtected = storedSecret
+                    }
+                    Button(String(localized: "Edit Note", bundle: .module), systemImage: "note.text") {
+                        storedSecretBeingNoted = storedSecret
                     }
                     Divider()
                     Button(String(localized: "Delete", bundle: .module), systemImage: "trash", role: .destructive) {

@@ -93,7 +93,8 @@ public enum AppModelFactory {
                     environment: nil,
                     protectionLevel: demoSecret.protectionLevel,
                     isSynchronized: demoSecret.isSynchronized,
-                    modificationDate: nil
+                    modificationDate: nil,
+                    note: nil
                 ),
                 value: SecretValue(exposingString: "dummy-value-for-demo"),
                 replacing: nil,

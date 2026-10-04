@@ -24,7 +24,7 @@ extension KeychainDoctor {
 
     /// Exercises `SystemSecretKeychain` through `SecretStore` against the real Keychain, for a
     /// repository scope and for a shared scope: add, read, update, every protection level and
-    /// synchronization change, and delete. Then it checks that the device-bound values of the two
+    /// synchronization change, the note through them, and delete. Then it checks that the device-bound values of the two
     /// are separate items. Only dummy values are stored, and the reserved scopes are emptied before
     /// and after.
     public static func runStoreChecks() async -> [KeychainDoctorCheck] {
@@ -63,7 +63,7 @@ extension KeychainDoctor {
     /// check names.
     static func runStoreChecks(scope: SecretScope, label: String) async -> [KeychainDoctorCheck] {
         let store = SecretStore(keychain: SystemSecretKeychain(), ownerAuthenticator: NonInteractiveOwnerAuthenticator())
-        guard let name = SecretName(rawName: "DOCTOR_SECRET") else {
+        guard let name = SecretName(rawName: "DOCTOR_SECRET"), let note = SecretNote(rawNote: "note written by secchain doctor") else {
             return []
         }
         let firstValue = SecretValue(exposingString: "dummy-value-for-doctor-1")
@@ -94,6 +94,10 @@ extension KeychainDoctor {
             try await store.set(name: name, value: firstValue, scope: scope, environment: nil, protectionLevel: nil, isSynchronized: nil)
             return try effectiveSecret().map { $0.protectionLevel == .standard && $0.isSynchronized } ?? false
         }
+        await check(stepName: "write a note and list it back, without a prompt") {
+            try store.setNote(name: name, scope: scope, environment: nil, note: note)
+            return try effectiveSecret()?.note == note
+        }
         await check(stepName: "read the value back") {
             try await currentValue() == firstValue
         }
@@ -111,9 +115,17 @@ extension KeychainDoctor {
             let value = try await currentValue()
             return variants.map(\.isSynchronized) == [false] && value == secondValue
         }
+        await check(stepName: "the note follows the secret to the item of this device and keeps through a value update") {
+            try effectiveSecret()?.note == note
+        }
         await check(stepName: "make it device-bound; it stays listed without a prompt") {
             try await store.changeProtection(name: name, scope: scope, environment: nil, protectionLevel: .deviceBound, isSynchronized: false)
             return try effectiveSecret()?.protectionLevel == .deviceBound
+        }
+        await check(stepName: "a device-bound secret keeps its note on its listing item, and it is removed without a prompt") {
+            let keptNote = try effectiveSecret()?.note
+            try store.setNote(name: name, scope: scope, environment: nil, note: nil)
+            return try keptNote == note && effectiveSecret()?.note == nil
         }
         #if !targetEnvironment(simulator)
         await check(stepName: "a device-bound value is refused without user interaction") {
@@ -151,7 +163,7 @@ extension KeychainDoctor {
         /// Whether the protected value of the device-bound secret of `scope` exists.
         func protectedValueExists(scope: SecretScope) -> Bool? {
             KeychainDoctor.protectedValueExists(
-                storedSecret: StoredSecret(scope: scope, name: name, environment: nil, protectionLevel: .deviceBound, isSynchronized: false, modificationDate: nil)
+                storedSecret: StoredSecret(scope: scope, name: name, environment: nil, protectionLevel: .deviceBound, isSynchronized: false, modificationDate: nil, note: nil)
             )
         }
 

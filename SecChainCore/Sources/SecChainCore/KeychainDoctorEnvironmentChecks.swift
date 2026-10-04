@@ -47,7 +47,7 @@ extension KeychainDoctor {
         /// Whether the protected value of the device-bound secret in `secretEnvironment` exists.
         func protectedValueExists(secretEnvironment: SecretEnvironment?) -> Bool? {
             KeychainDoctor.protectedValueExists(
-                storedSecret: StoredSecret(scope: scope, name: deviceBoundName, environment: secretEnvironment, protectionLevel: .deviceBound, isSynchronized: false, modificationDate: nil)
+                storedSecret: StoredSecret(scope: scope, name: deviceBoundName, environment: secretEnvironment, protectionLevel: .deviceBound, isSynchronized: false, modificationDate: nil, note: nil)
             )
         }
 

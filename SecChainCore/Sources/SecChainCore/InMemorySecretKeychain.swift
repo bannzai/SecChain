@@ -71,9 +71,36 @@ public final class InMemorySecretKeychain: SecretKeychain, @unchecked Sendable {
                     environment: storedSecret.environment,
                     protectionLevel: storedSecret.protectionLevel,
                     isSynchronized: storedSecret.isSynchronized,
-                    modificationDate: Date()
+                    modificationDate: Date(),
+                    note: storedSecret.note
                 ),
                 value: value
+            )
+        }
+    }
+
+    /// A secret that is not stored is `secretNotFound`, as `SecItemUpdate` of the real Keychain
+    /// answers `errSecItemNotFound` for it.
+    public func writeNote(storedSecret: StoredSecret, note: SecretNote?) throws {
+        try lock.withLock {
+            try throwFailureIfSet()
+            guard let item = items[storedSecret.id] else {
+                throw SecretStoreError.secretNotFound(
+                    name: storedSecret.name.value,
+                    repository: storedSecret.locationDescription
+                )
+            }
+            items[storedSecret.id] = (
+                storedSecret: StoredSecret(
+                    scope: item.storedSecret.scope,
+                    name: item.storedSecret.name,
+                    environment: item.storedSecret.environment,
+                    protectionLevel: item.storedSecret.protectionLevel,
+                    isSynchronized: item.storedSecret.isSynchronized,
+                    modificationDate: Date(),
+                    note: note
+                ),
+                value: item.value
             )
         }
     }

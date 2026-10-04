@@ -8,7 +8,8 @@ import Security
 ///
 /// - Every secret has a **generic password** item: service = the scope's service, followed by
 ///   `#<environment>` for a secret of an environment (`SecretScope.keychainService(environment:)`),
-///   account = the secret name, `kSecAttrDescription` = the protection level, data = the value.
+///   account = the secret name, `kSecAttrDescription` = the protection level, `kSecAttrComment` =
+///   the user's note, data = the value.
 /// - A device-bound secret keeps an empty value in that item (it is only the listable marker) and
 ///   stores the real value in an **internet password** item (server =
 ///   `SecretScope.protectedValueServer(environment:)`, account = secret name) protected by an access
@@ -83,6 +84,7 @@ public struct SystemSecretKeychain: SecretKeychain {
                 [
                     kSecValueData as String: itemData,
                     kSecAttrDescription as String: storedSecret.protectionLevel.rawValue,
+                    kSecAttrComment as String: Self.commentAttribute(note: storedSecret.note),
                 ] as CFDictionary
             )
             guard status == errSecSuccess else {
@@ -93,6 +95,7 @@ public struct SystemSecretKeychain: SecretKeychain {
             attributes[kSecValueData as String] = itemData
             attributes[kSecAttrDescription as String] = storedSecret.protectionLevel.rawValue
             attributes[kSecAttrLabel as String] = "SecChain: \(storedSecret.locationDescription) / \(storedSecret.name.value)"
+            attributes[kSecAttrComment as String] = storedSecret.note?.value
             // After first unlock, so that long-running commands and builds keep working while the
             // screen is locked. The `ThisDeviceOnly` variant keeps a local secret out of backups
             // that migrate to another device, which is what "this device only" promises.
@@ -111,6 +114,19 @@ public struct SystemSecretKeychain: SecretKeychain {
         // 3. A secret that stops being device-bound no longer needs its protected value.
         if let replacing, replacing.protectionLevel == .deviceBound, storedSecret.protectionLevel != .deviceBound {
             try deleteItem(query: Self.protectedValueQuery(storedSecret: replacing), operation: "delete", storedSecret: replacing)
+        }
+    }
+
+    /// Updates the comment attribute of the generic password item alone. That item carries no access
+    /// control at any level (a device-bound secret keeps its value in another item), so the update
+    /// never prompts.
+    public func writeNote(storedSecret: StoredSecret, note: SecretNote?) throws {
+        let status = SecItemUpdate(
+            Self.itemQuery(storedSecret: storedSecret) as CFDictionary,
+            [kSecAttrComment as String: Self.commentAttribute(note: note)] as CFDictionary
+        )
+        guard status == errSecSuccess else {
+            throw Self.error(status: status, operation: "note update",storedSecret: storedSecret)
         }
     }
 
@@ -202,8 +218,18 @@ public struct SystemSecretKeychain: SecretKeychain {
             // `standard` is the level whose behavior equals a plain item.
             protectionLevel: (attributes[kSecAttrDescription as String] as? String).flatMap(ProtectionLevel.init(rawValue:)) ?? .standard,
             isSynchronized: (attributes[kSecAttrSynchronizable as String] as? NSNumber)?.boolValue ?? false,
-            modificationDate: attributes[kSecAttrModificationDate as String] as? Date
+            modificationDate: attributes[kSecAttrModificationDate as String] as? Date,
+            // An empty comment is a removed note (`commentAttribute`), and a comment written by
+            // another tool that no note can be is left out rather than shown broken.
+            note: (attributes[kSecAttrComment as String] as? String).flatMap(SecretNote.init(rawNote:))
         )
+    }
+
+    /// The value of `kSecAttrComment` for `note`. `SecItemUpdate` changes the attributes it is given
+    /// and has no way to take one away, so a removed note is written as an empty comment, which
+    /// listing reads back as no note.
+    static func commentAttribute(note: SecretNote?) -> String {
+        note?.value ?? ""
     }
 
     func deleteItem(query: [String: Any], operation: String, storedSecret: StoredSecret) throws {

@@ -14,15 +14,20 @@ public protocol SecretKeychain: Sendable {
     /// The value of one secret. `ownerAuthentication` is required for device-bound secrets.
     func value(storedSecret: StoredSecret, ownerAuthentication: OwnerAuthentication?) throws -> SecretValue
 
-    /// Stores `value` as described by `storedSecret`. `replacing` is the variant of the same name
-    /// that exists today, if any; it may differ in protection level and synchronization. The new
-    /// variant is written before the old one is removed, so a failure never loses the value.
+    /// Stores `value` as described by `storedSecret`, its note included. `replacing` is the variant
+    /// of the same name that exists today, if any; it may differ in protection level and
+    /// synchronization. The new variant is written before the old one is removed, so a failure never
+    /// loses the value.
     func write(
         storedSecret: StoredSecret,
         value: SecretValue,
         replacing: StoredSecret?,
         ownerAuthentication: OwnerAuthentication?
     ) throws
+
+    /// Replaces the note of the stored secret, `nil` removing it, without reading or replacing the
+    /// value. Writing the note it already has changes nothing (idempotent).
+    func writeNote(storedSecret: StoredSecret, note: SecretNote?) throws
 
     /// Removes the secret. Deleting a secret that does not exist succeeds (idempotent).
     func delete(storedSecret: StoredSecret) throws
