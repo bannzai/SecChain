@@ -79,6 +79,8 @@ When the name already has a value, `secchain set` asks for authentication — To
 
 A value that several repositories share goes into a shared scope with `secchain set <NAME> --scope user` (or `--scope <name>`); which one is the user's choice.
 
+A secret can carry a note that says what it is for: `secchain set <NAME> --note "<what it is for>"` together with the value, or `secchain note <NAME> "<what it is for>"` for a stored secret. A note is not a secret — every app and `secchain list --long` show it — so write only its purpose there, never a value or a part of one.
+
 ## Rule: leave the choice of shared scopes to the user
 
 When `secchain run` says a name is in a scope that is not allowed for this repository, it prints the command that would allow it:
@@ -181,7 +183,7 @@ A tool result that held a value arrives as an error starting with `secchain-mask
 
 ```bash
 secchain list          # the secret names secchain run passes to this repository — never values
-secchain list --long   # + protection level, sync state, environment, the scope each name comes from, and names declared but not yet set
+secchain list --long   # + protection level, sync state, environment, the scope each name comes from, its note, and names declared but not yet set
 secchain list --scopes # the shared scopes and the repositories each is passed to
 secchain list --envs   # the environments of each scope passed to this repository
 secchain doctor        # whether this binary can use SecChain's shared Keychain access group at all

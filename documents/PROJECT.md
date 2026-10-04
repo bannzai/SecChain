@@ -27,6 +27,7 @@ Everything in this section is in scope for the first release. There is no reduce
 - Secret values are stored in the macOS **data protection keychain** through the `SecItem` API. The legacy `SecKeychain` API family is not used.
 - Items can synchronize between the Macs of one person through **iCloud Keychain** (`kSecAttrSynchronizable`). SecChain does not implement its own sync.
 - Each secret has a protection level chosen by the user (see "Protection levels").
+- Each secret can carry a note, such as what the key is for. The note is not a secret: it is the Keychain item's `kSecAttrComment`, travels with the item, and is shown wherever the secret is listed (design decision 9).
 - SecChain stays fully usable as a local secret manager when iCloud Keychain is disabled. "Sync is unavailable" and "the secret is unavailable" are reported as different conditions wherever the system lets us tell them apart.
 
 ### Protection levels
@@ -43,6 +44,7 @@ User authentication (Touch ID, Apple Watch, or the login password) is opt-in per
 - *Device-bound* is the most robust level and the least convenient: the value does not reach other devices, is not restored onto a replacement Mac from a backup, and prompts on every read.
 - The protection level is stored as a non-secret attribute of the Keychain item, not in a repository file, so that editing a file in the working tree cannot lower it. Lowering a level requires authentication.
 - When one `run` needs several protected secrets, a single authentication covers all of them (one `LAContext` passed through `kSecUseAuthenticationContext`).
+- Writing or removing a secret's note does not authenticate, whatever the level: a note is not a value (design decision 9).
 - Updating or deleting an existing secret authenticates first, whatever its level: *standard* means that reading needs no authentication, not that any process running as the user, an AI coding agent included, may replace or remove a value the user stored. Deleting is covered too, because deleting and adding again would otherwise replace a value without it. Adding a new secret does not authenticate. Every way of lowering a level goes through such an update, so lowering always requires authentication.
 - A new secret is *standard* and synchronized unless the user chooses otherwise.
 - When a local and a synchronized item of the same name coexist (a copy arrived from another Mac), the local one is the effective secret, and the next write removes the other.
@@ -161,7 +163,8 @@ YOUTUBE_API_KEY
 | Operation | Notes |
 | --- | --- |
 | Set / update a secret | The value is read from a hidden terminal prompt, from standard input, or with `--from-variable [VARIABLE]` from an environment variable of the `secchain` process itself: the one named like the secret, or `VARIABLE`. A variable that is missing or empty is an error that names the variable and never a value. The value is never accepted as a command-line argument (shell history, process listing): `--from-variable` takes the name of a variable, not a value. Updating an existing secret authenticates first (see "Protection levels"). |
-| List secrets | Prints names only: the ones `run` passes to the repository, with the scope of each in the long form, or those of one scope. |
+| List secrets | Prints names only: the ones `run` passes to the repository, with the scope and the note of each in the long form, or those of one scope. |
+| Write a note | `secchain note <NAME> <NOTE>` writes the note of a stored secret and `secchain note <NAME> --remove` removes it, without authentication; `secchain set --note <NOTE>` stores one together with the value. A note is one line without tabs. |
 | Delete a secret | Removes the Keychain item, after an authentication (see "Protection levels"). |
 | Run a command with secrets | `secchain run -- <command>` reads the secrets of the scopes passed to the repository and passes them to the child process as environment variables. A subset of secrets can be selected. No plaintext temporary files. |
 | Act on a shared scope | `--scope user` or `--scope <name>` on `set`, `list`, and `delete`. Without it, `set` and `delete` act on the repository scope. `list --scopes` lists the shared scopes with their `@allow` patterns. |
@@ -173,13 +176,13 @@ There is deliberately no command that prints a secret value to standard output: 
 
 ### macOS app
 
-SwiftUI app with: repository list, per-repository secret list, add / update / delete, choosing the protection level, sync state and the information needed to configure it, and understandable errors when the Keychain cannot be accessed. Secret values are hidden by default; revealing one requires an explicit user action and user authentication.
+SwiftUI app with: repository list, per-repository secret list, add / update / delete, a note per secret, choosing the protection level, sync state and the information needed to configure it, and understandable errors when the Keychain cannot be accessed. Secret values are hidden by default; revealing one requires an explicit user action and user authentication.
 
 Shared scopes are listed next to the repositories: the user scope, then the custom scopes that `~/.secchain` names or the Keychain holds (a scope created on another Mac arrives through iCloud Keychain alone). A shared scope's secrets are managed on the same screen as a repository's. A repository added by hand and a custom scope added by name appear before they have a secret, and stay listed on that Mac, after a restart and after their last secret is deleted, until the user removes them from the list. The app keeps their identifiers, never a value, in its `UserDefaults`, which is not synchronized: another Mac and the iOS app list such a scope once it holds a synchronized secret. `~/.secchain` gets a line of a custom scope once a repository is allowed it. A repository's settings switch each shared scope on or off for it by adding or removing the `@allow` line that is exactly its identifier; a scope that a wildcard passes to it is shown as passed and locked, because the wildcard names other repositories too. When `~/.secchain` cannot be read or written, the app says why next to the scopes and keeps working on the Keychain.
 
 ### iOS app
 
-A SwiftUI iOS app manages the same synchronized items from an iPhone or iPad: repository list, secret list, add / update / delete, and reveal after Face ID / Touch ID. It has no `run` equivalent. *This device only* and *device-bound* secrets created on a Mac are not visible on iOS, and the app says so instead of showing an empty repository without explanation.
+A SwiftUI iOS app manages the same synchronized items from an iPhone or iPad: repository list, secret list, add / update / delete, notes, and reveal after Face ID / Touch ID. It has no `run` equivalent. *This device only* and *device-bound* secrets created on a Mac are not visible on iOS, and the app says so instead of showing an empty repository without explanation.
 
 The shared scopes whose secrets reached the device are listed next to the repositories and managed the same way, and a custom scope can be created under the rules of its name. A repository or a scope added on the device stays listed there without a secret, as on the Mac. iOS has no `~/.secchain`, so the app neither shows nor edits `@allow`: which repositories get a scope stays a setting of each Mac.
 
@@ -195,7 +198,7 @@ Security framework `OSStatus` values are translated into errors a user can act o
 
 - Secret values are never written to stdout, stderr, application logs, debug logs, analytics, crash metadata, or shell history.
 - Secret values are never persisted outside the Keychain: not in `.env`, JSON, plist, SQLite, `UserDefaults`, or any Git-tracked file.
-- A stored value is never replaced or removed without the authentication of the device owner, whatever its protection level. *Standard* only spares the authentication of a read. Adding a new secret is the one write that needs none.
+- A stored value is never replaced or removed without the authentication of the device owner, whatever its protection level. *Standard* only spares the authentication of a read. Adding a new secret and writing a note, which is not a value (design decision 9), are the writes that need none.
 - Repository-side files contain only secret names. `~/.secchain` contains only secret names, scope names, and patterns (a repository identifier, or the start of one followed by `*`).
 
 ### Tests
@@ -323,6 +326,19 @@ The guard hook stops the calls that reach for a value (`skills/secchain/hooks/se
 - **Short values are not looked for.** A value shorter than 8 characters, or one of whitespace alone, occurs in unrelated text often enough that replacing it would corrupt what the model reads. Every occurrence is replaced by the same `***`, and overlapping occurrences of several values become one, so that no part of a value is left and the replacement tells nothing about the length.
 - **`mask` confirms a value guessed whole.** Any process running as the user can pipe a guess into it and see whether it comes back as `***`. It answers nothing about a part of a value, since only complete values are replaced, and whether a text held a value is not reported unless `--count` asks for it.
 - **The plugin fails open.** Where `secchain` is missing or fails, the text reaches the model unchanged and the transcript says so once; the guard hook still stands. A plugin that blocked every prompt would be switched off, which protects nothing.
+
+### 9. A secret's note is an attribute of its Keychain item
+
+Decided on 2026-10-04 in https://github.com/bannzai/SecChain/issues/63.
+
+A secret can carry a note, such as "the API key for video generation", so that a name alone does not have to say what a key is for. The issue first suggested SwiftData; the note is kept in the Keychain item instead.
+
+- **The note is the item's `kSecAttrComment`**, which Apple describes as the user-editable comment of the item. It is a non-secret attribute like the protection level, so it is listed without reading the value and without a prompt, and it travels with the item: a synchronized secret's note reaches the user's other Macs and the iOS app through iCloud Keychain, and the command-line tool reads the same note as the apps. A SwiftData store would have kept one note per app and device, which neither the iOS app nor the command-line tool sees, and synchronizing it through CloudKit would have widened what the user's CloudKit private database carries beyond approval requests (see "Non-goals").
+- **The note lives and dies with the item.** Deleting a secret deletes its note; a change of protection or synchronization and a move into an environment, which write another item, carry it over. Nothing has to be cleaned up after a secret deleted on another Mac.
+- **Each item has its own note.** The secret of each environment is an item of its own, so `prod` and `local` have separate notes.
+- **Writing or removing a note does not authenticate**, whatever the level: a note is not a value, and the authentication of an update protects the values the user stored. Any process running as the user can therefore change a note, as it can read one.
+- **A note is shown everywhere a secret is listed**, by both apps and by `secchain list --long`, so it must never hold a value; the apps and the agent skill say so. A note is one line without tabs or other control characters, because it is a column of `list --long`.
+- `SecItemUpdate` cannot take an attribute away, so a removed note is an empty comment, which is read back as no note.
 
 ## Measured behavior
 

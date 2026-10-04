@@ -80,11 +80,21 @@ secchain set OPENAI_API_KEY --no-sync         # this Mac only
 
 Replacing a value that is already stored asks for Touch ID or your password first, at every protection level, and so does `secchain delete` (see "Protection levels"). Storing a new secret does not.
 
+### Write a note
+
+```bash
+secchain set OPENAI_API_KEY --note "The API key for video generation"   # together with the value
+secchain note OPENAI_API_KEY "The API key for video generation"         # change the note of a stored secret
+secchain note OPENAI_API_KEY --remove
+```
+
+A note says what a secret is for. It is not a secret: it is kept with the secret in the Keychain, synchronizes with it, and is shown by `secchain list --long` and by both apps, so never put a value in it. Writing or removing a note asks for no authentication. With `--env`, the note belongs to that environment's secret.
+
 ### List secrets
 
 ```bash
 secchain list                 # the names run passes to this repository
-secchain list --long          # + protection level, sync state, the scope of each name, and declared-but-missing names
+secchain list --long          # + protection level, sync state, the scope and the note of each name, and declared-but-missing names
 secchain list --repositories  # every repository that has secrets on this Mac
 secchain list --scopes        # every shared scope, with the repositories it is passed to
 secchain list --scope user    # the names of one scope; --scope repository lists the repository's own
