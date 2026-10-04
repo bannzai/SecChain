@@ -25,6 +25,7 @@ Run these after every change, save the full output under `./tmp/`, and inspect t
 | `make test-hooks` | The Claude Code hooks shipped with the agent skill (`skills/secchain/hooks/`): the guard, against the calls it has to stop and the ones it has to let through, and the Claude Mods plugin that masks values, through `claude plugin validate` and `claude plugin test` (needs `claude` on PATH). Also runs in CI |
 | `make test-integration` | Tests against the real data protection keychain. Requires a build signed with the team's identity; not available in CI for pull requests from forks |
 | `make macos` | Install the Release build to `/Applications/SecChain.app` |
+| `make macos-debug` | Install the Debug build over it at `/Applications/SecChain.app`, for operations that only the Debug build has. Run `make macos` afterwards to go back to the Release build |
 | `make cli` | Symlink the embedded tool from the installed app into `~/.local/bin/secchain` |
 | `make screenshots` | The App Store screenshots of the iOS app, in every language and for both device classes, into `fastlane/screenshots` (`scripts/generate_screenshots/README.md`). Runs simulators, so not in CI |
 
