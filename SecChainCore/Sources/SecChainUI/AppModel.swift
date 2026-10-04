@@ -177,13 +177,16 @@ public final class AppModel {
         reload()
     }
 
-    /// Returns whether the operation succeeded, so that a sheet knows whether to close.
+    /// Returns whether the operation succeeded, so that a sheet knows whether to close. `nil` for
+    /// `note` keeps the note the secret has.
     public func save(
         name: SecretName,
         value: SecretValue,
         scope: SecretScope,
         protectionLevel: ProtectionLevel,
-        isSynchronized: Bool
+        isSynchronized: Bool,
+        // `nil` keeps the note, as `SecretStore.set` does, for the callers that offer no note field.
+        note: SecretNote? = nil
     ) async -> Bool {
         await perform {
             // The apps cannot choose an environment yet, so a new secret is one without an
@@ -194,8 +197,17 @@ public final class AppModel {
                 scope: scope,
                 environment: nil,
                 protectionLevel: protectionLevel,
-                isSynchronized: protectionLevel == .deviceBound ? nil : isSynchronized
+                isSynchronized: protectionLevel == .deviceBound ? nil : isSynchronized,
+                note: note
             )
+        }
+    }
+
+    /// Replaces the note of the secret, `nil` removing it, without asking for authentication
+    /// (`SecretStore.setNote`). Returns whether it succeeded, so that a sheet knows whether to close.
+    public func saveNote(storedSecret: StoredSecret, note: SecretNote?) async -> Bool {
+        await perform {
+            _ = try self.store.setNote(name: storedSecret.name, scope: storedSecret.scope, environment: storedSecret.environment, note: note)
         }
     }
 

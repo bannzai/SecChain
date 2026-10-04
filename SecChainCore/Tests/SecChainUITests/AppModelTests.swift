@@ -369,6 +369,22 @@ struct AppModelTests {
         #expect(model.repositoryIdentities.isEmpty)
     }
 
+    /// Writing a note needs no authentication, so it succeeds even where every authentication fails,
+    /// and the list shows the note it wrote.
+    @Test
+    func aNoteIsSavedWithTheSecretAndEditedWithoutAuthentication() async throws {
+        let model = makeModel(authenticationFailure: .authenticationFailed)
+        let name = try #require(SecretName(rawName: "API_KEY"))
+        #expect(await model.save(name: name, value: dummyValue, scope: .repository(repositoryIdentity), protectionLevel: .standard, isSynchronized: true, note: SecretNote(rawNote: "for video generation")))
+        let storedSecret = try #require(model.storedSecretsByScope[.repository(repositoryIdentity)]?.first)
+        #expect(storedSecret.note?.value == "for video generation")
+        #expect(await model.saveNote(storedSecret: storedSecret, note: SecretNote(rawNote: "for thumbnails")))
+        #expect(model.storedSecretsByScope[.repository(repositoryIdentity)]?.first?.note?.value == "for thumbnails")
+        #expect(await model.saveNote(storedSecret: storedSecret, note: nil))
+        #expect(model.storedSecretsByScope[.repository(repositoryIdentity)]?.first?.note == nil)
+        #expect(model.presentedError == nil)
+    }
+
     @Test
     func secretsStoredByAnotherFrontEndAppearAfterReload() async throws {
         let model = makeModel(authenticationFailure: nil)
