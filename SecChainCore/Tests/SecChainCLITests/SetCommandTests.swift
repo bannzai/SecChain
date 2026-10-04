@@ -97,6 +97,37 @@ struct SetCommandTests {
         #expect(!message.contains(dummyValue))
     }
 
+    @Test
+    func aNoteGoesWithTheOtherOptionsOfSet() throws {
+        let command = try SetCommand.parse(["API_KEY", "--from-variable", "--note", "for video generation", "--scope", "user"])
+        #expect(command.note == "for video generation")
+        #expect(command.valueVariableName(secretName: secretName) == "API_KEY")
+        #expect(command.scopeOptions.scope == "user")
+        #expect(try SetCommand.parse(["API_KEY"]).note == nil)
+    }
+
+    /// A note with a line break would break the row of `secchain list --long`, so it is refused
+    /// before a value is read.
+    @Test
+    func aNoteThatIsNotOneLineIsRefused() throws {
+        let error = try #require(throws: (any Error).self) {
+            try SetCommand.parse(["API_KEY", "--note", "first\nsecond"])
+        }
+        #expect(SetCommand.message(for: error).contains("A note is one line of text"))
+    }
+
+    /// `secchain note` takes a note or `--remove`, never both and never neither.
+    @Test
+    func theNoteCommandTakesANoteOrRemove() throws {
+        #expect(try NoteCommand.parse(["API_KEY", "for video generation", "--env", "prod"]).note == "for video generation")
+        #expect(try NoteCommand.parse(["API_KEY", "--remove"]).remove)
+        for arguments in [["API_KEY"], ["API_KEY", "a note", "--remove"], ["API_KEY", "a\ttab"]] {
+            #expect(throws: (any Error).self) {
+                try NoteCommand.parse(arguments)
+            }
+        }
+    }
+
     /// A value from a variable replaces a stored value through the same `SecretStore.set` as a typed
     /// one, so the replacement asks for authentication even at the standard level.
     @Test

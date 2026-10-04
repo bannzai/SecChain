@@ -15,7 +15,7 @@ struct ListCommand: ParsableCommand {
             """
     )
 
-    @Flag(name: .shortAndLong, help: "Also show the protection level, synchronization, the environment ('-' for none), the scope each secret comes from, and declared secrets that have no value yet.")
+    @Flag(name: .shortAndLong, help: "Also show the protection level, synchronization, the environment ('-' for none), the scope each secret comes from, its note ('-' for none), and declared secrets that have no value yet.")
     var long = false
 
     @Flag(help: "List the repositories that have secrets on this Mac instead.")
@@ -95,7 +95,7 @@ struct ListCommand: ParsableCommand {
         }
         writeToStandardOutput(line: "# \(scope.locationDescription(environment: environment))")
         for storedSecret in storedSecrets {
-            writeToStandardOutput(line: "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))")
+            writeToStandardOutput(line: "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))\t\(noteColumn(storedSecret: storedSecret))")
         }
         for declaredSecretName in declaredSecretNames where !storedSecrets.contains(where: { $0.name == declaredSecretName }) {
             writeToStandardOutput(line: "\(declaredSecretName.value)\tno value stored (declared in \(definitionFileName))")
@@ -128,7 +128,7 @@ struct ListCommand: ParsableCommand {
                 .filter { $0.scope != storedSecret.scope && $0.name == storedSecret.name }
                 .map(\.scope.name)
             writeToStandardOutput(
-                line: "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))\t\(storedSecret.scope.name)"
+                line: "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))\t\(storedSecret.scope.name)\t\(noteColumn(storedSecret: storedSecret))"
                     + (overriddenScopeNames.isEmpty ? "" : "\t(also in \(overriddenScopeNames.joined(separator: ", ")))")
             )
         }
@@ -151,7 +151,7 @@ struct ListCommand: ParsableCommand {
         }
         writeToStandardOutput(line: "# \(context.repositoryIdentity.value) (\(passedScopes.map(\.name).joined(separator: ", "))), every environment; 'secchain list --env <environment>' shows what 'secchain run --env <environment>' passes")
         for storedSecret in storedSecrets.sorted(by: { $0.name < $1.name }) {
-            writeToStandardOutput(line: "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))\t\(storedSecret.scope.name)")
+            writeToStandardOutput(line: "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))\t\(storedSecret.scope.name)\t\(noteColumn(storedSecret: storedSecret))")
         }
         if let definition = context.definition {
             for missingSecretName in SecretDefinitionText.missingSecretNames(
@@ -184,6 +184,12 @@ struct ListCommand: ParsableCommand {
     /// The environment column of the long form: the environment, `-` for a secret without one.
     func environmentColumn(storedSecret: StoredSecret) -> String {
         storedSecret.environment?.value ?? "-"
+    }
+
+    /// The note column of the long form, the last before `(also in ...)`: the note, `-` for a secret
+    /// without one. A note is one line without tabs (`SecretNote`), so it never breaks the row.
+    func noteColumn(storedSecret: StoredSecret) -> String {
+        storedSecret.note?.value ?? "-"
     }
 
     /// Every shared scope (`UserDefinition.sharedScopes`) with the patterns that pass it to

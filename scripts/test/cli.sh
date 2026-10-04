@@ -107,8 +107,9 @@ capture "${SECCHAIN}" set CLI_TEST_KEY value-given-as-argument
 [ "${LAST_STATUS}" -ne 0 ] || fail "set accepted a value argument"
 
 echo "== set --from-variable reads the value from the environment of the command"
-CLI_TEST_VARIABLE_KEY="${DUMMY_VALUE}" capture "${SECCHAIN}" set CLI_TEST_VARIABLE_KEY --from-variable
+CLI_TEST_VARIABLE_KEY="${DUMMY_VALUE}" capture "${SECCHAIN}" set CLI_TEST_VARIABLE_KEY --from-variable --note 'stored from a variable'
 [ "${LAST_STATUS}" -eq 0 ] || fail "set --from-variable exited with ${LAST_STATUS}"
+"${SECCHAIN}" list --long --scope repository | grep -q "^CLI_TEST_VARIABLE_KEY"$'\t'".*"$'\t'"stored from a variable$" || fail "set --note did not store the note"
 EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run --only CLI_TEST_VARIABLE_KEY -- sh -c 'test "${CLI_TEST_VARIABLE_KEY}" = "${EXPECTED_VALUE}"'
 [ "${LAST_STATUS}" -eq 0 ] || fail "the value stored from the variable is not the variable's (status ${LAST_STATUS})"
 
@@ -128,6 +129,20 @@ capture "${SECCHAIN}" list
 capture "${SECCHAIN}" list --long
 capture "${SECCHAIN}" list --repositories
 "${SECCHAIN}" list --repositories | grep -qx "${REPOSITORY}" || fail "list --repositories did not print the repository"
+
+echo "== note writes and removes the note of a stored secret, which list --long shows"
+capture "${SECCHAIN}" note CLI_TEST_KEY 'the key of the cli test'
+[ "${LAST_STATUS}" -eq 0 ] || fail "note exited with ${LAST_STATUS}"
+"${SECCHAIN}" list --long --scope repository | grep -qx "CLI_TEST_KEY"$'\t'"standard"$'\t'"synchronized"$'\t'"-"$'\t'"the key of the cli test" \
+  || fail "list --long did not show the note"
+capture "${SECCHAIN}" note CLI_TEST_KEY "$(printf 'two\nlines')"
+[ "${LAST_STATUS}" -ne 0 ] || fail "note accepted a note with a line break"
+capture "${SECCHAIN}" note CLI_TEST_MISSING_KEY 'a note'
+[ "${LAST_STATUS}" -ne 0 ] || fail "note wrote the note of a secret that is not stored"
+capture "${SECCHAIN}" note CLI_TEST_KEY --remove
+[ "${LAST_STATUS}" -eq 0 ] || fail "note --remove exited with ${LAST_STATUS}"
+"${SECCHAIN}" list --long --scope repository | grep -qx "CLI_TEST_KEY"$'\t'"standard"$'\t'"synchronized"$'\t'"-"$'\t'"-" \
+  || fail "list --long still shows a removed note"
 
 echo "== run hands the secret to the command as an environment variable"
 EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run -- sh -c 'test "${CLI_TEST_KEY}" = "${EXPECTED_VALUE}"'
@@ -323,8 +338,8 @@ capture_output "${SECCHAIN}" env migrate local CLI_TEST_ENV_KEY_A
 printf '%s' "${LAST_OUTPUT}" | grep -q "warning: local is the first environment of ${ENVIRONMENT_REPOSITORY}" || fail "moving the first secret did not warn about the first environment"
 printf '%s' "${LAST_OUTPUT}" | grep -q "does not pass them: CLI_TEST_ENV_KEY_B" || fail "the warning did not name the secret left without an environment"
 printf '%s' "${LAST_OUTPUT}" | grep -qF "secchain env migrate local" || fail "the warning did not say how to move the rest"
-"${SECCHAIN}" list --long --scope repository | grep -q "^CLI_TEST_ENV_KEY_A"$'\t'".*"$'\t'"local$" || fail "list --long did not show the environment of the moved secret"
-"${SECCHAIN}" list --long --scope repository | grep -q "^CLI_TEST_ENV_KEY_B"$'\t'".*"$'\t'"-$" || fail "list --long did not show '-' for the secret without an environment"
+"${SECCHAIN}" list --long --scope repository | grep -q "^CLI_TEST_ENV_KEY_A"$'\t'".*"$'\t'"local"$'\t'"-$" || fail "list --long did not show the environment of the moved secret"
+"${SECCHAIN}" list --long --scope repository | grep -q "^CLI_TEST_ENV_KEY_B"$'\t'".*"$'\t'"-"$'\t'"-$" || fail "list --long did not show '-' for the secret without an environment"
 
 echo "== once the repository has an environment, run needs --env"
 capture_output "${SECCHAIN}" run -- true
@@ -378,7 +393,7 @@ echo "== a shared scope moves to an environment with --scope"
 capture sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_ENV_SCOPE_KEY --scope '${SCOPE}' --no-sync"
 capture "${SECCHAIN}" env migrate local --scope "${SCOPE}"
 [ "${LAST_STATUS}" -eq 0 ] || fail "env migrate --scope exited with ${LAST_STATUS}"
-"${SECCHAIN}" list --long --scope "${SCOPE}" | grep -q "^CLI_TEST_ENV_SCOPE_KEY"$'\t'".*"$'\t'"local$" || fail "env migrate --scope did not move the scope's secret"
+"${SECCHAIN}" list --long --scope "${SCOPE}" | grep -q "^CLI_TEST_ENV_SCOPE_KEY"$'\t'".*"$'\t'"local"$'\t'"-$" || fail "env migrate --scope did not move the scope's secret"
 capture sh -c "printf '%s\n' '${OTHER_DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TEST_ENV_SCOPE_KEY --scope '${SCOPE}' --env prod --no-sync"
 [ "${LAST_STATUS}" -eq 0 ] || fail "set --scope --env exited with ${LAST_STATUS}"
 "${SECCHAIN}" list --envs --scope "${SCOPE}" | grep -qx "${SCOPE}"$'\t'"local prod"$'\t'"0 without an environment" || fail "list --envs --scope did not show the scope's environments"

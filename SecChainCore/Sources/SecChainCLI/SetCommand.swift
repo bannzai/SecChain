@@ -28,6 +28,11 @@ struct SetCommand: AsyncParsableCommand {
             needs --env in the repositories the scope is passed to. Giving a scope its first \
             environment while it holds secrets without one warns which of them 'secchain run' stops \
             passing, and how to move them ('secchain env migrate').
+
+            With --note, the secret gets a note, such as what it is for. A note is not a secret: it \
+            synchronizes with the secret, and every app and 'secchain list --long' show it, so never \
+            put a value in it. Without --note the secret keeps the note it has; 'secchain note' \
+            changes or removes a note without storing a new value.
             """
     )
 
@@ -62,6 +67,12 @@ struct SetCommand: AsyncParsableCommand {
         )
     )
     var fromVariable: String?
+
+    @Option(
+        name: .long,
+        help: "A note about the secret, such as what it is for: one line without tabs, never a value. Keeps the current note when omitted."
+    )
+    var note: String?
 
     @OptionGroup
     var scopeOptions: ScopeOptions
@@ -125,7 +136,8 @@ struct SetCommand: AsyncParsableCommand {
             commandArguments: ["set", secretName.value]
                 + scopeArguments(scope: scope)
                 + environmentArguments(environment: environment)
-                + (valueVariableName(secretName: secretName).map { ["--from-variable", $0] } ?? []),
+                + (valueVariableName(secretName: secretName).map { ["--from-variable", $0] } ?? [])
+                + (note.map { ["--note", $0] } ?? []),
             approveRemotely: remoteApprovalOptions.approveRemotely
         )
         let value = try secretValue(secretName: secretName, environment: ProcessInfo.processInfo.environment)
@@ -136,7 +148,8 @@ struct SetCommand: AsyncParsableCommand {
                 scope: scope,
                 environment: environment,
                 protectionLevel: level,
-                isSynchronized: sync
+                isSynchronized: sync,
+                note: note.flatMap(SecretNote.init(rawNote:))
             )
         }
         try writeDefinition()
@@ -145,10 +158,14 @@ struct SetCommand: AsyncParsableCommand {
 
     /// Refuses a `--from-variable` name that is not a variable name before anything else runs, and
     /// without repeating it: what was typed there may be the value itself, and the command is what
-    /// the paired iPhone is shown.
+    /// the paired iPhone is shown. A `--note` that no note can be is refused before a value is read,
+    /// so that nobody types a value for a command that then fails.
     func validate() throws {
         if let fromVariable, fromVariable != Self.variableNamedLikeTheSecret, !isValidSecretName(name: fromVariable) {
             throw ValidationError("The name given to --from-variable is not an environment variable name. Use letters, digits and underscores, not starting with a digit.")
+        }
+        if let note, !isValidSecretNote(note: note) {
+            throw ValidationError(invalidNoteMessage)
         }
     }
 
