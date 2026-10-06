@@ -152,8 +152,9 @@ macos-debug:
 
 # A bare `make` runs the checks of CI (.github/workflows/ci.yml) with the signing of a developer's
 # Mac: the builds need the team's signing identity (CI passes CODE_SIGNING_ALLOWED=NO through
-# SIGNING_FLAGS and IOS_SIGNING_FLAGS instead) and test-hooks needs `claude` on PATH. No step
-# prompts, needs a device, or writes outside the repository.
+# SIGNING_FLAGS and IOS_SIGNING_FLAGS instead), which registers this Mac with the team and updates
+# its provisioning profiles, and test-hooks needs `claude` on PATH. No step prompts or needs a
+# device.
 .DEFAULT_GOAL := verify
 
 .PHONY: verify
@@ -161,7 +162,7 @@ verify: test check-localization test-hooks build-macos build-ios
 
 # Serializes every target of this Makefile under `make -j`, so that the prerequisites of verify run
 # one after another: build-macos and build-ios share tmp/DerivedData, and two xcodebuild processes
-# on it fight over the build database. Nothing is lost, because no target depends on more than one
-# other target and xcodebuild and swift parallelize on their own. The global form is used because
+# on it fight over the build database. Nothing is lost, because verify is the only target with
+# more than one prerequisite, and xcodebuild and swift parallelize on their own. The global form is used because
 # the make shipped with macOS (3.81) ignores prerequisites on this target.
 .NOTPARALLEL:
