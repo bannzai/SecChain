@@ -15,6 +15,7 @@ Run these after every change, save the full output under `./tmp/`, and inspect t
 
 | Command | Purpose |
 | --- | --- |
+| `make` (`make verify`) | The checks of CI, in its order: `make test`, `make check-localization`, `make test-hooks`, `make build-macos`, and `make build-ios`. `verify` is the default goal, so a bare `make` runs it |
 | `make build-macos` | Build the macOS app together with the embedded command-line tool (`-derivedDataPath tmp/DerivedData`) |
 | `make build-ios` | Build the iOS app for the generic iOS Simulator destination |
 | `make ios` | Build, install, and launch the iOS app on the project's simulator (started through `sim-boot`) |

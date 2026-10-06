@@ -149,3 +149,10 @@ macos-debug:
 	$(LSREGISTER) -f $(INSTALL_APP)
 	@echo "To launch: open $(INSTALL_APP)"
 	@echo "To go back to the Release build: make macos"
+
+# A bare `make` runs the checks of CI (.github/workflows/ci.yml): nothing here asks for
+# authentication, a device, or a place outside the repository.
+.DEFAULT_GOAL := verify
+
+.PHONY: verify
+verify: test check-localization test-hooks build-macos build-ios
