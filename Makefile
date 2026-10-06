@@ -156,3 +156,9 @@ macos-debug:
 
 .PHONY: verify
 verify: test check-localization test-hooks build-macos build-ios
+
+# The prerequisites of verify run one after another even under `make -j`: build-macos and build-ios
+# share tmp/DerivedData, and two xcodebuild processes on it fight over the build database. Every
+# target here is one external command that parallelizes on its own, so nothing is lost. The global
+# form is used because the make shipped with macOS (3.81) ignores prerequisites on this target.
+.NOTPARALLEL:
