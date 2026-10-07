@@ -150,13 +150,14 @@ macos-debug:
 	@echo "To launch: open $(INSTALL_APP)"
 	@echo "To go back to the Release build: make macos"
 
-# A bare `make` runs the checks of CI (.github/workflows/ci.yml) with the signing of a developer's
-# Mac: the builds need the team's signing identity (CI passes CODE_SIGNING_ALLOWED=NO through
-# SIGNING_FLAGS and IOS_SIGNING_FLAGS instead), which registers this Mac with the team and updates
-# its provisioning profiles, and test-hooks needs `claude` on PATH. No step prompts or needs a
-# device.
-.DEFAULT_GOAL := verify
+# A bare `make` installs the Release build to /Applications, the entry point for trying the app by
+# hand. The checks are not part of it; CI runs them, and `make verify` runs them here.
+.DEFAULT_GOAL := macos
 
+# The checks of CI (.github/workflows/ci.yml) with the signing of a developer's Mac: the builds need
+# the team's signing identity (CI passes CODE_SIGNING_ALLOWED=NO through SIGNING_FLAGS and
+# IOS_SIGNING_FLAGS instead), which registers this Mac with the team and updates its provisioning
+# profiles, and test-hooks needs `claude` on PATH. No step prompts or needs a device.
 .PHONY: verify
 verify: test check-localization test-hooks build-macos build-ios
 
