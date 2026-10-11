@@ -111,32 +111,6 @@ struct ScopeDetailView: View {
         .sheet(item: $revealedSecret) { revealedSecret in
             RevealedValueView(storedSecret: revealedSecret.storedSecret, value: revealedSecret.value)
         }
-        // The title names the secret; iOS hides a dialog's title unless it is made visible.
-        .confirmationDialog(
-            String(localized: "Delete \(storedSecretBeingDeleted?.name.value ?? "")?", bundle: .module),
-            isPresented: Binding(
-                get: { storedSecretBeingDeleted != nil },
-                set: { isPresented in
-                    if !isPresented {
-                        storedSecretBeingDeleted = nil
-                    }
-                }
-            ),
-            titleVisibility: .visible,
-            presenting: storedSecretBeingDeleted
-        ) { storedSecret in
-            Button(String(localized: "Delete", bundle: .module), role: .destructive) {
-                Task {
-                    _ = await model.delete(storedSecret: storedSecret)
-                }
-            }
-        } message: { storedSecret in
-            Text(
-                storedSecret.isSynchronized
-                    ? String(localized: "The secret is synchronized, so it is deleted on all your devices", bundle: .module)
-                    : String(localized: "The value cannot be recovered", bundle: .module)
-            )
-        }
     }
 
     /// One row per secret: its name, its note, and its settings, with the actions in a menu.
@@ -190,6 +164,34 @@ struct ScopeDetailView: View {
                 .fixedSize()
             }
             .padding(.vertical, 4)
+            // Attached to the row rather than to the list: in regular width (iPad, the inner
+            // display of iPhone Duo) the dialog becomes a popover anchored to the view it is attached
+            // to, and anchored to the whole list it points at the sidebar's edge and covers it.
+            // The title names the secret; iOS hides a dialog's title unless it is made visible.
+            .confirmationDialog(
+                String(localized: "Delete \(storedSecret.name.value)?", bundle: .module),
+                isPresented: Binding(
+                    get: { storedSecretBeingDeleted?.id == storedSecret.id },
+                    set: { isPresented in
+                        if !isPresented {
+                            storedSecretBeingDeleted = nil
+                        }
+                    }
+                ),
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "Delete", bundle: .module), role: .destructive) {
+                    Task {
+                        _ = await model.delete(storedSecret: storedSecret)
+                    }
+                }
+            } message: {
+                Text(
+                    storedSecret.isSynchronized
+                        ? String(localized: "The secret is synchronized, so it is deleted on all your devices", bundle: .module)
+                        : String(localized: "The value cannot be recovered", bundle: .module)
+                )
+            }
         }
     }
 
