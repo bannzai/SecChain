@@ -49,6 +49,15 @@ set_iphone_duo_pose() {
   return 1
 }
 
+# Closes the iPhone Duo simulator again, from the EXIT trap, so that it is closed after a failed run
+# as well as after a complete one: `set -e` ends the script at the failing xcodebuild, which would
+# otherwise leave the device open until its next boot. A failure to close does not replace the
+# exit status of the run.
+close_iphone_duo_simulator() {
+  echo "== closing ${SIMULATOR_UDID} again"
+  set_iphone_duo_pose "${SIMULATOR_UDID}" closed || echo "the simulator could not be closed; close it with duo-pose.sh set --udid ${SIMULATOR_UDID} closed" >&2
+}
+
 for language in "${SCREENSHOT_LANGUAGES[@]}"; do
   RESULT_BUNDLE="${SCREENSHOT_WORK_DIRECTORY}/${DEVICE}-${language}.xcresult"
   # xcodebuild refuses to write into a result bundle that exists, and a bundle left by an earlier
@@ -76,6 +85,10 @@ for language in "${SCREENSHOT_LANGUAGES[@]}"; do
   xcrun simctl ui "${SIMULATOR_UDID}" appearance light
 
   if [ -n "${IPHONE_DUO_POSE}" ]; then
+    # Registered before the switch, so that a switch that fails half way is undone too.
+    if [ "${IPHONE_DUO_POSE}" = open ]; then
+      trap close_iphone_duo_simulator EXIT
+    fi
     echo "== putting ${SIMULATOR_UDID} in the ${IPHONE_DUO_POSE} pose"
     set_iphone_duo_pose "${SIMULATOR_UDID}" "${IPHONE_DUO_POSE}"
   fi
@@ -94,10 +107,5 @@ for language in "${SCREENSHOT_LANGUAGES[@]}"; do
     -parallel-testing-enabled NO \
     test
 done
-
-if [ "${IPHONE_DUO_POSE}" = open ]; then
-  echo "== closing ${SIMULATOR_UDID} again"
-  set_iphone_duo_pose "${SIMULATOR_UDID}" closed
-fi
 
 bash "${SCREENSHOT_REPOSITORY_ROOT}/scripts/generate_screenshots/organize_appstore_screenshots.sh" "${DEVICE}"

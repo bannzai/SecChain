@@ -24,7 +24,8 @@ enum AppStoreScreenshotDevice: CaseIterable {
     /// The two displays of iPhone Duo cannot be told apart this way: both answer `.phone`, and the
     /// display that is on depends on the pose the capture script put the device in. The script
     /// names the class in `SCREENSHOT_DEVICE`, and the test checks it against the window of the
-    /// app it launched (`expectedAppWindowSize`).
+    /// app it launched (`expectedAppWindowSize`); without the variable, the test reads the class
+    /// from that window and falls back to this value when no display size matches.
     @MainActor
     static var current: AppStoreScreenshotDevice {
         UIDevice.current.userInterfaceIdiom == .pad ? .iPad : .iPhone

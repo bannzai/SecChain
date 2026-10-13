@@ -79,10 +79,22 @@ final class AppStoreScreenshotUITest: XCTestCase {
 
     /// The device class of this run: the one `SCREENSHOT_DEVICE` names, which the capture script
     /// sets, or the one the simulator implies when the run was started by hand without it.
+    ///
+    /// Without the variable, the two displays of iPhone Duo cannot be told apart from the
+    /// simulator alone (`AppStoreScreenshotDevice.current`), so the app is launched once and the
+    /// class whose display its window fills (`expectedAppWindowSize`) is taken. A run started by
+    /// hand on the open or the closed device then composes Duo pages rather than iPhone 6.9 inch
+    /// pages named `iphone69`.
     @MainActor
     func screenshotDevice() throws -> AppStoreScreenshotDevice {
         guard let fileNameComponent = ProcessInfo.processInfo.environment["SCREENSHOT_DEVICE"] else {
-            return .current
+            let app = XCUIApplication()
+            app.launch()
+            defer {
+                app.terminate()
+            }
+            let appWindowSize = app.windows.firstMatch.frame.size
+            return AppStoreScreenshotDevice.allCases.first { $0.expectedAppWindowSize == appWindowSize } ?? .current
         }
         return try XCTUnwrap(
             AppStoreScreenshotDevice.allCases.first { $0.fileNameComponent == fileNameComponent },
