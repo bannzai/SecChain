@@ -11,7 +11,9 @@ import XCTest
 /// to the simulator, and a simulator is in one language at a time, so the capture script sets the
 /// language and starts a run per language. The device class comes from the simulator the run was
 /// started on (`AppStoreScreenshotDevice.current`), so the generation script decides it by choosing
-/// the destination.
+/// the destination. The two displays of iPhone Duo are one simulator in two poses, so for them the
+/// script also names the class in `SCREENSHOT_DEVICE`, and the run checks the name against the
+/// window of the app it launched.
 final class AppStoreScreenshotUITest: XCTestCase {
     /// The languages App Store Connect gets screenshots for. They are also the localizations of
     /// `AppStoreScreenshotCopy.xcstrings` and of `fastlane/metadata/`.
@@ -43,15 +45,18 @@ final class AppStoreScreenshotUITest: XCTestCase {
             capturedLanguages.allSatisfy(screenshotLanguages.contains),
             "SCREENSHOT_LANGUAGE names \(capturedLanguages), which AppStoreScreenshotCopy.xcstrings has no copy for"
         )
-        let device = AppStoreScreenshotDevice.current
+        let device = try screenshotDevice()
         // The app's screen is the light surface the dark canvas sets off; the capture script sets
         // the same appearance on the simulator.
         XCUIDevice.shared.appearance = .light
-        // App Store Connect takes portrait pictures for both classes, and an iPad simulator can
-        // start in landscape.
-        XCUIDevice.shared.orientation = .portrait
+        // The portrait classes are captured in portrait, and an iPad simulator can start in
+        // landscape. The open iPhone Duo is left in the orientation it takes on its own, which is
+        // the landscape the inner page is composed in.
+        if !device.isLandscape {
+            XCUIDevice.shared.orientation = .portrait
+        }
         for language in capturedLanguages {
-            let (captures, approvalDetailsRegion) = capturedScreens(language: language)
+            let (captures, approvalDetailsRegion) = capturedScreens(language: language, device: device)
             for pageNumber in appStoreScreenshotPageNumbers {
                 let page = appStoreScreenshotPage(
                     pageNumber: pageNumber,
@@ -70,6 +75,19 @@ final class AppStoreScreenshotUITest: XCTestCase {
                 add(attachment)
             }
         }
+    }
+
+    /// The device class of this run: the one `SCREENSHOT_DEVICE` names, which the capture script
+    /// sets, or the one the simulator implies when the run was started by hand without it.
+    @MainActor
+    func screenshotDevice() throws -> AppStoreScreenshotDevice {
+        guard let fileNameComponent = ProcessInfo.processInfo.environment["SCREENSHOT_DEVICE"] else {
+            return .current
+        }
+        return try XCTUnwrap(
+            AppStoreScreenshotDevice.allCases.first { $0.fileNameComponent == fileNameComponent },
+            "SCREENSHOT_DEVICE names \(fileNameComponent), which is not a device class of AppStoreScreenshotDevice"
+        )
     }
 
     /// Every page has copy in every language. `localizedString` answers with the key itself when
@@ -112,16 +130,23 @@ final class AppStoreScreenshotUITest: XCTestCase {
     /// `RemoteApprovalModel.useDemoData`): dummy values under example repositories, so that no
     /// secret value, no real public key, and nothing personal can reach a screenshot.
     @MainActor
-    func capturedScreens(language: String) -> ([AppStoreScreenshotScreen: UIImage], CGRect) {
+    func capturedScreens(language: String, device: AppStoreScreenshotDevice) -> ([AppStoreScreenshotScreen: UIImage], CGRect) {
         var captures: [AppStoreScreenshotScreen: UIImage] = [:]
 
         let appWithDemoSecrets = launchedApp(language: language)
+        if let expectedAppWindowSize = device.expectedAppWindowSize {
+            XCTAssertEqual(
+                appWithDemoSecrets.windows.firstMatch.frame.size,
+                expectedAppWindowSize,
+                "The app's window is not the display of \(device.fileNameComponent); the simulator is in the other pose"
+            )
+        }
         tapDebugButton(app: appWithDemoSecrets, label: "Use Demo Data")
-        captures[.repositoryList] = screenCapture(app: appWithDemoSecrets)
+        captures[.repositoryList] = screenCapture(app: appWithDemoSecrets, device: device)
         openDemoRepository(app: appWithDemoSecrets)
-        captures[.secretList] = screenCapture(app: appWithDemoSecrets)
+        captures[.secretList] = screenCapture(app: appWithDemoSecrets, device: device)
         openProtectionOfDemoSecret(app: appWithDemoSecrets)
-        captures[.protection] = screenCapture(app: appWithDemoSecrets)
+        captures[.protection] = screenCapture(app: appWithDemoSecrets, device: device)
         appWithDemoSecrets.terminate()
 
         // A second launch rather than a way back: the debug controls live in the toolbar of the
@@ -136,14 +161,14 @@ final class AppStoreScreenshotUITest: XCTestCase {
             localizedButton(app: appWithDemoApproval, english: "Approve", japanese: "承認").waitForExistence(timeout: 60),
             "The approval screen did not appear. UI: \(appWithDemoApproval.debugDescription)"
         )
-        captures[.approval] = screenCapture(app: appWithDemoApproval)
+        captures[.approval] = screenCapture(app: appWithDemoApproval, device: device)
         // What the approval covers ends with the command, which is below the fold of the sheet the
         // iPad shows. On the iPhone the request fits, and the scroll view stays where it is.
         let requestScrollView = appWithDemoApproval.scrollViews.firstMatch
         if requestScrollView.waitForExistence(timeout: 5) {
             requestScrollView.swipeUp()
         }
-        captures[.approvalDetails] = screenCapture(app: appWithDemoApproval)
+        captures[.approvalDetails] = screenCapture(app: appWithDemoApproval, device: device)
         let approvalDetailsRegion = approvalDetailsRegion(app: appWithDemoApproval)
         appWithDemoApproval.terminate()
 
@@ -175,7 +200,11 @@ final class AppStoreScreenshotUITest: XCTestCase {
             "The approval screen has no command row to measure the card from. UI: \(app.debugDescription)"
         )
         let scrollViewFrame = app.scrollViews.firstMatch.frame
-        let cardTop = firstRowLabel.frame.minY - defaultPadding
+        // On the inner display of iPhone Duo the card is taller than the space between the
+        // navigation bar and the buttons, so after the scroll its first row sits under the
+        // translucent bar. The picture starts below the bar then, with the rows it still shows
+        // whole, rather than carrying the bar and a blurred row.
+        let cardTop = max(firstRowLabel.frame.minY - defaultPadding, app.navigationBars.firstMatch.frame.maxY)
         let card = CGRect(
             x: scrollViewFrame.minX + defaultPadding,
             y: cardTop,
@@ -220,11 +249,31 @@ final class AppStoreScreenshotUITest: XCTestCase {
         app.cells.containing(NSPredicate(format: "label == %@", text)).firstMatch
     }
 
+    /// The screen of the app as the display shows it, in the orientation of the page it goes on.
+    ///
+    /// The inner display of iPhone Duo is not what `XCUIApplication.screenshot()` captures on the
+    /// open device (`appstore-screenshot-builder`, `references/iphone-duo.md`): `XCUIScreen.main`
+    /// is the outer display. The inner display is the largest screen of `XCUIScreen.screens`. Its
+    /// screenshot reports the landscape size but holds portrait pixels behind an orientation flag
+    /// (Xcode 27.1, 27A9275: `size` 951x669 points, and a crop of `cgImage` came out turned by 90
+    /// degrees), so it is redrawn into pixels of the reported size, because the crop of
+    /// `AppStoreScreenshotCaptureCard` reads pixels and does not see the flag.
     @MainActor
-    func screenCapture(app: XCUIApplication) -> UIImage {
+    func screenCapture(app: XCUIApplication, device: AppStoreScreenshotDevice) -> UIImage {
         // The animation of a sheet or a push is not over the moment its content exists.
         Thread.sleep(forTimeInterval: 1)
-        return app.screenshot().image
+        guard device == .iPhoneDuoInner else {
+            return app.screenshot().image
+        }
+        let innerDisplayCapture = XCUIScreen.screens
+            .map { $0.screenshot().image }
+            .max { $0.size.width * $0.size.height < $1.size.width * $1.size.height }!
+        print("inner display capture \(innerDisplayCapture.size) at scale \(innerDisplayCapture.scale), orientation \(innerDisplayCapture.imageOrientation.rawValue)")
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = innerDisplayCapture.scale
+        return UIGraphicsImageRenderer(size: innerDisplayCapture.size, format: format).image { _ in
+            innerDisplayCapture.draw(in: CGRect(origin: .zero, size: innerDisplayCapture.size))
+        }
     }
 
     /// Taps a control of the debug menu, which sits behind the overflow item of the repository
@@ -237,8 +286,11 @@ final class AppStoreScreenshotUITest: XCTestCase {
             return
         }
         // The identifier of the item iOS puts secondary toolbar actions behind. Its label is the
-        // system's own ("More", "さらに表示"), not the name the app gives the menu.
-        let overflow = app.buttons["OverflowBarButtonItem"].firstMatch
+        // system's own ("More", "さらに表示"), not the name the app gives the menu. The item is
+        // "OverflowBarButtonItem" in a navigation bar and "BottomOverflowBarButtonItem" when the
+        // actions sit in a bottom toolbar, which is where the outer display of iPhone Duo puts them
+        // (measured with Xcode 27.1, 27A9275).
+        let overflow = app.buttons.matching(NSPredicate(format: "identifier ENDSWITH 'OverflowBarButtonItem'")).firstMatch
         XCTAssertTrue(overflow.waitForExistence(timeout: 10), "No overflow menu in the toolbar. UI: \(app.debugDescription)")
         overflow.tap()
         XCTAssertTrue(button.waitForExistence(timeout: 10), "\(label) is not in the menu. UI: \(app.debugDescription)")

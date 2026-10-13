@@ -53,11 +53,17 @@ struct AppStoreScreenshotTerminal: View {
     /// screenshot at. The limit is the longest line of `claudeHooksTerminalLines`, which no line
     /// may wrap at: it measured 960px wide on the iPhone at 38 and 1162px on the iPad at 46, and
     /// the horizontal padding is a full character on each side, so the panel's own width caps the
-    /// size at 38.8 for the 1060px iPhone panel and at 68.9 for the 1880px iPad one.
+    /// size at 38.8 for the 1060px iPhone panel and at 68.9 for the 1880px iPad one. The same
+    /// measure (25.3px of line per point of size, plus the two paddings) caps the 1100px outer
+    /// panel of iPhone Duo at 40.3. Its inner panel runs past the right edge of the canvas, so
+    /// the limit there is the 1513px of it that the canvas shows (2853 minus `subjectLeft`),
+    /// which caps the size at 55.4; at 60 the canvas cut the denial line.
     var fontSize: CGFloat {
         switch device {
         case .iPhone: 38
         case .iPad: 66
+        case .iPhoneDuoOuter: 40
+        case .iPhoneDuoInner: 54
         }
     }
 
