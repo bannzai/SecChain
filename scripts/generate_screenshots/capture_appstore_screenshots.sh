@@ -10,15 +10,21 @@
 # The simulator is the project's own, started through sim-boot, and it is given a fixed status bar
 # so that the pictures carry no clock, no battery level, and no carrier name.
 #
+# For a display of iPhone Duo (issue #87) the simulator is also put in the pose that turns that
+# display on, after its last boot, because a boot puts the device back in the closed pose. The
+# pose is switched through the window of the Device Hub, so these two classes can only be captured
+# on a Mac with the simulator on its own desktop and with accessibility access for the terminal.
+#
 # Usage: capture_appstore_screenshots.sh <device class>
 set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/screenshot_environment.sh"
 
-[ $# -eq 1 ] || { echo "Usage: $0 <device class: ${SCREENSHOT_DEVICES[*]}>" >&2; exit 2; }
+[ $# -eq 1 ] || { echo "Usage: $0 <device class: ${SCREENSHOT_DEVICES[*]} ${SCREENSHOT_IPHONE_DUO_DEVICES[*]}>" >&2; exit 2; }
 DEVICE="$1"
 DEVICE_TYPE="$(screenshot_simulator_device_type "${DEVICE}")" || { echo "Unknown device class: ${DEVICE}" >&2; exit 2; }
 SCREENSHOT_SIMULATOR_NUMBER="$(screenshot_simulator_number "${DEVICE}")"
+IPHONE_DUO_POSE="$(screenshot_iphone_duo_pose "${DEVICE}" || true)"
 
 mkdir -p "${SCREENSHOT_WORK_DIRECTORY}"
 
@@ -26,6 +32,30 @@ mkdir -p "${SCREENSHOT_WORK_DIRECTORY}"
 # one being recreated over the other between the two runs.
 boot_screenshot_simulator() {
   SCRIPT_QUIET=1 SIM_DEVICE_TYPE="${DEVICE_TYPE}" sim-boot --number "${SCREENSHOT_SIMULATOR_NUMBER}" | sed -n 's/^DEVICE_UDID=//p' | tail -n 1
+}
+
+# Puts the iPhone Duo simulator in a pose. Right after a boot the Device Hub cannot yet tell which
+# display is on and the script answers STATUS=ERROR, so the switch is tried again a few times.
+# set_iphone_duo_pose <UDID> <closed|open>
+set_iphone_duo_pose() {
+  local attempt
+  for attempt in 1 2 3 4 5 6; do
+    if bash "${SCREENSHOT_DUO_POSE_SCRIPT}" set --udid "$1" "$2"; then
+      return 0
+    fi
+    echo "== the pose could not be set (attempt ${attempt}); waiting for the simulator"
+    sleep 5
+  done
+  return 1
+}
+
+# Closes the iPhone Duo simulator again, from the EXIT trap, so that it is closed after a failed run
+# as well as after a complete one: `set -e` ends the script at the failing xcodebuild, which would
+# otherwise leave the device open until its next boot. A failure to close does not replace the
+# exit status of the run.
+close_iphone_duo_simulator() {
+  echo "== closing ${SIMULATOR_UDID} again"
+  set_iphone_duo_pose "${SIMULATOR_UDID}" closed || echo "the simulator could not be closed; close it with duo-pose.sh set --udid ${SIMULATOR_UDID} closed" >&2
 }
 
 for language in "${SCREENSHOT_LANGUAGES[@]}"; do
@@ -54,15 +84,27 @@ for language in "${SCREENSHOT_LANGUAGES[@]}"; do
   # in light appearance. Set explicitly because the simulator keeps whatever it was last left in.
   xcrun simctl ui "${SIMULATOR_UDID}" appearance light
 
+  if [ -n "${IPHONE_DUO_POSE}" ]; then
+    # Registered before the switch, so that a switch that fails half way is undone too.
+    if [ "${IPHONE_DUO_POSE}" = open ]; then
+      trap close_iphone_duo_simulator EXIT
+    fi
+    echo "== putting ${SIMULATOR_UDID} in the ${IPHONE_DUO_POSE} pose"
+    set_iphone_duo_pose "${SIMULATOR_UDID}" "${IPHONE_DUO_POSE}"
+  fi
+
   echo "== running ${SCREENSHOT_SCHEME} on ${DEVICE_TYPE} in ${language}"
-  # xcodebuild hands the test runner every variable named TEST_RUNNER_<name> as <name>.
-  TEST_RUNNER_SCREENSHOT_LANGUAGE="${language}" xcodebuild \
+  # xcodebuild hands the test runner every variable named TEST_RUNNER_<name> as <name>. Parallel
+  # testing is off because it would run the test on a clone of the simulator, which boots closed
+  # and would capture the outer display for every class.
+  TEST_RUNNER_SCREENSHOT_LANGUAGE="${language}" TEST_RUNNER_SCREENSHOT_DEVICE="${DEVICE}" xcodebuild \
     -project "${SCREENSHOT_REPOSITORY_ROOT}/SecChain.xcodeproj" \
     -scheme "${SCREENSHOT_SCHEME}" \
     -configuration Debug \
     -derivedDataPath "${SCREENSHOT_DERIVED_DATA}" \
     -destination "platform=iOS Simulator,id=${SIMULATOR_UDID}" \
     -resultBundlePath "${RESULT_BUNDLE}" \
+    -parallel-testing-enabled NO \
     test
 done
 

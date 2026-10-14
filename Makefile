@@ -18,7 +18,7 @@ IOS_DEVICE_APP := $(DERIVED_DATA)/Build/Products/$(CONFIGURATION)-iphoneos/SecCh
 OTA_SKILL_DIR ?= $(HOME)/.agents/skills/ios-ota-install-tailscale
 OTA_EXPORT_OUTPUT := tmp/ios-ota.out
 
-.PHONY: build-macos build-ios build-ios-device test check-localization test-hooks test-integration macos cli ios ios-device ios-ota screenshots dmg clean
+.PHONY: build-macos build-ios build-ios-device test check-localization test-hooks test-integration macos cli ios ios-device ios-ota screenshots screenshots-iphone-duo dmg clean
 
 # Build the macOS app together with the embedded command-line tool.
 build-macos:
@@ -120,6 +120,12 @@ ios-ota:
 # fastlane/screenshots (scripts/generate_screenshots/README.md). Runs simulators, so not in CI.
 screenshots:
 	bash scripts/generate_screenshots/generate_appstore_screenshots.sh
+
+# The App Store screenshots for the two displays of iPhone Duo, into fastlane/screenshots_iphone_duo,
+# which is uploaded by hand because fastlane deliver rejects their sizes. Switches the pose of the
+# simulator through the Device Hub, so only on a Mac whose terminal has accessibility access.
+screenshots-iphone-duo:
+	bash scripts/generate_screenshots/generate_appstore_screenshots.sh iphoneduo-outer iphoneduo-inner
 
 # Build the Developer ID signed, notarized, and stapled DMG at tmp/distribution/SecChain-<version>.dmg.
 # Needs the App Store Connect API key in the environment (documents/macos-distribution.md).

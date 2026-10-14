@@ -10,7 +10,7 @@ set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/screenshot_environment.sh"
 
-[ $# -eq 1 ] || { echo "Usage: $0 <device class: ${SCREENSHOT_DEVICES[*]}>" >&2; exit 2; }
+[ $# -eq 1 ] || { echo "Usage: $0 <device class: ${SCREENSHOT_DEVICES[*]} ${SCREENSHOT_IPHONE_DUO_DEVICES[*]}>" >&2; exit 2; }
 DEVICE="$1"
 screenshot_simulator_device_type "${DEVICE}" > /dev/null || { echo "Unknown device class: ${DEVICE}" >&2; exit 2; }
 
@@ -44,7 +44,7 @@ manifest = json.loads((export_directory / "manifest.json").read_text())
 
 # The name the test gave the attachment, which the exporter extends with its own index and
 # identifier: screenshot---<language>---<device class>---<page>_0_<uuid>.png
-name_pattern = re.compile(r"^screenshot---([a-z-]+)---([a-z0-9]+)---(\d+)(?:_.*)?$")
+name_pattern = re.compile(r"^screenshot---([a-z-]+)---([a-z0-9-]+)---(\d+)(?:_.*)?$")
 
 exported = 0
 for test in manifest:
