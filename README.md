@@ -120,7 +120,7 @@ There is deliberately no command that prints a secret value to standard output. 
 ```bash
 printf '%s' "$text" | secchain mask                         # the values of this repository's secrets become ***
 printf '%s' "$text" | secchain mask --repository <identifier>
-printf '%s' "$text" | secchain mask --env prod              # only the values run --env prod would get
+printf '%s' "$text" | secchain mask --env prod              # a scope with environments gives only its prod values
 printf '%s' "$text" | secchain mask --count                 # also writes "secchain: masked <n>" to standard error
 ```
 

@@ -83,7 +83,7 @@ A secret can carry a note that says what it is for: `secchain set <NAME> --note 
 
 ## Rule: declare a stored secret in `.secchain` instead of storing it again
 
-When a command under `secchain run` misses a variable that `secchain list` shows, or `secchain run` says there is no `.secchain`, the name is not declared. `secchain list --long` marks such a name with `(not in .secchain, so 'secchain run' does not pass it; ...)`. Add the names the command needs, and only those, as lines of the repository's `.secchain` (create the file at the repository root when there is none; it holds names only, never a value) and run the command again. A name the command does not use stays out, so that its value stays out of the command's environment. Do not run `secchain set` for a name that is already stored: `set` would ask the user to replace its value.
+When the run used `--only`, it passed only the names given there, so add the missing name as another `--only <NAME>` instead. Otherwise, when a command under `secchain run` misses a variable that `secchain list` shows, or `secchain run` says there is no `.secchain`, the name is not declared. `secchain list --long` marks such a name with `(not in .secchain, so 'secchain run' does not pass it; ...)`. Add the names the command needs, and only those, as lines of the repository's `.secchain` (create the file at the repository root when there is none; it holds names only, never a value) and run the command again. A name the command does not use stays out, so that its value stays out of the command's environment. Do not run `secchain set` for a name that is already stored: `set` would ask the user to replace its value.
 
 ## Rule: leave the choice of shared scopes to the user
 
