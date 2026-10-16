@@ -191,6 +191,22 @@ printf '%s\n' "${MASKED}" >> "${CAPTURED_OUTPUT}"
   || fail "mask --count did not report the number of replacements"
 [ "$(printf 'nothing secret' | "${SECCHAIN}" mask 2>> "${CAPTURED_OUTPUT}")" = "nothing secret" ] || fail "mask changed a text without a value"
 
+echo "== match names the standard secret whose value standard input contains"
+set +e
+MATCHED="$(printf 'token=%s;\nnext line' "${DUMMY_VALUE}" | "${SECCHAIN}" match 2>> "${CAPTURED_OUTPUT}")"
+LAST_STATUS=$?
+set -e
+printf '%s\n' "${MATCHED}" >> "${CAPTURED_OUTPUT}"
+[ "${LAST_STATUS}" -eq 0 ] || fail "match exited with ${LAST_STATUS}"
+[ "${MATCHED}" = "CLI_TEST_KEY (${REPOSITORY})" ] || fail "match did not name the secret alone (${#MATCHED} characters out)"
+! printf '%s' "${MATCHED}" | grep -qF -e "${DUMMY_VALUE}" || fail "match wrote the value"
+set +e
+MATCHED="$(printf 'nothing secret' | "${SECCHAIN}" match 2>> "${CAPTURED_OUTPUT}")"
+LAST_STATUS=$?
+set -e
+[ "${LAST_STATUS}" -eq 0 ] || fail "match exited with ${LAST_STATUS} for a text without a value"
+[ -z "${MATCHED}" ] || fail "match wrote something for a text without a value"
+
 echo "== .secchain cannot name the repository any more"
 cp .secchain "${WORK_DIRECTORY}/secchain.backup"
 printf '@repository github.com/secchain-cli-test/anything\n' >> .secchain
@@ -419,6 +435,12 @@ cat "${WORK_DIRECTORY}/mask-stderr.log" >> "${CAPTURED_OUTPUT}"
 [ "${LAST_STATUS}" -eq 0 ] || fail "mask changed the value of a confirm secret, or failed"
 grep -qx "secchain: CLI_TEST_CONFIRM_KEY is confirm, so mask does not look for its value." "${WORK_DIRECTORY}/mask-stderr.log" \
   || fail "mask did not name the confirm secret it leaves out"
+set +e
+MATCHED="$(printf 'token=%s;' "${CONFIRM_DUMMY_VALUE}" | "${SECCHAIN}" match 2>> "${CAPTURED_OUTPUT}")"
+LAST_STATUS=$?
+set -e
+[ "${LAST_STATUS}" -eq 0 ] || fail "match exited with ${LAST_STATUS} for the value of a confirm secret"
+[ -z "${MATCHED}" ] || fail "match named a confirm secret"
 capture "${SECCHAIN}" delete CLI_TEST_CONFIRM_KEY
 [ "${LAST_STATUS}" -eq 0 ] || fail "delete of the confirm secret exited with ${LAST_STATUS}"
 

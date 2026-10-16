@@ -137,6 +137,30 @@ struct SecretStoreTests {
     }
 
     @Test
+    func standardValuesBySecretReadsOnlyStandardValuesAndNeverAuthenticates() async throws {
+        try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .confirm, isSynchronized: nil)
+        try await store.set(name: try name("B"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .deviceBound, isSynchronized: nil)
+        try await store.set(name: try name("C"), value: otherDummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .standard, isSynchronized: nil)
+        let valuesBySecret = try store.standardValuesBySecret(storedSecrets: try store.storedSecrets(scope: .repository(repositoryA)))
+        #expect(valuesBySecret.map { $0.key.name.value } == ["C"])
+        #expect(valuesBySecret.values.map { $0 == otherDummyValue } == [true])
+        #expect(authenticator.reasons.isEmpty)
+    }
+
+    @Test
+    func storedSecretsWithoutArgumentsListEveryScopeAndEnvironment() async throws {
+        let production = try environment("prod")
+        try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .standard, isSynchronized: nil)
+        try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryB), environment: production, protectionLevel: .confirm, isSynchronized: nil)
+        try await store.set(name: try name("B"), value: dummyValue, scope: .shared(.user), environment: nil, protectionLevel: .deviceBound, isSynchronized: nil)
+        let listed = try store.storedSecrets()
+        #expect(Set(listed.map(\.id)).count == 3)
+        #expect(Set(listed.map(\.scope)) == [.repository(repositoryA), .repository(repositoryB), .shared(.user)])
+        #expect(listed.contains { $0.environment == production })
+        #expect(authenticator.reasons.isEmpty)
+    }
+
+    @Test
     func listingNeverAuthenticatesAndCarriesNoValue() async throws {
         try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .deviceBound, isSynchronized: nil)
         try await store.set(name: try name("B"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .confirm, isSynchronized: nil)
