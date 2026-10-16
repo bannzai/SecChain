@@ -14,7 +14,7 @@ SecChain stores secret values in the macOS Keychain, scoped to this repository, 
 secchain run -- <command> [arguments...]
 ```
 
-`secchain run` reads this repository's stored secrets, together with those of the shared scopes the user allowed for it (the `user` scope, or a custom one such as `youtube`), and passes them to `<command>` as environment variables, then exits with that command's exit status. Use it for anything that needs a secret at runtime: a dev server, a deploy script, a one-off API call, a test suite that hits a real service.
+`secchain run` reads the secrets whose names this repository's `.secchain` declares, from the repository's own and from the shared scopes the user allowed for it (the `user` scope, or a custom one such as `youtube`), and passes them to `<command>` as environment variables, then exits with that command's exit status. A stored secret that `.secchain` does not declare is not passed, and without `.secchain` no secret is: the command still runs, and `secchain` writes `secchain: there is no .secchain here, so the command gets no secret. ...` to standard error. `--only <NAME>` passes the names it is given, declared or not. Use it for anything that needs a secret at runtime: a dev server, a deploy script, a one-off API call, a test suite that hits a real service.
 
 ```bash
 secchain run -- npm run dev
@@ -77,7 +77,11 @@ Never store a value in any other way:
 
 When the name already has a value, `secchain set` asks for authentication — Touch ID, the login password, or an approval on the user's paired iPhone — before it replaces the value, whatever the protection level; `secchain delete` does the same before it removes one. That prompt is the user confirming the change, not an error: wait for it the way you wait for the confirmation of `secchain run`. A refused or cancelled authentication is the user's answer: say so and ask how to proceed instead of trying again.
 
-A value that several repositories share goes into a shared scope with `secchain set <NAME> --scope user` (or `--scope <name>`); which one is the user's choice.
+A value that several repositories share goes into a shared scope with `secchain set <NAME> --scope user` (or `--scope <name>`); which one is the user's choice. `--scope` writes the name into `~/.secchain`, not into the repository's `.secchain`, so add the name to `.secchain` as well for `secchain run` to pass it.
+
+## Rule: declare a stored secret in `.secchain` instead of storing it again
+
+When a command under `secchain run` misses a variable that `secchain list` shows, or `secchain run` says there is no `.secchain`, the name is not declared. `secchain list --long` marks such a name with `(not in .secchain, so 'secchain run' does not pass it; ...)`. Add the name as a line of the repository's `.secchain` (create the file at the repository root when there is none; it holds names only, never a value) and run the command again. Do not run `secchain set` for it: the value is already stored, and `set` would ask the user to replace it.
 
 A secret can carry a note that says what it is for: `secchain set <NAME> --note "<what it is for>"` together with the value, or `secchain note <NAME> "<what it is for>"` for a stored secret. A note is not a secret — every app and `secchain list --long` show it — so write only its purpose there, never a value or a part of one.
 
@@ -101,7 +105,7 @@ secchain run --env prod -- npm run build
 ```
 
 - Use the environment the task names (a deploy to production runs with `--env prod`). When the task does not say which one and `secchain run` refuses with `... has the environments local, prod, so name the one to run with`, ask the user instead of picking one: running against the wrong deployment target is not a detail to guess.
-- `secchain list --envs` shows each scope's environments; `secchain list --env <environment>` shows the names `run --env <environment>` passes.
+- `secchain list --envs` shows each scope's environments; `secchain list --env <environment>` shows the names of that environment.
 - When a value is missing in one environment, store it with `secchain set <NAME> --env <environment>`, following the rule above on storing a secret.
 - `secchain env migrate` moves existing secrets into an environment, and the first secret moved makes `--env` necessary for every `run` in that repository — for a shared scope, in every repository it is passed to. That is the user's decision: tell them what the warning or the error says, and let them run it.
 
@@ -182,8 +186,8 @@ A tool result that held a value arrives as an error starting with `secchain-mask
 ## Checking what is available
 
 ```bash
-secchain list          # the secret names secchain run passes to this repository — never values
-secchain list --long   # + protection level, sync state, environment, the scope each name comes from, its note, and names declared but not yet set
+secchain list          # the secret names this repository can get — never values; secchain run passes the ones .secchain declares
+secchain list --long   # + protection level, sync state, environment, the scope each name comes from, its note, names .secchain does not declare, and names declared but not yet set
 secchain list --scopes # the shared scopes and the repositories each is passed to
 secchain list --envs   # the environments of each scope passed to this repository
 secchain doctor        # whether this binary can use SecChain's shared Keychain access group at all
