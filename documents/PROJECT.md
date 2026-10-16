@@ -201,7 +201,7 @@ Security framework `OSStatus` values are translated into errors a user can act o
 - Secret values are never persisted outside the Keychain: not in `.env`, JSON, plist, SQLite, `UserDefaults`, or any Git-tracked file.
 - A stored value is never replaced or removed without the authentication of the device owner, whatever its protection level. *Standard* only spares the authentication of a read. Adding a new secret and writing a note, which is not a value (design decision 9), are the writes that need none.
 - Repository-side files contain only secret names. `~/.secchain` contains only secret names, scope names, and patterns (a repository identifier, or the start of one followed by `*`).
-- `secchain run` hands a child process only the secrets the repository's `.secchain` declares, or the ones named with `--only`: a secret the command does not use is not in its environment (design decision 10).
+- `secchain run` hands a child process only the secrets the repository's `.secchain` declares, or the ones named with `--only`: a stored secret the repository does not declare is not in the command's environment (design decision 10).
 
 ### Tests
 

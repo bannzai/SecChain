@@ -79,11 +79,11 @@ When the name already has a value, `secchain set` asks for authentication — To
 
 A value that several repositories share goes into a shared scope with `secchain set <NAME> --scope user` (or `--scope <name>`); which one is the user's choice. `--scope` writes the name into `~/.secchain`, not into the repository's `.secchain`, so add the name to `.secchain` as well for `secchain run` to pass it.
 
+A secret can carry a note that says what it is for: `secchain set <NAME> --note "<what it is for>"` together with the value, or `secchain note <NAME> "<what it is for>"` for a stored secret. A note is not a secret — every app and `secchain list --long` show it — so write only its purpose there, never a value or a part of one.
+
 ## Rule: declare a stored secret in `.secchain` instead of storing it again
 
-When a command under `secchain run` misses a variable that `secchain list` shows, or `secchain run` says there is no `.secchain`, the name is not declared. `secchain list --long` marks such a name with `(not in .secchain, so 'secchain run' does not pass it; ...)`. Add the name as a line of the repository's `.secchain` (create the file at the repository root when there is none; it holds names only, never a value) and run the command again. Do not run `secchain set` for it: the value is already stored, and `set` would ask the user to replace it.
-
-A secret can carry a note that says what it is for: `secchain set <NAME> --note "<what it is for>"` together with the value, or `secchain note <NAME> "<what it is for>"` for a stored secret. A note is not a secret — every app and `secchain list --long` show it — so write only its purpose there, never a value or a part of one.
+When a command under `secchain run` misses a variable that `secchain list` shows, or `secchain run` says there is no `.secchain`, the name is not declared. `secchain list --long` marks such a name with `(not in .secchain, so 'secchain run' does not pass it; ...)`. Add the names the command needs, and only those, as lines of the repository's `.secchain` (create the file at the repository root when there is none; it holds names only, never a value) and run the command again. A name the command does not use stays out, so that its value stays out of the command's environment. Do not run `secchain set` for a name that is already stored: `set` would ask the user to replace its value.
 
 ## Rule: leave the choice of shared scopes to the user
 
