@@ -34,7 +34,7 @@ struct RepositorySettingsView: View {
                 } header: {
                     Text("Passed Scopes", bundle: .module)
                 } footer: {
-                    Text("secchain run passes the secrets of the scopes turned on here together with the repository's own. The setting is kept in ~/.secchain on this Mac", bundle: .module)
+                    Text("secchain run passes the secrets .secchain names, from the repository's own and from the scopes turned on here. The setting is kept in ~/.secchain on this Mac", bundle: .module)
                 }
             }
             .formStyle(.grouped)

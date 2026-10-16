@@ -10,8 +10,8 @@ struct MaskCommand: ParsableCommand {
         abstract: "Copy standard input to standard output with this repository's secret values replaced by ***.",
         discussion: """
             Example: printf '%s' "$text" | secchain mask
-            It looks for the values of the secrets 'secchain run' would pass to the repository: its \
-            own and those of the shared scopes an '@allow' of ~/.secchain passes to it. Without \
+            It looks for the values of the repository's secrets: its own and those of the shared \
+            scopes an '@allow' of ~/.secchain passes to it, whether .secchain declares them or not. Without \
             --env, a scope with environments gives the values of every environment.
 
             Only 'standard' secrets are looked for, because reading any other one asks for \

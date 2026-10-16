@@ -5,7 +5,7 @@ A per-repository secret manager for macOS. Secret values live in the macOS Keych
 ```bash
 secchain set OPENAI_API_KEY      # value is read from a hidden prompt
 secchain list                    # names only, never values
-secchain run -- npm run dev      # secrets are passed as environment variables
+secchain run -- npm run dev      # the secrets .secchain declares are passed as environment variables
 ```
 
 SecChain ships as a macOS app with an embedded command-line tool, plus an iOS app. All of them read and write the same Keychain items, so a secret added in the app is usable from the command line in that repository, and the other way around.
@@ -93,12 +93,12 @@ A note says what a secret is for. It is not a secret: it is kept with the secret
 ### List secrets
 
 ```bash
-secchain list                 # the names run passes to this repository
-secchain list --long          # + protection level, sync state, the scope and the note of each name, and declared-but-missing names
+secchain list                 # the names this repository can get: its own and those of the scopes allowed for it
+secchain list --long          # + protection level, sync state, the scope and the note of each name, names .secchain does not declare (run does not pass them), and declared-but-missing names
 secchain list --repositories  # every repository that has secrets on this Mac
 secchain list --scopes        # every shared scope, with the repositories it is passed to
 secchain list --scope user    # the names of one scope; --scope repository lists the repository's own
-secchain list --env prod      # the names run --env prod passes (see "Environments")
+secchain list --env prod      # the names of prod (see "Environments")
 secchain list --envs          # the environments of each scope, and how many secrets have none
 ```
 
@@ -111,7 +111,7 @@ secchain run -- npm run dev
 secchain run --only OPENAI_API_KEY -- ./scripts/smoke-test.sh
 ```
 
-`run` reads the repository's secrets, and those of the shared scopes allowed for it (see "Share secrets between repositories"), and hands them to the child process as environment variables; the child replaces the `secchain` process (`execve`), so no SecChain process keeps holding the values and no plaintext temporary file is ever created. A secret above *standard* protection asks for Touch ID or your password before the command starts; one prompt covers every protected secret the command needs. A paired iPhone can answer that question instead of the Mac (see "Remote approval").
+`run` reads the secrets whose names the repository's `.secchain` declares (see "The `.secchain` file"), from its own secrets and those of the shared scopes allowed for it (see "Share secrets between repositories"), and hands them to the child process as environment variables; a stored secret `.secchain` does not declare is not passed, and without `.secchain` no secret is: the command still starts, and `secchain` says so on standard error. `--only NAME` passes the names you give instead, declared or not. The child replaces the `secchain` process (`execve`), so no SecChain process keeps holding the values and no plaintext temporary file is ever created. A secret above *standard* protection asks for Touch ID or your password before the command starts; one prompt covers every protected secret the command needs. A paired iPhone can answer that question instead of the Mac (see "Remote approval").
 
 There is deliberately no command that prints a secret value to standard output. `run` is the way a shell script or an AI coding agent consumes a secret without being able to read it — see the [`secchain` agent skill](#ai-agent-skill).
 
@@ -120,11 +120,11 @@ There is deliberately no command that prints a secret value to standard output. 
 ```bash
 printf '%s' "$text" | secchain mask                         # the values of this repository's secrets become ***
 printf '%s' "$text" | secchain mask --repository <identifier>
-printf '%s' "$text" | secchain mask --env prod              # only the values run --env prod would get
+printf '%s' "$text" | secchain mask --env prod              # a scope with environments gives only its prod values
 printf '%s' "$text" | secchain mask --count                 # also writes "secchain: masked <n>" to standard error
 ```
 
-`mask` copies standard input to standard output with every value of the secrets `run` would pass to the repository replaced by `***`: the repository's own and those of the shared scopes allowed for it. Without `--env`, a scope with environments gives the values of all of them, because hiding more is the safe side. A text without a value comes out unchanged, and nothing says whether a value was found unless you ask with `--count`. It exists for the [Claude Mods plugin](#claude-mods-plugin-masking-what-the-model-reads), which passes every text an agent's model is about to read through it.
+`mask` copies standard input to standard output with every value of the repository's secrets replaced by `***`: its own and those of the shared scopes allowed for it, whether `.secchain` declares them or not. Without `--env`, a scope with environments gives the values of all of them, because hiding more is the safe side. A text without a value comes out unchanged, and nothing says whether a value was found unless you ask with `--count`. It exists for the [Claude Mods plugin](#claude-mods-plugin-masking-what-the-model-reads), which passes every text an agent's model is about to read through it.
 
 - Only *standard* secrets are looked for. Reading a `confirm` or `device-bound` value asks for authentication, which on every tool result would make the agent unusable, so `mask` leaves those values in place and writes `secchain: <NAME> is confirm, so mask does not look for its value.` to standard error.
 - Values shorter than 8 characters, and values that are only whitespace, are not looked for: they occur in unrelated text, and replacing them would break it.
@@ -138,12 +138,14 @@ A secret that several repositories use goes into a shared scope instead of into 
 ```bash
 secchain set OPENAI_API_KEY --scope user                  # store it once
 secchain scope allow user 'github.com/bannzai/*'          # pass the user scope to your repositories
+echo OPENAI_API_KEY >> .secchain                          # in each repository whose commands use it
 secchain set YOUTUBE_API_KEY --scope youtube              # the first secret of a custom scope creates it
 secchain scope allow youtube github.com/bannzai/youtuber
 secchain scope deny youtube github.com/bannzai/youtuber
 secchain delete YOUTUBE_API_KEY --scope youtube
 ```
 
+- `@allow` decides which scopes a repository's secrets can come from; the repository's `.secchain` decides which names `run` passes. `set --scope` writes the name into `~/.secchain`, not into a repository's `.secchain`, so add the name to the `.secchain` of each repository that uses it.
 - A shared scope is passed only to the repositories an `@allow` of your `~/.secchain` names (see "`~/.secchain`"). `scope allow` and `scope deny` add and remove those lines; nothing inside a repository can add one, so a repository you merely cloned cannot claim your shared secrets.
 - A pattern is a repository identifier as `secchain list --repositories` prints it, or the start of one followed by `*`: `github.com/bannzai/*` covers every repository of `bannzai` and none of `bannzai-other`. Quote a pattern with `*` so that the shell leaves it alone.
 - When a name is in several scopes a repository gets, the repository's own secret wins, then the custom scopes in the order of `~/.secchain`, then the user scope. `secchain list --long` shows which scope each name comes from.
@@ -271,7 +273,8 @@ CLOUDFLARE_API_TOKEN
 - A secret name is a POSIX environment variable name (letters, digits, underscores, not starting with a digit) — `secchain run` exports it under that name.
 - Names are all the file holds. Which repository it is comes from its Git remote (or `--repository`), and which shared scopes it gets is yours to decide in `~/.secchain`, not the repository's; an `@repository` line of an earlier development build is refused with the error saying what replaces it.
 - `secchain set` and `secchain delete` keep the current directory's `.secchain` in sync, as long as neither is given `--repository` or `--scope`; comments and ordering you wrote by hand survive. With `--repository`, the command acts on a different repository's secrets, so the local `.secchain` is not the right file to update and is left alone. With `--scope`, the name goes into that scope of `~/.secchain` instead.
-- The file is optional. Without it, `run` uses every secret of the scopes the repository gets. With it, `run` refuses to start while a name it declares has no stored value there, and names it in the error, together with the `secchain scope allow` to run when a scope not allowed for the repository has it.
+- The file is the list of what `run` passes: the names it declares, from the scopes the repository gets, and nothing else. Without it, `run` passes no secret and says so on standard error. With it, `run` refuses to start while a name it declares has no stored value there, and names it in the error, together with the `secchain scope allow` to run when a scope not allowed for the repository has it. `--only NAME` passes the names you give regardless of the file.
+- A secret stored before the file listed it, or stored with `--scope`, reaches `run` once you add its line by hand; storing it again with `secchain set` would ask to replace the value. `secchain list --long` marks the stored names the file does not declare.
 
 ## `~/.secchain`
 
@@ -289,7 +292,7 @@ YOUTUBE_API_KEY
 @allow github.com/bannzai/shorts-*
 ```
 
-- The lines before the first `@scope` are the user scope; `@scope <name>` starts a custom scope that lasts until the next one. The names of a scope are the ones it is meant to hold, and `secchain list --long --scope <name>` reports those without a value.
+- The lines before the first `@scope` are the user scope; `@scope <name>` starts a custom scope that lasts until the next one. The names of a scope are the ones it is meant to hold, and `secchain list --long --scope <name>` reports those without a value. They do not decide what `run` passes; a repository's `.secchain` does.
 - `@allow <pattern>` passes the scope to the repositories the pattern names. A scope without one is passed to no repository. A fork and its upstream are two repositories: to give the fork the upstream's secrets, keep them in a scope that allows both.
 - `secchain set --scope`, `secchain delete --scope`, `secchain scope allow`, `secchain scope deny`, and the switches of **Repository Settings** in the macOS app edit the file for you and keep your comments and ordering. Like `.secchain`, it never holds a value.
 
@@ -297,7 +300,7 @@ YOUTUBE_API_KEY
 
 The repository identity comes from the `origin` remote, normalized to `host/owner/repo` (case, credentials, port, scheme, and a trailing `.git` are dropped), so `git@github.com:Owner/Repo.git` and `https://github.com/owner/repo` are the same repository and the same Keychain items — including from a linked worktree or a sub-directory. A directory that is not a Git repository, has no `origin`, or has an `origin` that is a local path needs `--repository <identifier>`; SecChain never falls back to the checkout path, because the same repository must resolve to the same secrets from every checkout on every Mac.
 
-`--repository <identifier>` on any command acts on a repository other than the current directory's, without touching that repository's `.secchain` file. The identifier is folded to lowercase like a remote's, so `--repository github.com/Owner/Repo` is the same repository as a checkout of it. It cannot contain `#`, which separates the environment in the names SecChain gives its Keychain items.
+`--repository <identifier>` on any command acts on a repository other than the current directory's, without touching that repository's `.secchain` file. `run --repository` still passes the names of the current directory's `.secchain`; from a directory without one, it passes nothing unless you name the secrets with `--only`. The identifier is folded to lowercase like a remote's, so `--repository github.com/Owner/Repo` is the same repository as a checkout of it. It cannot contain `#`, which separates the environment in the names SecChain gives its Keychain items.
 
 ## Building from source
 
