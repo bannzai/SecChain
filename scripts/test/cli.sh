@@ -3,7 +3,9 @@
 # tool. Uses a throwaway repository, a throwaway custom scope, a throwaway ~/.secchain, and dummy
 # values, and deletes what it stored. The user scope is the real one, because the Keychain is not
 # kept per $HOME: the checks store one throwaway name there, run with '--only' that name while the
-# user scope is allowed, so that no other secret of the user scope is read, and delete it.
+# user scope is allowed, so that no other secret of the user scope is read, and delete it. The
+# exception is 'match', which has no narrowing and reads every standard value on the Mac into its
+# own memory; its output is names only, and the checks assert that no value appears in it.
 # Deleting or replacing a stored secret asks for authentication at every protection level, so the
 # checks need someone at the Mac (or at the paired iPhone) to answer the prompt of each delete,
 # those of the cleanup included.
@@ -190,6 +192,22 @@ printf '%s\n' "${MASKED}" >> "${CAPTURED_OUTPUT}"
 [ "$(printf '%s %s' "${DUMMY_VALUE}" "${DUMMY_VALUE}" | "${SECCHAIN}" mask --count 2>&1 > /dev/null)" = "secchain: masked 2" ] \
   || fail "mask --count did not report the number of replacements"
 [ "$(printf 'nothing secret' | "${SECCHAIN}" mask 2>> "${CAPTURED_OUTPUT}")" = "nothing secret" ] || fail "mask changed a text without a value"
+
+echo "== match names the standard secret whose value standard input contains"
+set +e
+MATCHED="$(printf 'token=%s;\nnext line' "${DUMMY_VALUE}" | "${SECCHAIN}" match 2>> "${CAPTURED_OUTPUT}")"
+LAST_STATUS=$?
+set -e
+printf '%s\n' "${MATCHED}" >> "${CAPTURED_OUTPUT}"
+[ "${LAST_STATUS}" -eq 0 ] || fail "match exited with ${LAST_STATUS}"
+[ "${MATCHED}" = "CLI_TEST_KEY (${REPOSITORY})" ] || fail "match did not name the secret alone (${#MATCHED} characters out)"
+! printf '%s' "${MATCHED}" | grep -qF -e "${DUMMY_VALUE}" || fail "match wrote the value"
+set +e
+MATCHED="$(printf 'nothing secret' | "${SECCHAIN}" match 2>> "${CAPTURED_OUTPUT}")"
+LAST_STATUS=$?
+set -e
+[ "${LAST_STATUS}" -eq 0 ] || fail "match exited with ${LAST_STATUS} for a text without a value"
+[ -z "${MATCHED}" ] || fail "match wrote something for a text without a value"
 
 echo "== .secchain cannot name the repository any more"
 cp .secchain "${WORK_DIRECTORY}/secchain.backup"
@@ -419,6 +437,12 @@ cat "${WORK_DIRECTORY}/mask-stderr.log" >> "${CAPTURED_OUTPUT}"
 [ "${LAST_STATUS}" -eq 0 ] || fail "mask changed the value of a confirm secret, or failed"
 grep -qx "secchain: CLI_TEST_CONFIRM_KEY is confirm, so mask does not look for its value." "${WORK_DIRECTORY}/mask-stderr.log" \
   || fail "mask did not name the confirm secret it leaves out"
+set +e
+MATCHED="$(printf 'token=%s;' "${CONFIRM_DUMMY_VALUE}" | "${SECCHAIN}" match 2>> "${CAPTURED_OUTPUT}")"
+LAST_STATUS=$?
+set -e
+[ "${LAST_STATUS}" -eq 0 ] || fail "match exited with ${LAST_STATUS} for the value of a confirm secret"
+[ -z "${MATCHED}" ] || fail "match named a confirm secret"
 capture "${SECCHAIN}" delete CLI_TEST_CONFIRM_KEY
 [ "${LAST_STATUS}" -eq 0 ] || fail "delete of the confirm secret exited with ${LAST_STATUS}"
 

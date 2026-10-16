@@ -34,6 +34,13 @@ public struct SecretStore: Sendable {
         Self.effectiveSecrets(storedSecrets: try keychain.storedSecrets(scope: scope))
     }
 
+    /// The effective secrets of every scope and environment on this Mac, for `secchain match`.
+    /// Neither a repository nor an `@allow` narrows it: a text on the clipboard does not say which
+    /// repository its reader is working on, so any secret of the user's may be in it.
+    public func storedSecrets() throws -> [StoredSecret] {
+        Self.effectiveSecrets(storedSecrets: try keychain.storedSecrets(scope: nil))
+    }
+
     /// The effective secrets of one scope in one environment, `nil` for the secrets without an
     /// environment, sorted by name.
     public func storedSecrets(scope: SecretScope, environment: SecretEnvironment?) throws -> [StoredSecret] {
@@ -110,9 +117,21 @@ public struct SecretStore: Sendable {
     /// each would make it unusable, so a secret of another level is left out rather than read
     /// (documents/PROJECT.md, design decision 8).
     public func standardValues(storedSecrets: [StoredSecret]) throws -> [SecretValue] {
-        try storedSecrets
-            .filter { $0.protectionLevel == .standard }
-            .map { try keychain.value(storedSecret: $0, ownerAuthentication: nil) }
+        Array(try standardValuesBySecret(storedSecrets: storedSecrets).values)
+    }
+
+    /// Values for `secchain match`: those of the `standard` secrets among `storedSecrets`, each
+    /// under the secret it belongs to, so that a match can be named. Never authenticates, for the
+    /// reason `standardValues(storedSecrets:)` does not. A secret listed twice keeps its first value
+    /// rather than trapping: `mask` fails open when it crashes, which would hand the text to the
+    /// model unmasked.
+    public func standardValuesBySecret(storedSecrets: [StoredSecret]) throws -> [StoredSecret: SecretValue] {
+        try Dictionary(
+            storedSecrets
+                .filter { $0.protectionLevel == .standard }
+                .map { ($0, try keychain.value(storedSecret: $0, ownerAuthentication: nil)) },
+            uniquingKeysWith: { first, _ in first }
+        )
     }
 
     /// The value for an explicit reveal in an app. Always authenticates, whatever the level,
