@@ -217,7 +217,7 @@ Team vaults, organizations, workspaces, member management, share links, a custom
 
 "Remote approval" does not change this: it uses the user's own CloudKit private database, which SecChain's maintainer cannot read, only to carry approval requests between that user's devices. Secret values keep traveling through iCloud Keychain alone.
 
-Masking is limited to what `secchain mask` does for the Claude Code plugin (design decision 8): the texts an agent's model reads in one Claude Code session, matched against the standard secrets of one repository. Masking the output of other tools, other agents, or a whole machine is not part of this project.
+Masking is limited to what `secchain mask` does for the Claude Code plugin (design decision 8): the texts an agent's model reads in one Claude Code session, matched against the standard secrets of one repository. `secchain match` extends the matching, not the masking: another app on the same Mac can learn by name which stored secrets a text holds, against the standard secrets of every scope, and nothing more. Masking the output of other tools, other agents, or a whole machine is not part of this project.
 
 ## Design decisions
 

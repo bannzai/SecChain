@@ -11,9 +11,10 @@ struct MatchCommand: ParsableCommand {
         discussion: """
             Example: pbpaste | secchain match
             It is for other apps, such as PasteCheck, to learn that a text holds a secret of the \
-            user's by name, without being given a value. Like 'mask', it lets someone who guessed a \
-            value whole find out that it is stored; the answer holds no value, and no more of it \
-            than its name and where it is stored.
+            user's by name, without being given a value: the stored values stay read by secchain \
+            alone (design decision 8 of documents/PROJECT.md). Like 'mask', it lets someone who \
+            guessed a value whole find out that it is stored; the answer holds no value, and no \
+            more of it than its name and where it is stored.
 
             Every 'standard' secret on this Mac is looked for, in every repository and shared \
             scope, because a text does not say which repository its reader is working on. A secret \
@@ -28,13 +29,11 @@ struct MatchCommand: ParsableCommand {
     )
 
     func run() throws {
-        // Read into memory and never into a file: the input may hold the very values being looked for.
-        let input = FileHandle.standardInput.readDataToEndOfFile()
-        let matchedLabels = SecretMatch.matchedLabels(
-            data: input,
+        // The input is read into memory and never into a file: it may hold the very values being looked for.
+        for matchedLabel in SecretMatch.matchedLabels(
+            data: FileHandle.standardInput.readDataToEndOfFile(),
             valuesBySecret: try SecretStore.system.standardValuesBySecret(storedSecrets: try SecretStore.system.storedSecrets())
-        )
-        for matchedLabel in matchedLabels {
+        ) {
             FileHandle.standardOutput.write(Data((matchedLabel + "\n").utf8))
         }
     }

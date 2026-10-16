@@ -122,12 +122,15 @@ public struct SecretStore: Sendable {
 
     /// Values for `secchain match`: those of the `standard` secrets among `storedSecrets`, each
     /// under the secret it belongs to, so that a match can be named. Never authenticates, for the
-    /// reason `standardValues(storedSecrets:)` does not.
+    /// reason `standardValues(storedSecrets:)` does not. A secret listed twice keeps its first value
+    /// rather than trapping: `mask` fails open when it crashes, which would hand the text to the
+    /// model unmasked.
     public func standardValuesBySecret(storedSecrets: [StoredSecret]) throws -> [StoredSecret: SecretValue] {
         try Dictionary(
-            uniqueKeysWithValues: storedSecrets
+            storedSecrets
                 .filter { $0.protectionLevel == .standard }
-                .map { ($0, try keychain.value(storedSecret: $0, ownerAuthentication: nil)) }
+                .map { ($0, try keychain.value(storedSecret: $0, ownerAuthentication: nil)) },
+            uniquingKeysWith: { first, _ in first }
         )
     }
 

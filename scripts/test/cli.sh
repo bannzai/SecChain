@@ -3,7 +3,9 @@
 # tool. Uses a throwaway repository, a throwaway custom scope, a throwaway ~/.secchain, and dummy
 # values, and deletes what it stored. The user scope is the real one, because the Keychain is not
 # kept per $HOME: the checks store one throwaway name there, run with '--only' that name while the
-# user scope is allowed, so that no other secret of the user scope is read, and delete it.
+# user scope is allowed, so that no other secret of the user scope is read, and delete it. The
+# exception is 'match', which has no narrowing and reads every standard value on the Mac into its
+# own memory; its output is names only, and the checks assert that no value appears in it.
 # Deleting or replacing a stored secret asks for authentication at every protection level, so the
 # checks need someone at the Mac (or at the paired iPhone) to answer the prompt of each delete,
 # those of the cleanup included.

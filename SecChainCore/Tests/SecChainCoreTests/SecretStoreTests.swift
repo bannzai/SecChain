@@ -148,6 +148,14 @@ struct SecretStoreTests {
     }
 
     @Test
+    func aSecretListedTwiceIsReadOnceInsteadOfTrapping() async throws {
+        try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .standard, isSynchronized: nil)
+        let listed = try store.storedSecrets(scope: .repository(repositoryA))
+        #expect(try store.standardValuesBySecret(storedSecrets: listed + listed).count == 1)
+        #expect(try store.standardValues(storedSecrets: listed + listed).count == 1)
+    }
+
+    @Test
     func storedSecretsWithoutArgumentsListEveryScopeAndEnvironment() async throws {
         let production = try environment("prod")
         try await store.set(name: try name("A"), value: dummyValue, scope: .repository(repositoryA), environment: nil, protectionLevel: .standard, isSynchronized: nil)
