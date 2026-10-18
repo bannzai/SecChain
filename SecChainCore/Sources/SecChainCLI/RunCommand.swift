@@ -9,10 +9,12 @@ struct RunCommand: AsyncParsableCommand {
         abstract: "Run a command with this repository's secrets as environment variables.",
         discussion: """
             Example: secchain run -- npm run dev
-            The command gets the repository's own secrets and those of every shared scope that an \
-            '@allow' of ~/.secchain passes to the repository. A name in several of them comes from \
+            The command gets the secrets whose names the repository's .secchain declares, taken \
+            from the repository's own secrets and from every shared scope that an '@allow' of \
+            ~/.secchain passes to the repository. A stored secret that .secchain does not declare \
+            is not passed, and without .secchain no secret is. A name in several scopes comes from \
             the repository first, then from the custom scopes in the order of ~/.secchain, then from \
-            the user scope.
+            the user scope. --only passes the names it is given instead, declared or not.
 
             Where a passed scope has environments, --env names the one to run with, such as \
             'secchain run --env prod -- npm run build'. Such a scope gives only the secrets of that \
@@ -30,7 +32,7 @@ struct RunCommand: AsyncParsableCommand {
             """
     )
 
-    @Option(name: .long, help: "Pass only this secret. Repeat the option to pass several.")
+    @Option(name: .long, help: "Pass only this secret, whether .secchain declares it or not. Repeat the option to pass several.")
     var only: [String] = []
 
     @OptionGroup
@@ -51,12 +53,18 @@ struct RunCommand: AsyncParsableCommand {
         }
         let environment = try environmentOptions.validatedEnvironment()
         let context = try CommandContext.resolve(repositoryOption: repositoryOptions.repository)
+        let onlyNames = try only.map(validatedSecretName(rawName:))
+        if let noDefinitionNotice = RunPlan.noDefinitionNotice(definition: context.definition, onlyNames: onlyNames) {
+            reportToStandardError(line: noDefinitionNotice)
+            try replaceProcess(command: command, environment: ProcessInfo.processInfo.environment)
+            return
+        }
         let passedScopes = context.userDefinition.passedScopes(repositoryIdentity: context.repositoryIdentity)
         let storedSecrets = try SecretStore.system.storedSecrets(scopes: passedScopes, environment: environment)
         let secretNames = try RunPlan.secretNames(
             storedSecretNames: storedSecrets.map(\.name),
             definition: context.definition,
-            onlyNames: try only.map(validatedSecretName(rawName:)),
+            onlyNames: onlyNames,
             repositoryIdentity: context.repositoryIdentity,
             environment: environment,
             secretNamesOfScopesNotPassed: {

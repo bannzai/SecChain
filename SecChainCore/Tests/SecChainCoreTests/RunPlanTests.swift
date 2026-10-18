@@ -33,11 +33,63 @@ struct RunPlanTests {
     }
 
     @Test
-    func withoutADefinitionEveryStoredSecretIsUsed() throws {
+    func withoutADefinitionNothingIsPassedAndTheRunSaysSo() throws {
+        #expect(try plannedSecretNames(storedSecretNames: try names(["A", "B"]), definition: nil, onlyNames: []).isEmpty)
         #expect(
-            try plannedSecretNames(storedSecretNames: try names(["A", "B"]), definition: nil, onlyNames: [])
-                == (try names(["A", "B"]))
+            RunPlan.noDefinitionNotice(definition: nil, onlyNames: [])
+                == "there is no .secchain here, so the command gets no secret. Declare the names it needs in .secchain ('secchain set <NAME>' adds the name it stores; add an already stored name or one of a shared scope by hand), or pass them with --only <NAME>."
         )
+    }
+
+    @Test
+    func aDefinitionOrOnlyNamesLeaveNoNotice() throws {
+        #expect(RunPlan.noDefinitionNotice(definition: try SecretDefinitionText.parse(text: "A"), onlyNames: []) == nil)
+        // An empty file is a declaration of nothing, not a missing one.
+        #expect(RunPlan.noDefinitionNotice(definition: try SecretDefinitionText.parse(text: "# none yet"), onlyNames: []) == nil)
+        #expect(RunPlan.noDefinitionNotice(definition: nil, onlyNames: try names(["A"])) == nil)
+    }
+
+    @Test
+    func withADefinitionOnlyTheDeclaredNamesArePassed() throws {
+        #expect(
+            try plannedSecretNames(
+                storedSecretNames: try names(["A", "B", "C"]),
+                definition: try SecretDefinitionText.parse(text: "C\nA"),
+                onlyNames: []
+            ) == (try names(["A", "C"]))
+        )
+    }
+
+    /// A secret of a shared scope that `~/.secchain` allows for the repository is passed only when
+    /// `.secchain` declares its name, the same as one of the repository.
+    @Test
+    func anUndeclaredSecretOfAnAllowedSharedScopeIsNotPassed() throws {
+        let youtube = SecretScope.shared(.custom(try #require(CustomScopeName(rawName: "youtube"))))
+        let passedScopes: [SecretScope] = [.repository(repositoryIdentity), youtube, .shared(.user)]
+        let passedSecrets = try RunPlan.passedSecrets(
+            storedSecrets: [
+                try storedSecret(scope: .repository(repositoryIdentity), rawName: "REPOSITORY_DECLARED", environment: nil),
+                try storedSecret(scope: .repository(repositoryIdentity), rawName: "REPOSITORY_UNDECLARED", environment: nil),
+                try storedSecret(scope: youtube, rawName: "YOUTUBE_API_KEY", environment: nil),
+                try storedSecret(scope: youtube, rawName: "YOUTUBE_UNDECLARED", environment: nil),
+                try storedSecret(scope: .shared(.user), rawName: "OPENAI_API_KEY", environment: nil),
+                try storedSecret(scope: .shared(.user), rawName: "USER_UNDECLARED", environment: nil),
+            ],
+            passedScopes: passedScopes,
+            environment: nil
+        )
+        let definition = try SecretDefinitionText.parse(text: "REPOSITORY_DECLARED\nYOUTUBE_API_KEY\nOPENAI_API_KEY")
+        let secretNames = try plannedSecretNames(storedSecretNames: passedSecrets.map(\.name), definition: definition, onlyNames: [])
+        #expect(
+            passedSecrets.filter { secretNames.contains($0.name) }.map { "\($0.name.value)=\($0.scope.name)" }
+                == ["OPENAI_API_KEY=user", "REPOSITORY_DECLARED=repository", "YOUTUBE_API_KEY=youtube"]
+        )
+        #expect(passedSecrets.filter { !RunPlan.isDeclared(secretName: $0.name, definition: definition) }.map(\.name.value) == ["REPOSITORY_UNDECLARED", "USER_UNDECLARED", "YOUTUBE_UNDECLARED"])
+    }
+
+    @Test
+    func withoutADefinitionNoNameIsDeclared() throws {
+        #expect(!RunPlan.isDeclared(secretName: try #require(SecretName(rawName: "A")), definition: nil))
     }
 
     @Test
@@ -46,6 +98,23 @@ struct RunPlanTests {
             try plannedSecretNames(
                 storedSecretNames: try names(["A", "B"]),
                 definition: try SecretDefinitionText.parse(text: "A\nB\nC"),
+                onlyNames: try names(["B"])
+            ) == (try names(["B"]))
+        )
+    }
+
+    /// `--only` is the user naming the secrets on the spot, so it passes them with or without
+    /// `.secchain` and whether it declares them or not.
+    @Test
+    func onlyNamesArePassedWithoutADefinitionAndWhenUndeclared() throws {
+        #expect(
+            try plannedSecretNames(storedSecretNames: try names(["A", "B"]), definition: nil, onlyNames: try names(["B"]))
+                == (try names(["B"]))
+        )
+        #expect(
+            try plannedSecretNames(
+                storedSecretNames: try names(["A", "B"]),
+                definition: try SecretDefinitionText.parse(text: "A"),
                 onlyNames: try names(["B"])
             ) == (try names(["B"]))
         )

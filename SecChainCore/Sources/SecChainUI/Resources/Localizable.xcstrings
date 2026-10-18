@@ -1524,13 +1524,13 @@
         }
       }
     },
-    "secchain run passes the secrets of the scopes turned on here together with the repository's own. The setting is kept in ~/.secchain on this Mac" : {
+    "secchain run passes the secrets .secchain names, from the repository's own and from the scopes turned on here. The setting is kept in ~/.secchain on this Mac" : {
       "comment" : "Footer of the list of shared scopes in the repository settings",
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "secchain run はこのリポジトリの Secret と一緒に、ここでオンにした scope の Secret を渡します。設定はこの Mac の ~/.secchain に保存されます"
+            "value" : "secchain run は .secchain に書かれた名前の Secret を、このリポジトリとここでオンにした scope から渡します。設定はこの Mac の ~/.secchain に保存されます"
           }
         }
       }
