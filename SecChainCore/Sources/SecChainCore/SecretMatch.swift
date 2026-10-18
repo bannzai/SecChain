@@ -7,9 +7,11 @@ import Foundation
 public enum SecretMatch {
     /// The line `match` writes for a matched secret: the name, and where it is stored
     /// (`StoredSecret.locationDescription`), so that the same name in several scopes or
-    /// environments is told apart. Carries nothing of the value, not even its length.
+    /// environments is told apart. Carries nothing of the value, not even its length. A line
+    /// terminator inside the location (`--repository` accepts any non-empty identifier) is written
+    /// as `\n` / `\r`, so that a reader splitting the output on lines gets one secret per line.
     public static func label(storedSecret: StoredSecret) -> String {
-        "\(storedSecret.name.value) (\(storedSecret.locationDescription))"
+        "\(storedSecret.name.value) (\(storedSecret.locationDescription.replacingOccurrences(of: "\n", with: "\\n").replacingOccurrences(of: "\r", with: "\\r")))"
     }
 
     /// The labels of the `standard` secrets among `valuesBySecret` whose value occurs in `data`,

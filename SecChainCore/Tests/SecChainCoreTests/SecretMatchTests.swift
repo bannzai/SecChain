@@ -96,6 +96,14 @@ struct SecretMatchTests {
     }
 
     @Test
+    func aLineTerminatorInTheLocationStaysOnOneLine() throws {
+        let label = SecretMatch.label(storedSecret: try storedSecret(scope: .repository(RepositoryIdentity(value: "github.com/example/a\nb\rc"))))
+        #expect(label == #"API_KEY (github.com/example/a\nb\rc)"#)
+        #expect(!label.contains("\n"))
+        #expect(!label.contains("\r"))
+    }
+
+    @Test
     func aValueInsideBytesThatAreNotUTF8IsMatched() throws {
         var data = Data([0xff, 0xfe, 0x00])
         data.append(Data("dummy-value-for-test".utf8))
