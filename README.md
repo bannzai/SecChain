@@ -129,7 +129,21 @@ printf '%s' "$text" | secchain mask --count                 # also writes "secch
 - Only *standard* secrets are looked for. Reading a `confirm` or `device-bound` value asks for authentication, which on every tool result would make the agent unusable, so `mask` leaves those values in place and writes `secchain: <NAME> is confirm, so mask does not look for its value.` to standard error.
 - Values shorter than 8 characters, and values that are only whitespace, are not looked for: they occur in unrelated text, and replacing them would break it.
 - In a directory whose repository cannot be identified (no Git remote, and no `--repository`), no `@allow` applies, so the text comes out unchanged and standard error says why. The exit status is still 0, so that a hook built on `mask` keeps working.
-- `mask` answers whether a text contains a stored value, so it confirms a value someone guessed whole. It gives nothing for a part of one: only a complete value is replaced.
+- `mask` and `match` answer whether a text contains a stored value, so they confirm a value someone guessed whole. They give nothing for a part of one: only a complete value is replaced or matched.
+
+### Match a text against your secrets
+
+```bash
+printf '%s' "$text" | secchain match
+pbpaste | secchain match
+```
+
+`match` reads standard input and writes the name of every stored secret whose value the text contains, one per line, as `NAME (where it is stored)`, for example `OPENAI_API_KEY (github.com/owner/repo)` or `OPENAI_API_KEY (scope user)`. Unlike `mask`, it does not depend on the repository you are in: it looks at the secrets of every repository and shared scope on this Mac, because a text does not say which repository its reader is working on. It writes names, never values, and the same name in several places is told apart by the location.
+
+- Only *standard* secrets are looked for, and values shorter than 8 characters or only whitespace are not, for the reasons `mask` has.
+- A text that holds no value writes nothing and exits 0.
+- When the Keychain cannot be read, the error goes to standard error and the exit status is 1.
+- It is the door for other apps, such as PasteCheck, to learn that a text holds one of your secrets. As in design decision 8, no value leaves SecChain: the app gets a name and a location.
 
 ### Share secrets between repositories
 
