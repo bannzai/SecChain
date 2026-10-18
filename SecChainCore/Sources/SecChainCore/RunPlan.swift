@@ -106,8 +106,10 @@ public enum RunPlan {
     }
 
     /// - `onlyNames` not empty: exactly those (the caller reports names that are not stored).
-    /// - otherwise: every stored secret of the scopes passed to the repository, after checking that
-    ///   everything the definition file declares has a value. `environment` is the one the
+    /// - no definition file: none (`noDefinitionNotice`).
+    /// - otherwise: the names the definition file declares, after checking that each has a value in
+    ///   the scopes passed to the repository. A stored secret it does not declare is not passed,
+    ///   whatever its scope (documents/PROJECT.md, design decision 10). `environment` is the one the
     ///   secrets were chosen for, which the error names.
     ///
     /// `secretNamesOfScopesNotPassed` gives the names each shared scope that is not passed to the
@@ -124,30 +126,48 @@ public enum RunPlan {
         guard onlyNames.isEmpty else {
             return onlyNames
         }
-        if let definition {
-            let missingSecretNames = SecretDefinitionText.missingSecretNames(
-                definition: definition,
-                storedSecretNames: Set(storedSecretNames)
-            )
-            guard missingSecretNames.isEmpty else {
-                let secretNamesByScopeNotPassed = try secretNamesOfScopesNotPassed()
-                throw RunPlanError.declaredSecretsWithoutValue(
-                    names: missingSecretNames.map(\.value),
-                    repository: repositoryIdentity.value,
-                    environment: environment?.value,
-                    sharedScopeNamesBySecretName: Dictionary(
-                        uniqueKeysWithValues: missingSecretNames.compactMap { missingSecretName in
-                            let scopeNames = secretNamesByScopeNotPassed
-                                .filter { $0.value.contains(missingSecretName) }
-                                .map(\.key.name)
-                                .sorted()
-                            return scopeNames.isEmpty ? nil : (missingSecretName.value, scopeNames)
-                        }
-                    )
-                )
-            }
+        guard let definition else {
+            return []
         }
-        return storedSecretNames
+        let missingSecretNames = SecretDefinitionText.missingSecretNames(
+            definition: definition,
+            storedSecretNames: Set(storedSecretNames)
+        )
+        guard missingSecretNames.isEmpty else {
+            let secretNamesByScopeNotPassed = try secretNamesOfScopesNotPassed()
+            throw RunPlanError.declaredSecretsWithoutValue(
+                names: missingSecretNames.map(\.value),
+                repository: repositoryIdentity.value,
+                environment: environment?.value,
+                sharedScopeNamesBySecretName: Dictionary(
+                    uniqueKeysWithValues: missingSecretNames.compactMap { missingSecretName in
+                        let scopeNames = secretNamesByScopeNotPassed
+                            .filter { $0.value.contains(missingSecretName) }
+                            .map(\.key.name)
+                            .sorted()
+                        return scopeNames.isEmpty ? nil : (missingSecretName.value, scopeNames)
+                    }
+                )
+            )
+        }
+        return storedSecretNames.filter { isDeclared(secretName: $0, definition: definition) }
+    }
+
+    /// Whether `run` without `--only` passes a stored secret of this name: only a name the
+    /// definition file declares is passed, and without the file none is (documents/PROJECT.md,
+    /// design decision 10). `secchain list --long` marks the names for which this is `false`.
+    public static func isDeclared(secretName: SecretName, definition: SecretDefinition?) -> Bool {
+        definition?.secretNames.contains(secretName) ?? false
+    }
+
+    /// The line `run` writes to standard error when it passes nothing because the repository has no
+    /// definition file and no `--only` was given, `nil` otherwise. `run` then starts the command
+    /// without reading the Keychain, so it neither authenticates nor needs `--env`.
+    public static func noDefinitionNotice(definition: SecretDefinition?, onlyNames: [SecretName]) -> String? {
+        guard definition == nil, onlyNames.isEmpty else {
+            return nil
+        }
+        return "there is no .secchain here, so the command gets no secret. Declare the names it needs in .secchain ('secchain set <NAME>' adds the name it stores; add an already stored name or one of a shared scope by hand), or pass them with --only <NAME>."
     }
 
     /// What the authentication prompt of a run says the command is about to get: the repository,

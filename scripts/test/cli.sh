@@ -241,8 +241,13 @@ echo "== scope allow passes the scope to the repository"
 capture "${SECCHAIN}" scope allow "${SCOPE}" "${REPOSITORY}"
 [ "${LAST_STATUS}" -eq 0 ] || fail "scope allow exited with ${LAST_STATUS}"
 grep -qx "@allow ${REPOSITORY}" "${USER_DEFINITION}" || fail "scope allow did not add the @allow line"
+capture "${SECCHAIN}" run -- sh -c 'test -z "${CLI_TEST_SCOPE_KEY:-}"'
+[ "${LAST_STATUS}" -eq 0 ] || fail "run passed the secret of an allowed scope that .secchain does not declare"
+"${SECCHAIN}" list --long | grep -q "^CLI_TEST_SCOPE_KEY.*(not in .secchain, so 'secchain run' does not pass it" \
+  || fail "list --long did not mark the name .secchain does not declare"
+printf 'CLI_TEST_SCOPE_KEY\n' >> .secchain
 EXPECTED_VALUE="${DUMMY_VALUE}" capture "${SECCHAIN}" run -- sh -c 'test "${CLI_TEST_SCOPE_KEY}" = "${EXPECTED_VALUE}"'
-[ "${LAST_STATUS}" -eq 0 ] || fail "run did not pass the secret of an allowed scope (status ${LAST_STATUS})"
+[ "${LAST_STATUS}" -eq 0 ] || fail "run did not pass the declared secret of an allowed scope (status ${LAST_STATUS})"
 "${SECCHAIN}" list | grep -qx "CLI_TEST_SCOPE_KEY" || fail "list did not print the secret of an allowed scope"
 "${SECCHAIN}" list --long | grep -q "^CLI_TEST_SCOPE_KEY.*${SCOPE}" || fail "list --long did not name the scope the secret comes from"
 ! "${SECCHAIN}" list --scope repository | grep -qx "CLI_TEST_SCOPE_KEY" || fail "list --scope repository printed a secret of another scope"
@@ -288,9 +293,10 @@ capture_output sh -c "printf '%s\n' '${DUMMY_VALUE}' | '${SECCHAIN}' set CLI_TES
 [ "${LAST_STATUS}" -ne 0 ] || fail "set stored a secret for a repository named like the user scope's service"
 printf '%s' "${LAST_OUTPUT}" | grep -q "cannot be a repository identifier" || fail "the error does not say why the identifier is refused"
 
-echo "== in the home directory, ~/.secchain is not read as a repository's .secchain"
-(cd "${HOME}" && "${SECCHAIN}" run --repository "${REPOSITORY}" -- true) >> "${CAPTURED_OUTPUT}" 2>&1 \
-  || fail "run in the home directory read ~/.secchain as the repository's .secchain"
+echo "== in the home directory, ~/.secchain is not read as a repository's .secchain, so run passes nothing and says so"
+capture_output sh -c "cd '${HOME}' && '${SECCHAIN}' run --repository '${REPOSITORY}' -- sh -c 'test -z \"\${CLI_TEST_KEY:-}\"'"
+[ "${LAST_STATUS}" -eq 0 ] || fail "run in the home directory read ~/.secchain as the repository's .secchain, or passed a secret without .secchain"
+printf '%s' "${LAST_OUTPUT}" | grep -q "there is no .secchain here, so the command gets no secret" || fail "run without .secchain did not say that it passes nothing"
 
 echo "== mask copies the text unchanged where no repository can be identified, and says why"
 set +e
@@ -313,8 +319,11 @@ echo "== scope deny stops passing the scope"
 capture "${SECCHAIN}" scope deny "${SCOPE}" "${REPOSITORY}"
 [ "${LAST_STATUS}" -eq 0 ] || fail "scope deny exited with ${LAST_STATUS}"
 ! grep -qx "@allow ${REPOSITORY}" "${USER_DEFINITION}" || fail "scope deny left the @allow line"
-capture "${SECCHAIN}" run -- sh -c 'test -z "${CLI_TEST_SCOPE_KEY:-}"'
-[ "${LAST_STATUS}" -eq 0 ] || fail "run still passed the scope after scope deny"
+# CLI_TEST_SCOPE_KEY is still declared, so run refuses to start rather than run without it.
+capture_output "${SECCHAIN}" run -- true
+[ "${LAST_STATUS}" -ne 0 ] || fail "run still passed the scope after scope deny"
+printf '%s' "${LAST_OUTPUT}" | grep -qF "secchain scope allow ${SCOPE} ${REPOSITORY}" || fail "after scope deny, the refusal does not say which scope to allow"
+sed -i '' '/^CLI_TEST_SCOPE_KEY$/d' .secchain
 capture "${SECCHAIN}" scope deny "${SCOPE}" "${REPOSITORY}"
 [ "${LAST_STATUS}" -eq 0 ] || fail "denying again is not idempotent (status ${LAST_STATUS})"
 

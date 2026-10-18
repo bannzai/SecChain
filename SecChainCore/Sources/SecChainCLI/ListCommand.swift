@@ -2,20 +2,21 @@ import ArgumentParser
 import Foundation
 import SecChainCore
 
-/// `secchain list`: the names of the secrets `run` passes to the repository, or of one scope.
-/// Values are never printed.
+/// `secchain list`: the names of the secrets the scopes passed to the repository hold, or of one
+/// scope. Values are never printed.
 struct ListCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "list",
-        abstract: "List the secret names 'secchain run' passes to this repository: its own and those of the shared scopes allowed for it. Values are never shown.",
+        abstract: "List the secret names this repository can get: its own and those of the shared scopes allowed for it. Values are never shown.",
         discussion: """
-            With --env, the names 'secchain run --env <environment>' passes. Without it, where a \
-            passed scope has environments, the names of every environment; the long form then has a \
-            line for each secret and environment.
+            'secchain run' passes the ones .secchain declares; the long form marks the others. With \
+            --env, the names of that environment. Without it, where a passed scope has environments, \
+            the names of every environment; the long form then has a line for each secret and \
+            environment.
             """
     )
 
-    @Flag(name: .shortAndLong, help: "Also show the protection level, synchronization, the environment ('-' for none), the scope each secret comes from, its note ('-' for none), and declared secrets that have no value yet.")
+    @Flag(name: .shortAndLong, help: "Also show the protection level, synchronization, the environment ('-' for none), the scope each secret comes from, its note ('-' for none), the secrets .secchain does not declare, which 'secchain run' does not pass, and declared secrets that have no value yet.")
     var long = false
 
     @Flag(help: "List the repositories that have secrets on this Mac instead.")
@@ -102,8 +103,9 @@ struct ListCommand: ParsableCommand {
         }
     }
 
-    /// What `run` passes to the repository. The long form names the scope each secret is taken
-    /// from and the other passed scopes that offer the same name, which that secret overrides.
+    /// What the scopes passed to the repository give it. The long form names the scope each secret
+    /// is taken from and the other passed scopes that offer the same name, which that secret
+    /// overrides, and marks the names `run` does not pass because `.secchain` does not declare them.
     ///
     /// Without `environment`, a passed scope that has environments leaves `run` refusing to start,
     /// so there is no one set of secrets to show: the names of every environment are listed
@@ -130,6 +132,7 @@ struct ListCommand: ParsableCommand {
             writeToStandardOutput(
                 line: "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))\t\(storedSecret.scope.name)\t\(noteColumn(storedSecret: storedSecret))"
                     + (overriddenScopeNames.isEmpty ? "" : "\t(also in \(overriddenScopeNames.joined(separator: ", ")))")
+                    + notDeclaredColumn(storedSecret: storedSecret, definition: context.definition)
             )
         }
         if let definition = context.definition {
@@ -149,9 +152,9 @@ struct ListCommand: ParsableCommand {
             printNames(storedSecrets: storedSecrets)
             return
         }
-        writeToStandardOutput(line: "# \(context.repositoryIdentity.value) (\(passedScopes.map(\.name).joined(separator: ", "))), every environment; 'secchain list --env <environment>' shows what 'secchain run --env <environment>' passes")
+        writeToStandardOutput(line: "# \(context.repositoryIdentity.value) (\(passedScopes.map(\.name).joined(separator: ", "))), every environment; 'secchain list --env <environment>' shows the names of one")
         for storedSecret in storedSecrets.sorted(by: { $0.name < $1.name }) {
-            writeToStandardOutput(line: "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))\t\(storedSecret.scope.name)\t\(noteColumn(storedSecret: storedSecret))")
+            writeToStandardOutput(line: "\(storedSecret.name.value)\t\(storedSecret.protectionLevel.rawValue)\t\(storedSecret.isSynchronized ? "synchronized" : "this-mac-only")\t\(environmentColumn(storedSecret: storedSecret))\t\(storedSecret.scope.name)\t\(noteColumn(storedSecret: storedSecret))" + notDeclaredColumn(storedSecret: storedSecret, definition: context.definition))
         }
         if let definition = context.definition {
             for missingSecretName in SecretDefinitionText.missingSecretNames(
@@ -190,6 +193,15 @@ struct ListCommand: ParsableCommand {
     /// without one. A note is one line without tabs (`SecretNote`), so it never breaks the row.
     func noteColumn(storedSecret: StoredSecret) -> String {
         storedSecret.note?.value ?? "-"
+    }
+
+    /// The last column of a long-form line of the scopes passed to the repository: empty for a name
+    /// `.secchain` declares, and for any other name a note that `run` does not pass it
+    /// (`RunPlan.isDeclared`) and how to declare it without storing the value again.
+    func notDeclaredColumn(storedSecret: StoredSecret, definition: SecretDefinition?) -> String {
+        RunPlan.isDeclared(secretName: storedSecret.name, definition: definition)
+            ? ""
+            : "\t(not in .secchain, so 'secchain run' does not pass it; add the line \(storedSecret.name.value) to .secchain to pass it)"
     }
 
     /// Every shared scope (`UserDefinition.sharedScopes`) with the patterns that pass it to
