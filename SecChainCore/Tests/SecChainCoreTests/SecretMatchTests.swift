@@ -97,10 +97,15 @@ struct SecretMatchTests {
 
     @Test
     func aLineTerminatorInTheLocationStaysOnOneLine() throws {
-        let label = SecretMatch.label(storedSecret: try storedSecret(scope: .repository(RepositoryIdentity(value: "github.com/example/a\nb\rc"))))
-        #expect(label == #"API_KEY (github.com/example/a\nb\rc)"#)
-        #expect(!label.contains("\n"))
-        #expect(!label.contains("\r"))
+        let label = SecretMatch.label(storedSecret: try storedSecret(scope: .repository(RepositoryIdentity(value: "github.com/example/a\r\nb\u{2028}c\\n"))))
+        #expect(label == #"API_KEY (github.com/example/a\r\nb\u{2028}c\\n)"#)
+        #expect(!label.unicodeScalars.contains { Character($0).isNewline })
+        #expect(label.split(whereSeparator: \.isNewline).count == 1)
+    }
+
+    @Test
+    func aLocationWithoutLineTerminatorsIsWrittenAsItIs() throws {
+        #expect(SecretMatch.singleLine(location: "github.com/example/a, environment production") == "github.com/example/a, environment production")
     }
 
     @Test

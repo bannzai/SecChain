@@ -7,11 +7,34 @@ import Foundation
 public enum SecretMatch {
     /// The line `match` writes for a matched secret: the name, and where it is stored
     /// (`StoredSecret.locationDescription`), so that the same name in several scopes or
-    /// environments is told apart. Carries nothing of the value, not even its length. A line
-    /// terminator inside the location (`--repository` accepts any non-empty identifier) is written
-    /// as `\n` / `\r`, so that a reader splitting the output on lines gets one secret per line.
+    /// environments is told apart. Carries nothing of the value, not even its length. The location
+    /// is written through `singleLine(location:)`, so that a reader splitting the output on lines
+    /// gets one secret per line whatever `--repository` identifier the secret was stored under.
     public static func label(storedSecret: StoredSecret) -> String {
-        "\(storedSecret.name.value) (\(storedSecret.locationDescription.replacingOccurrences(of: "\n", with: "\\n").replacingOccurrences(of: "\r", with: "\\r")))"
+        "\(storedSecret.name.value) (\(singleLine(location: storedSecret.locationDescription)))"
+    }
+
+    /// `location` with every scalar that Swift's line splitting (`Character.isNewline`) breaks a
+    /// line at written as an escape: `\n`, `\r`, and `\u{hex}` for the others (vertical tab, form
+    /// feed, next line, line and paragraph separators). A backslash becomes `\\`, so that a location
+    /// holding a real line break and one holding the two characters `\n` give different labels.
+    static func singleLine(location: String) -> String {
+        location.unicodeScalars
+            .map { scalar -> String in
+                switch scalar {
+                case "\\":
+                    return "\\\\"
+                case "\n":
+                    return "\\n"
+                case "\r":
+                    return "\\r"
+                case _ where Character(scalar).isNewline:
+                    return "\\u{\(String(scalar.value, radix: 16))}"
+                default:
+                    return String(scalar)
+                }
+            }
+            .joined()
     }
 
     /// The labels of the `standard` secrets among `valuesBySecret` whose value occurs in `data`,
