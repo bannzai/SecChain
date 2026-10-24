@@ -6,6 +6,8 @@ license: MIT
 
 # SecChain
 
+> **Migrated to 1Password.** The owner of this skill now keeps secrets in 1Password and no longer stores new values in SecChain ([bannzai/castle#1946](https://github.com/bannzai/castle/issues/1946)). Do not run `secchain set` for a new value; use the 1Password CLI (`op run --env-file .env.1password -- <command>`) instead. The rules below still apply to the values that remain in SecChain until they are moved, and to the values kept at the `confirm` level, which 1Password has no equivalent for.
+
 SecChain stores secret values in the macOS Keychain, scoped to this repository, or in a shared scope that the user passes to the repositories they choose. You never see the values; you only run commands through the tool that has access to them.
 
 ## Rule: run secret-dependent commands through `secchain run`
