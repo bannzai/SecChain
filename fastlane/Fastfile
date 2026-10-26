@@ -1,3 +1,8 @@
+# The App Store review submission lane (submit_for_review) comes from the release-app skill template on the
+# maintainer's machine; it is not loaded where the template is absent (e.g. CI).
+release_app_submit_for_review_fastfile = ENV.fetch('RELEASE_APP_SUBMIT_FOR_REVIEW_FASTFILE', File.expand_path('~/.agents/skills/release-app/templates/submit_for_review/Fastfile'))
+import(release_app_submit_for_review_fastfile) if File.exist?(release_app_submit_for_review_fastfile)
+
 default_platform(:ios)
 
 platform :ios do
