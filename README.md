@@ -28,10 +28,9 @@ Either way it is a symlink into the app bundle, not a second, separately signed 
 
 The iOS app is distributed through the App Store once published; it manages the same iCloud-synchronized secrets from an iPhone or iPad, answers the authentications of a paired Mac (see "Remote approval"), and has no command-line equivalent. Until then, a developer with the team's signing identity installs a Debug build on a connected iPhone or iPad with `make ios-device` (pass `DEVICE_UDID=<UDID>` when more than one is connected).
 
-Without a cable, `make ios-ota` archives the app and publishes it over [Tailscale](https://tailscale.com) for over-the-air installation: open the printed `PAGE_URL` in Safari on the iPhone and tap Install. It calls the `ios-ota-install-tailscale` skill of the maintainer's configuration repository (bannzai/castle, looked up at `~/.agents/skills/ios-ota-install-tailscale`, or pass `OTA_SKILL_DIR=<path>`), which does the archive, export, and serving. Before running it:
+Without a cable, `make ios-ota` archives the app and uploads it to [Cloudflare R2](https://developers.cloudflare.com/r2/) for over-the-air installation: open the printed `PAGE_URL` (the build's page on a Cloudflare Worker that serves the upload) in Safari on the iPhone and tap Install. It calls the `ios-ota-install` skill of the maintainer's configuration repository (bannzai/castle, looked up at `~/.agents/skills/ios-ota-install`, or pass `OTA_SKILL_DIR=<path>`), which does the archive, export, and upload. Before running it:
 
-- The Mac and the iPhone are connected to the same tailnet, and HTTPS certificates are enabled in the tailnet.
-- The skill's server is running (`ota-serve.sh up` once; `ota-serve.sh status` exits 0).
+- `CLOUDFLARE_API_TOKEN` is set in the environment to a token of the Cloudflare account that holds the bucket and the Worker. The skill uploads with `npx wrangler`.
 - The iPhone's UDID is registered with the signing team, because the build is exported for release testing (ad hoc), which installs only on registered devices.
 
 See the skill's `SKILL.md` for the details and for what to do when an installation fails.
